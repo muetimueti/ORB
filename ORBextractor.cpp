@@ -319,6 +319,7 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
     std::vector<cv::Point> p(tempPattern, tempPattern + nPoints);
     pattern = p;
 
+    //debug
     D(std::cout << "\nsize of pattern: " << pattern.size() << std::endl;
     std::cout << "pattern[5] = " << pattern[5] << std::endl;
     )
@@ -356,18 +357,15 @@ void ORBextractor::ComputeScalePyramid(cv::Mat &image)
         cv::Range rowRange(EDGE_THRESHOLD, height + EDGE_THRESHOLD);
         cv::Range colRange(EDGE_THRESHOLD, width + EDGE_THRESHOLD);
 
-        //cv::Point start(borderedImg.data + borderedImg.step[0] * EDGE_THRESHOLD + borderedImg.step[1] * EDGE_THRESHOLD
-
-        // data + step * row + CV_ELEM_SIZE(type()) * col;
-        // const_cast<uchar*>(const_cast<const Mat*>(this)->ptr(row,col))
-
         // ---------vernuenftige Variante, falls Rest kaputt ist:
         //
         imagePyramid[lvl] = borderedImg(rowRange, colRange);
 
-        //imagePyramid[lvl] = cv::Mat(height, width, image.type());
-        //imagePyramid[lvl].data = borderedImg.data + borderedImg.step * EDGE_THRESHOLD +
-                //borderedImg.elemSize() * EDGE_THRESHOLD;
+
+        //imagePyramid[lvl] = borderedImg;
+        //imagePyramid[lvl].data = const_cast<uchar*>(const_cast<const cv::Mat*>(&borderedImg)->
+        // ptr(EDGE_THRESHOLD,EDGE_THRESHOLD));
+
         if (lvl)
         {
             cv::resize(imagePyramid[lvl-1], imagePyramid[lvl], cv::Size(width, height), 0, 0, CV_INTER_LINEAR);
@@ -381,13 +379,13 @@ void ORBextractor::ComputeScalePyramid(cv::Mat &image)
                     cv::BORDER_REFLECT_101);
         }
 
+        //debug
         D(
                 cv::namedWindow("test", cv::WINDOW_AUTOSIZE);
                 cv::imshow("test", imagePyramid[lvl]);
                 //cv::imshow("test", borderedImg);
                 cv::waitKey(0);
                 )
-
     }
 }
 
