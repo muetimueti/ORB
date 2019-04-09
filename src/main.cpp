@@ -15,6 +15,8 @@
 
 using namespace std;
 
+const float PI = 3.141592653589793238;
+
 
 int main(int argc, char **argv)
 {
@@ -56,7 +58,7 @@ int main(int argc, char **argv)
     int drawAngular = settingsFile["drawAngular"];
 
 
-    ORB_SLAM2::ORBextractor* extractor = new ORB_SLAM2::ORBextractor(nFeatures, scaleFactor, nLevels,
+    auto* extractor = new ORB_SLAM2::ORBextractor(nFeatures, scaleFactor, nLevels,
         FASTThresholdInit, FASTThresholdMin);
 
     std::vector<cv::KeyPoint> keypoints;
@@ -82,9 +84,9 @@ void DisplayKeypoints(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, cv::
     cv::imshow("test", image);
     cv::waitKey(0);
 
-    for (int i = 0; i < keypoints.size(); ++i)
+    for (const cv::KeyPoint &k : keypoints)
     {
-        cv::Point2f point = keypoints[i].pt;
+        cv::Point2f point = k.pt;
         cv::circle(image, point, radius, color, 1, CV_AA);
         //cv::rectangle(image, cv::Point2f(point.x-1, point.y-1),
         //              cv::Point2f(point.x+1, point.y+1), color, thickness, CV_AA);
@@ -92,7 +94,7 @@ void DisplayKeypoints(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, cv::
         if (drawAngular)
         {
             int len = radius;
-            float angleRad =  keypoints[i].angle * 3.141592653589793238 / 180;
+            float angleRad =  k.angle * PI / 180;
             float cos = std::cos(angleRad);
             float sin = std::sin(angleRad);
             int x = (int)round(point.x + len * cos);

@@ -7,8 +7,8 @@ SET(CMAKE_BUILD_TYPE Debug)
 
 find_package(OpenCV REQUIRED)
 
-include_directories(${PROJECT_SOURCE_DIR})
+include_directories(.)
 
-add_executable(ORBextractor main.cpp main.h ORBextractor.cpp ORBextractor.h)
+add_executable(ORBextractor src/main.cpp src/main.h src/ORBextractor.cpp src/ORBextractor.h)
 
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})
