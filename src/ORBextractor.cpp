@@ -17,7 +17,6 @@ namespace ORB_SLAM2
 {
 
 const int PATCH_SIZE = 31;
-const int HALF_PATCH_SIZE = 15;
 const int EDGE_THRESHOLD = 19;
 
 
@@ -300,7 +299,8 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
         invScaleFactorVec[i] = 1 / scaleFactorVec[i];
     }
 
-    float fac = 1/ scaleFactor;
+
+    float fac = 1.f / scaleFactor;
     float nDesiredFeaturesPerScale = nfeatures * (1 - fac) /
                                      1 - (float) std::pow(1 / (double) fac, (double) nlevels);
     int sumFeatures = 0;
@@ -323,6 +323,22 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
     D(std::cout << "\nsize of pattern: " << pattern.size() << std::endl;
     std::cout << "pattern[5] = " << pattern[5] << std::endl;
     )
+    /*
+    D(
+            uchar threshold_tab[512];
+            std::cout << "\nThreshold tab contents: \n";
+            for( int i = -255; i <= 255; i++ )
+            {
+                threshold_tab[i+255] = (uchar)(i < -iniThFAST ? 1 : i > iniThFAST ? 2 : 0);
+            }
+            for (int i = 0; i < 512; ++i) {
+                std::cout << "threshold_tab[" << i << "] = " << (int) threshold_tab[i] << std::endl;
+            }
+    )
+     */
+
+
+
 }
 
 void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
@@ -333,13 +349,58 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
     cv::Mat image = inputImage.getMat();
 
     ComputeScalePyramid(image);
-    std::vector<std::vector<cv::KeyPoint>> keyPointVec;
-    ComputeFASTKeypoints(keyPointVec);
+    std::vector<std::vector<cv::KeyPoint>> allKeypoints;
+    DivideAndFAST(allKeypoints);
 
 }
 
-void ORBextractor::ComputeFASTKeypoints(std::vector<std::vector<cv::KeyPoint> > &allKeypoints)
+void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeypoints)
 {
+    allKeypoints.resize(nlevels);
+
+    const int div = 30;
+    const int minimumX = EDGE_THRESHOLD - 3, minimumY = minimumX;
+
+    for (int lvl = 0; lvl < nlevels; ++lvl)
+    {
+        const int maximumX = imagePyramid[lvl].cols - EDGE_THRESHOLD + 3;
+        const int maximumY = imagePyramid[lvl].rows - EDGE_THRESHOLD + 3;
+        const int width = maximumX - minimumX;
+        const int height = maximumY - minimumY;
+
+
+    }
+
+
+}
+
+
+void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints)
+{
+
+    keypoints.clear();
+
+    static const int circleOffsets[16][2] =
+            {
+                    {0,  3}, { 1,  3}, { 2,  2}, { 3,  1}, { 3, 0}, { 3, -1}, { 2, -2}, { 1, -3},
+                    {0, -3}, {-1, -3}, {-2, -2}, {-3, -1}, {-3, 0}, {-3,  1}, {-2,  2}, {-1,  3}
+            };
+    int pixelOffset[16];
+    for (int i = 0; i < 16; ++i)
+    {
+        pixelOffset[i] = circleOffsets[i][0] + circleOffsets[i][1] * img.step1();
+    }
+
+
+    //mat at x/y: img.data + circleOffsets[i][0] * img.step.p[0] + //x
+    //                circleOffsets[i][1] * img.step.p[1];         //y
+    /*
+    int k = 0;
+    for( ; k < 16; k++ )
+        pixel[k] = offsets[k][0] + offsets[k][1] * rowStride;
+    for( ; k < 25; k++ )
+        pixel[k] = pixel[k - 16];
+    */
 
 }
 
@@ -347,8 +408,8 @@ void ORBextractor::ComputeScalePyramid(cv::Mat &image)
 {
     for (int lvl = 0; lvl < nlevels; ++ lvl)
     {
-        int width = (int)std::round(image.cols * invScaleFactorVec[lvl]);
-        int height = (int)std::round(image.rows * invScaleFactorVec[lvl]);
+        int width = (int)std::round(image.cols * invScaleFactorVec[lvl]); // 1.f / getScale(lvl));
+        int height = (int)std::round(image.rows * invScaleFactorVec[lvl]); // 1.f / getScale(lvl));
         int doubleEdge = EDGE_THRESHOLD * 2;
         int borderedWidth = width + doubleEdge;
         int borderedHeight = height + doubleEdge;
@@ -391,7 +452,10 @@ void ORBextractor::ComputeScalePyramid(cv::Mat &image)
 
 
 
-
+float ORBextractor::getScale(int lvl)
+{
+    return std::pow(scaleFactor, (double)lvl);
+}
 
 
 
@@ -404,6 +468,7 @@ void ORBextractor::printInternalValues()
               "initial FAST Threshold: " << iniThFAST << std::endl <<
               "minimum FAST Threshold: " << minThFAST << std::endl;
 }
+
 
 }
 

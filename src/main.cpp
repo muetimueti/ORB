@@ -15,8 +15,6 @@
 
 using namespace std;
 
-const float PI = 3.141592653589793238;
-
 
 int main(int argc, char **argv)
 {
@@ -94,7 +92,7 @@ void DisplayKeypoints(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, cv::
         if (drawAngular)
         {
             int len = radius;
-            float angleRad =  k.angle * PI / 180;
+            float angleRad =  k.angle * CV_PI / 180.f;
             float cos = std::cos(angleRad);
             float sin = std::sin(angleRad);
             int x = (int)round(point.x + len * cos);

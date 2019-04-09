@@ -69,14 +69,24 @@ public:
 protected:
 
     void ComputeScalePyramid(cv::Mat &image);
-    void ComputeFASTKeypoints(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);
+    void DivideAndFAST(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);
     std::vector<cv::KeyPoint> DistributeQuadTree(const std::vector<cv::KeyPoint>& vToDistributeKeys, const int &minX,
                                                 const int &maxX, const int &minY, const int &maxY, const int &nFeatures, const int &level);
 
+    //debug
     void printInternalValues();
+    // /debug
+
+    void FAST(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints);
+
 
     void ComputeKeyPointsOld(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);
+
+
+
     std::vector<cv::Point> pattern;
+
+    inline float getScale(int lvl);
 
     int nfeatures;
     double scaleFactor;
@@ -92,8 +102,8 @@ protected:
     std::vector<float> invScaleFactorVec;
     std::vector<float> levelSigma2Vec;
     std::vector<float> invLevelSigma2Vec;
-
 };
+
 
 }
 
