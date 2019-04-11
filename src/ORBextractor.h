@@ -77,7 +77,7 @@ protected:
     void printInternalValues();
     // /debug
 
-    void FAST(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints);
+    void FAST(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, int level);
 
 
     void ComputeKeyPointsOld(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);

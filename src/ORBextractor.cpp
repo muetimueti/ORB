@@ -291,6 +291,9 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
     imagePyramid.resize(nlevels);
     nfeaturesPerLevelVec.resize(nlevels);
 
+    iniThFAST = std::min(255, std::max(0, iniThFAST));
+    minThFAST = std::min(255, std::max(0, minThFAST));
+
     scaleFactorVec[0] = 1;
     invScaleFactorVec[0] = 1;
 
@@ -358,38 +361,148 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeyp
 {
     allKeypoints.resize(nlevels);
 
-    const int div = 30;
+    const int defPatchSize = PATCH_SIZE - 1;
     const int minimumX = EDGE_THRESHOLD - 3, minimumY = minimumX;
 
     for (int lvl = 0; lvl < nlevels; ++lvl)
     {
+        int nkpts = 0;
+        std::vector<cv::KeyPoint> levelKpts;
+        levelKpts.clear();
+        levelKpts.reserve(nfeatures*2);
+
         const int maximumX = imagePyramid[lvl].cols - EDGE_THRESHOLD + 3;
         const int maximumY = imagePyramid[lvl].rows - EDGE_THRESHOLD + 3;
         const int width = maximumX - minimumX;
         const int height = maximumY - minimumY;
 
+        const int npatchesInX = width / defPatchSize;
+        const int npatchesInY = height / defPatchSize;
+        const int patchWidth = std::ceil(width / npatchesInX);
+        const int patchHeight = std::ceil(height / npatchesInY);
 
+        for (int py = 0; py < npatchesInY; ++py)
+        {
+            int startY = minimumY + py * patchHeight - 3;
+            int endY = startY + patchHeight + 3;
+
+            if (startY < minimumY)
+                startY = minimumY;
+
+            if (startY >= maximumY)
+                continue;
+
+            if (endY > maximumY)
+                endY = maximumY;
+
+            for (int px = 0; px < npatchesInY; ++px)
+            {
+                int startX = minimumX + px * patchWidth - 3;
+                int endX = startX + patchWidth + 3;
+
+                if (startX < minimumX)
+                    startX = minimumX;
+
+                if (startX >= maximumX)
+                    continue;
+
+                if (endX > maximumX)
+                    endX = maximumX;
+
+                cv::Range colSelect(startY, endY);
+                cv::Range rowSelect(startX, endX);
+                cv::Mat patch = imagePyramid[lvl](rowSelect, colSelect);
+                std::vector<cv::KeyPoint> patchKpts;
+
+                this->FAST(patch, patchKpts, lvl);
+
+                if (patchKpts.empty())
+                    continue;
+
+                for (auto kpt : patchKpts)
+                {
+                    kpt.pt.y += py * patchHeight;
+                    kpt.pt.x += px * patchWidth;
+                    levelKpts.emplace_back(kpt);
+                    nkpts++;
+                }
+            }
+        }
+        //const int scaledPatchSize = (int)scaleFactorVec[lvl]*PATCH_SIZE;
+        for (int i = 0; i < nkpts; ++i)
+        {
+            levelKpts[i].pt.y += minimumY;
+            levelKpts[i].pt.x += minimumX;
+        }
     }
-
-
 }
 
 
-void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints)
+void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int level = 0)
 {
+    int threshold = iniThFAST;
 
     keypoints.clear();
 
     static const int circleOffsets[16][2] =
-            {
-                    {0,  3}, { 1,  3}, { 2,  2}, { 3,  1}, { 3, 0}, { 3, -1}, { 2, -2}, { 1, -3},
-                    {0, -3}, {-1, -3}, {-2, -2}, {-3, -1}, {-3, 0}, {-3,  1}, {-2,  2}, {-1,  3}
-            };
-    int pixelOffset[16];
+            {{0,  3}, { 1,  3}, { 2,  2}, { 3,  1}, { 3, 0}, { 3, -1}, { 2, -2}, { 1, -3},
+             {0, -3}, {-1, -3}, {-2, -2}, {-3, -1}, {-3, 0}, {-3,  1}, {-2,  2}, {-1,  3}};
+
+    int pixelOffset[16], i, j;
     for (int i = 0; i < 16; ++i)
     {
         pixelOffset[i] = circleOffsets[i][0] + circleOffsets[i][1] * img.step1();
     }
+
+    uchar threshold_tab[512];
+    for( i = -255; i <= 255; i++ )
+        threshold_tab[i+255] = (uchar)(i < -threshold ? 1 : i > threshold ? 2 : 0);
+
+    for (i = 3; i < img.rows-2; ++i)
+    {
+        const uchar* pointer = img.ptr<uchar>(i) + 3;
+        for (j = 3; j < img.cols-2; ++j)
+        {
+            int val = pointer[0];
+            if (std::abs(val - pointer[pixelOffset[0]]) < threshold)
+                continue;
+            if (std::abs(val - pointer[pixelOffset[8]]) < threshold)
+                continue;
+
+            int p2 = std::abs(val - pointer[pixelOffset[2]]);
+            int p3 = std::abs(val - pointer[pixelOffset[10]]);
+            int p4 = std::abs(val - pointer[pixelOffset[4]]);
+            int p6 = std::abs(val - pointer[pixelOffset[12]]);
+            int p7 = std::abs(val - pointer[pixelOffset[6]]);
+            int p8 = std::abs(val - pointer[pixelOffset[14]]);
+
+            if (p2 < threshold || p3 < threshold || p4 < threshold)
+                continue;
+
+            /*
+            const uchar* tab = &threshold_tab[0] - val + 255;
+            int compare = tab[pointer[pixelOffset[0]]] | tab[pointer[pixelOffset[8]]];
+
+            if (!compare)
+                continue;
+
+            compare &= tab[pointer[pixelOffset[2]]] | tab[pointer[pixelOffset[10]]];
+            compare &= tab[pointer[pixelOffset[4]]] | tab[pointer[pixelOffset[12]]];
+            compare &= tab[pointer[pixelOffset[6]]] | tab[pointer[pixelOffset[14]]];
+
+            if (!compare)
+                continue;
+
+            compare &= tab[pointer[pixelOffset[1]]] | tab[pointer[pixelOffset[9]]];
+            compare &= tab[pointer[pixelOffset[3]]] | tab[pointer[pixelOffset[11]]];
+            compare &= tab[pointer[pixelOffset[5]]] | tab[pointer[pixelOffset[13]]];
+            compare &= tab[pointer[pixelOffset[7]]] | tab[pointer[pixelOffset[15]]];
+             */
+
+
+        }
+    }
+
 
 
     //mat at x/y: img.data + circleOffsets[i][0] * img.step.p[0] + //x
