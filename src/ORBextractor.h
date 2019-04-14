@@ -10,6 +10,13 @@
 #include <opencv/cv.h>
 
 
+#ifndef NDEBUG
+#   define D(x) x
+#else
+#   define D(x)
+#endif
+
+
 namespace ORB_SLAM2
 {
 
@@ -73,11 +80,7 @@ protected:
     std::vector<cv::KeyPoint> DistributeQuadTree(const std::vector<cv::KeyPoint>& vToDistributeKeys, const int &minX,
                                                 const int &maxX, const int &minY, const int &maxY, const int &nFeatures, const int &level);
 
-    //debug
-    void printInternalValues();
-    // /debug
-
-    void FAST(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, int level);
+    void FAST(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
 
 
     void ComputeKeyPointsOld(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);
@@ -88,11 +91,18 @@ protected:
 
     inline float getScale(int lvl);
 
+
+    uchar threshold_tab_min[512];
+    uchar threshold_tab_init[512];
+    int pixelOffset[16];
+
     int nfeatures;
     double scaleFactor;
     int nlevels;
     int iniThFAST;
     int minThFAST;
+
+
 
     std::vector<int> nfeaturesPerLevelVec;
 
@@ -102,6 +112,14 @@ protected:
     std::vector<float> invScaleFactorVec;
     std::vector<float> levelSigma2Vec;
     std::vector<float> invLevelSigma2Vec;
+
+
+    D(
+            template<class T>
+            void PrintArray(T *array, const std::string &name, int start, int end);
+
+            void printInternalValues();
+    )
 };
 
 

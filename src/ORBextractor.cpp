@@ -18,6 +18,12 @@ namespace ORB_SLAM2
 
 const int PATCH_SIZE = 31;
 const int EDGE_THRESHOLD = 19;
+const int CIRCLE_SIZE = 16;
+const int CIRCLE_OFFSETS[16][2] =
+        {{0,  3}, { 1,  3}, { 2,  2}, { 3,  1}, { 3, 0}, { 3, -1}, { 2, -2}, { 1, -3},
+         {0, -3}, {-1, -3}, {-2, -2}, {-3, -1}, {-3, 0}, {-3,  1}, {-2,  2}, {-1,  3}};
+const int PIXELS_TO_CHECK[16] =
+        {0, 8, 2, 10, 4, 12, 6, 14, 1, 9, 3, 11, 5, 13, 7, 15};
 
 
 static int bit_pattern_31_[256*4] =
@@ -283,35 +289,82 @@ static int bit_pattern_31_[256*4] =
 ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
                            int _iniThFAST, int _minThFAST):
         nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels),
-        iniThFAST(_iniThFAST), minThFAST(_minThFAST)
+        iniThFAST(_iniThFAST), minThFAST(_minThFAST), threshold_tab_min{}, threshold_tab_init{},
+        pixelOffset{}
+
 {
+    //debug
     D(printInternalValues();)
+
     scaleFactorVec.resize(nlevels);
     invScaleFactorVec.resize(nlevels);
     imagePyramid.resize(nlevels);
     nfeaturesPerLevelVec.resize(nlevels);
 
     iniThFAST = std::min(255, std::max(0, iniThFAST));
-    minThFAST = std::min(255, std::max(0, minThFAST));
+    minThFAST = std::min(iniThFAST, std::max(0, minThFAST));
 
-    scaleFactorVec[0] = 1;
-    invScaleFactorVec[0] = 1;
+    int i;
+    for (i = 0; i < 512; ++i)
+    {
+        int v = i - 255;
+        if (v < -iniThFAST)
+        {
+            threshold_tab_init[i] = (uchar)1;
+            threshold_tab_min[i] = (uchar)1;
+        } else if (v > iniThFAST)
+        {
+            threshold_tab_init[i] = (uchar)2;
+            threshold_tab_min[i] = (uchar)2;
 
-    for (int i = 1; i < nlevels; ++i) {
+        } else
+        {
+            threshold_tab_init[i] = (uchar)0;
+            if (v < -minThFAST)
+            {
+                threshold_tab_min[i] = (uchar)1;
+            } else if (v > minThFAST)
+            {
+                threshold_tab_min[i] = (uchar)2;
+            } else
+                threshold_tab_min[i] = (uchar)0;
+        }
+    }
+    /*
+    for (i = -255; i <= 255; ++i)
+    {
+        threshold_tab_init[i+255] = (uchar)(i < -iniThFAST ? 1 : i > iniThFAST ? 2 : 0);
+        threshold_tab_min[i+255] = (uchar)(i < -minThFAST ? 1 : i > minThFAST ? 2 : 0);
+    }
+     */
+
+    //debug
+    //D(PrintArray(threshold_tab_init, "threshold_tab_init", -40 + 255, 40 + 255);
+    //PrintArray(threshold_tab_min, "threshold_tab_min", -40 + 255, 40 + 255);)
+
+
+
+
+
+
+    scaleFactorVec[0] = 1.f;
+    invScaleFactorVec[0] = 1.f;
+
+    for (i = 1; i < nlevels; ++i) {
         scaleFactorVec[i] = scaleFactor * scaleFactorVec[i - 1];
         invScaleFactorVec[i] = 1 / scaleFactorVec[i];
     }
 
 
     float fac = 1.f / scaleFactor;
-    float nDesiredFeaturesPerScale = nfeatures * (1 - fac) /
-                                     1 - (float) std::pow(1 / (double) fac, (double) nlevels);
+    float nDesiredFeaturesPerScale = nfeatures * (1.f - fac) /
+                                     1.f - (float) std::pow(1 / (double) fac, (double) nlevels);
     int sumFeatures = 0;
-    for (int lvl = 0; lvl < nlevels - 1; ++lvl)
+    for (i = 0; i < nlevels - 1; ++i)
     {
-        nfeaturesPerLevelVec[lvl] = cvRound(nDesiredFeaturesPerScale);
-        sumFeatures += nfeaturesPerLevelVec[lvl];
-        nDesiredFeaturesPerScale *= 1 / fac;
+        nfeaturesPerLevelVec[i] = cvRound(nDesiredFeaturesPerScale);
+        sumFeatures += nfeaturesPerLevelVec[i];
+        nDesiredFeaturesPerScale *= 1.f / fac;
     }
     nfeaturesPerLevelVec[nlevels-1] = std::max(nfeatures - sumFeatures, 0);
 
@@ -326,22 +379,6 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
     D(std::cout << "\nsize of pattern: " << pattern.size() << std::endl;
     std::cout << "pattern[5] = " << pattern[5] << std::endl;
     )
-    /*
-    D(
-            uchar threshold_tab[512];
-            std::cout << "\nThreshold tab contents: \n";
-            for( int i = -255; i <= 255; i++ )
-            {
-                threshold_tab[i+255] = (uchar)(i < -iniThFAST ? 1 : i > iniThFAST ? 2 : 0);
-            }
-            for (int i = 0; i < 512; ++i) {
-                std::cout << "threshold_tab[" << i << "] = " << (int) threshold_tab[i] << std::endl;
-            }
-    )
-     */
-
-
-
 }
 
 void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
@@ -352,9 +389,13 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
     cv::Mat image = inputImage.getMat();
 
     ComputeScalePyramid(image);
+
+    for (int i = 0; i < CIRCLE_SIZE; ++i)
+    {
+        pixelOffset[i] = CIRCLE_OFFSETS[i][0] + CIRCLE_OFFSETS[i][1] * image.step1();
+    }
     std::vector<std::vector<cv::KeyPoint>> allKeypoints;
     DivideAndFAST(allKeypoints);
-
 }
 
 void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeypoints)
@@ -414,9 +455,12 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeyp
                 cv::Mat patch = imagePyramid[lvl](rowSelect, colSelect);
                 std::vector<cv::KeyPoint> patchKpts;
 
-                this->FAST(patch, patchKpts, lvl);
+                this->FAST(patch, patchKpts, iniThFAST, lvl);
 
                 if (patchKpts.empty())
+                    this->FAST(patch, patchKpts, minThFAST, lvl);
+
+                if(patchKpts.empty())
                     continue;
 
                 for (auto kpt : patchKpts)
@@ -438,46 +482,70 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeyp
 }
 
 
-void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int level = 0)
+void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int level)
 {
-    int threshold = iniThFAST;
-
     keypoints.clear();
 
-    static const int circleOffsets[16][2] =
-            {{0,  3}, { 1,  3}, { 2,  2}, { 3,  1}, { 3, 0}, { 3, -1}, { 2, -2}, { 1, -3},
-             {0, -3}, {-1, -3}, {-2, -2}, {-3, -1}, {-3, 0}, {-3,  1}, {-2,  2}, {-1,  3}};
+    if (threshold != minThFAST || threshold != iniThFAST)
+        //only initial or min threshold should be passed
+        return;
 
-    int pixelOffset[16], i, j;
-    for (int i = 0; i < 16; ++i)
-    {
-        pixelOffset[i] = circleOffsets[i][0] + circleOffsets[i][1] * img.step1();
-    }
+    uchar *threshold_tab;
+    if (threshold == iniThFAST)
+        threshold_tab = threshold_tab_init;
+    else
+        threshold_tab = threshold_tab_min;
 
-    uchar threshold_tab[512];
-    for( i = -255; i <= 255; i++ )
-        threshold_tab[i+255] = (uchar)(i < -threshold ? 1 : i > threshold ? 2 : 0);
+    //int continousPixelsRequired =
 
+    int i, j;
     for (i = 3; i < img.rows-2; ++i)
     {
         const uchar* pointer = img.ptr<uchar>(i) + 3;
-        for (j = 3; j < img.cols-2; ++j)
+
+        for (j = 3; j < img.cols-2; ++j, ++pointer)
         {
-            int val = pointer[0];
-            if (std::abs(val - pointer[pixelOffset[0]]) < threshold)
-                continue;
-            if (std::abs(val - pointer[pixelOffset[8]]) < threshold)
+            int val = pointer[0];                               //value of central pixel
+            const uchar *tab = &threshold_tab[255] - val;       //shift threshold tab by val
+
+            int discard = tab[pointer[pixelOffset[PIXELS_TO_CHECK[0]]]]
+                    | tab[pointer[pixelOffset[PIXELS_TO_CHECK[1]]]];
+
+            if (discard == 0)
                 continue;
 
-            int p2 = std::abs(val - pointer[pixelOffset[2]]);
-            int p3 = std::abs(val - pointer[pixelOffset[10]]);
-            int p4 = std::abs(val - pointer[pixelOffset[4]]);
-            int p6 = std::abs(val - pointer[pixelOffset[12]]);
-            int p7 = std::abs(val - pointer[pixelOffset[6]]);
-            int p8 = std::abs(val - pointer[pixelOffset[14]]);
+            bool gotoNextCol = false;
+            for (int k = 2; k < 16; k+=2)
+            {
+                discard &= tab[pointer[pixelOffset[PIXELS_TO_CHECK[k]]]]
+                        | tab[pointer[pixelOffset[PIXELS_TO_CHECK[k+1]]]];
+                if (k == 6 && discard == 0)
+                {
+                    gotoNextCol = true;
+                    break;
+                }
+                if (k == 14 && discard == 0)
+                {
+                    gotoNextCol = true;
+                }
 
-            if (p2 < threshold || p3 < threshold || p4 < threshold)
+            }
+            if (gotoNextCol) // FAST-check failed, continuous circle of patternsize/2 pixels not possible
                 continue;
+
+            if (discard & 1) // check for continuous pixels darker than threshold
+            {
+
+            }
+
+            if (discard & 2) // check for continuous pixels brighter than threshold
+            {
+
+            }
+
+
+
+
 
             /*
             const uchar* tab = &threshold_tab[0] - val + 255;
@@ -505,7 +573,7 @@ void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int 
 
 
 
-    //mat at x/y: img.data + circleOffsets[i][0] * img.step.p[0] + //x
+    //mat at (x,y): img.data + circleOffsets[i][0] * img.step.p[0] + //x
     //                circleOffsets[i][1] * img.step.p[1];         //y
     /*
     int k = 0;
@@ -514,8 +582,9 @@ void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int 
     for( ; k < 25; k++ )
         pixel[k] = pixel[k - 16];
     */
-
 }
+
+
 
 void ORBextractor::ComputeScalePyramid(cv::Mat &image)
 {
@@ -570,11 +639,11 @@ float ORBextractor::getScale(int lvl)
     return std::pow(scaleFactor, (double)lvl);
 }
 
-
-
+//debug
+D(
 void ORBextractor::printInternalValues()
 {
-    std::cout << "\nInternal values of ORBextractor:" << std::endl <<
+    std::cout << "\nInitialization-values of ORBextractor:" << std::endl <<
               "nFeatures: " << nfeatures << std::endl <<
               "scaleFactor: " << scaleFactor << std::endl <<
               "nLevels: " << nlevels << std::endl <<
@@ -582,8 +651,13 @@ void ORBextractor::printInternalValues()
               "minimum FAST Threshold: " << minThFAST << std::endl;
 }
 
-
+template <class T>
+void ORBextractor::PrintArray(T *array, const std::string &name, int start, int end)
+{
+    std::cout << std::endl;
+    for (int i = start; i < end; ++i) {
+        std::cout << name << "[" << i << "] = " << (int) array[i] << std::endl;
+    }
+    )
 }
-
-
-#include "ORBextractor.h"
+}
