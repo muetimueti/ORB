@@ -486,7 +486,7 @@ void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int 
 {
     keypoints.clear();
 
-    if (threshold != minThFAST || threshold != iniThFAST)
+    if (!(threshold == minThFAST || threshold == iniThFAST))
         //only initial or min threshold should be passed
         return;
 
