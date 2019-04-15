@@ -42,9 +42,7 @@ public:
 
     ~ORBextractor() = default;
 
-    // Compute the ORB features and descriptors on an image.
-    // ORB are dispersed on the image using a quadtree.
-    // Mask is ignored in the current implementation
+
     void operator()( cv::InputArray image, cv::InputArray mask,
                      std::vector<cv::KeyPoint>& keypoints,
                      cv::OutputArray descriptors);
@@ -73,6 +71,11 @@ public:
 
     std::vector<cv::Mat> imagePyramid;
 
+    D(
+            void Tests(cv::InputArray inputImage, bool myImplementation,
+                       std::vector<cv::KeyPoint> &resKeypoints, cv::OutputArray inputDescriptors);
+            )
+
 protected:
 
     void ComputeScalePyramid(cv::Mat &image);
@@ -82,9 +85,7 @@ protected:
 
     void FAST(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
 
-
-    void ComputeKeyPointsOld(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);
-
+    int CornerScore(const uchar *pointer, int threshold);
 
 
     std::vector<cv::Point> pattern;
@@ -95,6 +96,8 @@ protected:
     uchar threshold_tab_min[512];
     uchar threshold_tab_init[512];
     int pixelOffset[16];
+    int continuousPixelsRequired;
+    int onePointFiveCircles;
 
     int nfeatures;
     double scaleFactor;
@@ -115,10 +118,15 @@ protected:
 
 
     D(
+
             template<class T>
             void PrintArray(T *array, const std::string &name, int start, int end);
 
             void printInternalValues();
+
+            void PrintKeyPoints(std::vector<cv::KeyPoint> &kpts);
+
+            static void CompareKeypointVectors(std::vector<cv::KeyPoint> &vec1, std::vector<cv::KeyPoint> &vec2);
     )
 };
 
