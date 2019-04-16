@@ -78,7 +78,7 @@ public:
 
 protected:
 
-    float IntensityCentroidAngle(const uchar* pointer, int step);
+    static float IntensityCentroidAngle(const uchar* pointer, int step);
 
     void ComputeScalePyramid(cv::Mat &image);
     void DivideAndFAST(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);

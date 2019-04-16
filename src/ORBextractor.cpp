@@ -524,37 +524,6 @@ float ORBextractor::IntensityCentroidAngle(const uchar* pointer, int step)
     return cv::fastAtan2((float)m01, (float)m10);
 }
 
-static float _FOR_COMPARISON_ONLY_IC_Angle(const cv::Mat& image, cv::Point2f pt, const int u_max[]) //const std::vector<int> & u_max
-{
-    int m_01 = 0, m_10 = 0;
-
-    const uchar* center = &image.at<uchar> (cvRound(pt.y), cvRound(pt.x));
-
-    // Treat the center line differently, v=0
-    for (int u = -(PATCH_SIZE/2); u <= (PATCH_SIZE/2); ++u)
-        m_10 += u * center[u];
-
-
-    // Go line by line in the circuI853lar patch
-    int step = (int)image.step1();
-    for (int v = 1; v <= (PATCH_SIZE/2); ++v)
-    {
-        // Proceed over the two lines
-        int v_sum = 0;
-        int d = u_max[v];
-        for (int u = -d; u <= d; ++u)
-        {
-            int val_plus = center[u + v*step], val_minus = center[u - v*step];
-            v_sum += (val_plus - val_minus);
-            m_10 += u * (val_plus + val_minus);
-        }
-        m_01 += v * v_sum;
-    }
-
-
-    return cv::fastAtan2((float)m_01, (float)m_10);
-}
-
 
 void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int level)
 {
@@ -866,9 +835,9 @@ void ORBextractor::Tests(cv::InputArray inputImage, bool myImplementation,
         int idx = i + 30;//const uchar* center = &image.at<uchar> (cvRound(pt.y), cvRound(pt.x));
         float myangle =   IntensityCentroidAngle(&image.at<uchar> (cvRound(mykpts[idx].pt.y), cvRound(mykpts[idx].pt.x)), image.step1());
         //float myangle =   IntensityCentroidAngle(image.ptr<uchar>(cvRound(mykpts[idx].pt.y)) + cvRound(mykpts[idx].pt.x), image.step1());
-        float cvangle = _FOR_COMPARISON_ONLY_IC_Angle(image, mykpts[idx].pt, CIRCULAR_ROWS);
 
-        std::cout << "\nAngle " << i << " with my impl: " << myangle << ", angle with cv func: " << cvangle << "\n";
+
+        std::cout << "\nAngle " << i << " with my impl: " << myangle <<  "\n";
     }
 
     //nicht gefundene keys in meiner implementation (erstes bild von tum_xyz): (119,476) und (246,476)
