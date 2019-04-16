@@ -78,6 +78,8 @@ public:
 
 protected:
 
+    float IntensityCentroidAngle(const uchar* pointer, int step);
+
     void ComputeScalePyramid(cv::Mat &image);
     void DivideAndFAST(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);
     std::vector<cv::KeyPoint> DistributeQuadTree(const std::vector<cv::KeyPoint>& vToDistributeKeys, const int &minX,
@@ -109,7 +111,6 @@ protected:
 
     std::vector<int> nfeaturesPerLevelVec;
 
-    std::vector<int> umaxVec;
 
     std::vector<float> scaleFactorVec;
     std::vector<float> invScaleFactorVec;
@@ -124,10 +125,13 @@ protected:
 
             void printInternalValues();
 
-            void PrintKeyPoints(std::vector<cv::KeyPoint> &kpts);
+            void PrintKeypoints(std::vector<cv::KeyPoint> &kpts);
+
+            void PrintKeypoints(std::vector<cv::KeyPoint> &kpts, int start, int end);
 
             static void CompareKeypointVectors(std::vector<cv::KeyPoint> &vec1, std::vector<cv::KeyPoint> &vec2);
     )
+
 };
 
 

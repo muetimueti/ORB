@@ -71,13 +71,13 @@ int main(int argc, char **argv)
     extractor->Tests(image, true, keypoints, descriptors);
     DisplayKeypoints(image, keypoints, color, thickness, radius, drawAngular);
 
-    keypoints.clear();
+    //keypoints.clear();
     //DisplayKeypoints(imgcopy, keypoints, color, thickness, radius, drawAngular);
 
     //D(AddRandomKeypoints(keypoints));
 
-    extractor->Tests(image, false, keypoints, descriptors);
-    DisplayKeypoints(imgcopy, keypoints, color, thickness, radius, drawAngular);
+    //extractor->Tests(image, false, keypoints, descriptors);
+    //DisplayKeypoints(imgcopy, keypoints, color, thickness, radius, drawAngular);
 
 
     //D(measureExecutionTime(10, *extractor, image);)
