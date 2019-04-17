@@ -4,6 +4,8 @@
 #include <iterator>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wfor-loop-analysis"
 #ifndef NDEBUG
 #   define D(x) x
 #   include <opencv2/highgui/highgui.hpp>
@@ -392,7 +394,118 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
     std::vector<std::vector<cv::KeyPoint>> allKeypoints;
     DivideAndFAST(allKeypoints);
 
+    ComputeAngles(image, allKeypoints);
 
+    cv::Mat BRIEFDescriptors;
+    int nkpts = 0;
+    for (int lvl = 0; lvl < nlevels; ++lvl)
+    {
+        nkpts += (int)allKeypoints[lvl].size();
+    }
+    if (nkpts <= 0)
+    {
+        outputDescriptors.release();
+    } else
+    {
+        outputDescriptors.create(nkpts, 32, CV_8U);
+        BRIEFDescriptors = outputDescriptors.getMat();
+    }
+
+    resKeypoints.clear();
+    resKeypoints.reserve(nkpts);
+
+    ComputeDescriptors(allKeypoints, BRIEFDescriptors);
+}
+
+void ORBextractor::ComputeAngles(cv::Mat &image, std::vector<std::vector<cv::KeyPoint>> &allkpts)
+{
+    for (int lvl = 0; lvl < nlevels; ++lvl)
+    {
+        for (auto &kpt : allkpts[lvl])
+        {
+            kpt.angle = IntensityCentroidAngle(&image.at<uchar>(cvRound(kpt.pt.y), cvRound(kpt.pt.x)), image.step1());
+        }
+    }
+}
+
+
+void ORBextractor::ComputeDescriptors(std::vector<std::vector<cv::KeyPoint>> &allkpts, cv::Mat &descriptors)
+{
+    const auto degToRadFactor = (float)(CV_PI/180.f);
+    uchar* pixelPointer, * descPointer = descriptors.ptr<uchar>((int)0);
+    const cv::Point* p = &pattern[0];
+
+    for (int lvl = 0; lvl < nlevels; ++lvl)
+    {
+        const auto step = (int)imagePyramid[lvl].step;
+        //cv::Mat lvlDescriptors = cv::Mat::zeros((int)allkpts[lvl].size(), 32, CV_8UC1);
+
+        cv::Mat lvlClone = imagePyramid[lvl].clone();
+        cv::GaussianBlur(lvlClone, lvlClone, cv::Size(7, 7), 2, 2, cv::BORDER_REFLECT_101);
+
+        for (auto &kpt : allkpts[lvl])
+        {
+            pixelPointer = &lvlClone.at<uchar> (cvRound(kpt.pt.y), cvRound(kpt.pt.x));
+            float angleRad = kpt.angle * degToRadFactor;
+            auto a = (float)std::cos(angleRad), b = (float)std::sin(angleRad);
+
+            /*
+#define GET_VALUE(i) pixelPointer[cvRound(pattern[i].x*a + pattern[i].y*b) + cvRound(pattern[i].x*b + pattern[i].y*a)*step]
+
+            for (int i = 0; i < 32; ++i, p += 16)
+            {
+                int t0, t1, val;
+                t0 = GET_VALUE(0); t1 = GET_VALUE(1);
+                val = t0 < t1;
+                t0 = GET_VALUE(2); t1 = GET_VALUE(3);
+                val |= (t0 < t1) << 1;
+                t0 = GET_VALUE(4); t1 = GET_VALUE(5);
+                val |= (t0 < t1) << 2;
+                t0 = GET_VALUE(6); t1 = GET_VALUE(7);
+                val |= (t0 < t1) << 3;
+                t0 = GET_VALUE(8); t1 = GET_VALUE(9);
+                val |= (t0 < t1) << 4;
+                t0 = GET_VALUE(10); t1 = GET_VALUE(11);
+                val |= (t0 < t1) << 5;
+                t0 = GET_VALUE(12); t1 = GET_VALUE(13);
+                val |= (t0 < t1) << 6;
+                t0 = GET_VALUE(14); t1 = GET_VALUE(15);
+                val |= (t0 < t1) << 7;
+
+                descPointer[i] = (uchar)val;
+            }
+
+#undef GET_VALUE
+            */
+
+            for (int i = 0; i < 32; ++i)
+            {
+                int t0, t1, val;
+                t0 = CompareVal(pixelPointer, 0, a, b, step); t1 = CompareVal(pixelPointer, 1, a, b, step);
+                val = t0 < t1;
+                t0 = CompareVal(pixelPointer, 2, a, b, step); t1 = CompareVal(pixelPointer, 3, a, b, step);
+                val |= (t0 < t1) << 1;
+                t0 = CompareVal(pixelPointer, 4, a, b, step); t1 = CompareVal(pixelPointer, 5, a, b, step);
+                val |= (t0 < t1) << 2;
+                t0 = CompareVal(pixelPointer, 6, a, b, step); t1 = CompareVal(pixelPointer, 7, a, b, step);
+                val |= (t0 < t1) << 3;
+                t0 = CompareVal(pixelPointer, 8, a, b, step); t1 = CompareVal(pixelPointer, 9, a, b, step);
+                val |= (t0 < t1) << 4;
+                t0 = CompareVal(pixelPointer, 10, a, b, step); t1 = CompareVal(pixelPointer, 11, a, b, step);
+                val |= (t0 < t1) << 5;
+                t0 = CompareVal(pixelPointer, 12, a, b, step); t1 = CompareVal(pixelPointer, 13, a, b, step);
+                val |= (t0 < t1) << 6;
+                t0 = CompareVal(pixelPointer, 14, a, b, step); t1 = CompareVal(pixelPointer, 15, a, b, step);
+                val |= (t0 < t1) << 7;
+            }
+        ++descPointer;
+        }
+    }
+}
+
+int ORBextractor::CompareVal(const uchar* pixelPointer, int idx, float &a, float &b, int step)
+{
+    return pixelPointer[cvRound(pattern[idx].x*a + pattern[idx].y*b) + cvRound(pattern[idx].x*b + pattern[idx].y*a) * step];
 }
 
 
@@ -474,7 +587,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeyp
                 if(patchKpts.empty())
                     continue;
 
-                for (auto kpt : patchKpts)
+                for (auto &kpt : patchKpts)
                 {
                     kpt.pt.y += py * patchHeight;
                     kpt.pt.x += px * patchWidth;
@@ -684,7 +797,7 @@ void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int 
                 score > currRowScores[pos-1] && score > currRowScores[pos] && score > currRowScores[pos+1])
             {
                 keypoints.emplace_back(cv::KeyPoint((float)pos, (float)(i-1),
-                        (int)(PATCH_SIZE*scaleFactorVec[level]), -1, (float)score, level));
+                        7.f, -1, (float)score, level));
             }
         }
     }
@@ -718,7 +831,7 @@ int ORBextractor::CornerScore(const uchar* pointer, int threshold)
     }
 
     int b0 = -a0;
-    for(i = 0; i < CIRCLE_SIZE; i+=2)
+    for (i = 0; i < CIRCLE_SIZE; i+=2)
     {
         int b = std::max(diff[i+1], diff[i+2]);
         b = std::max(b, diff[i+3]);
@@ -829,7 +942,7 @@ void ORBextractor::Tests(cv::InputArray inputImage, bool myImplementation,
 
     CompareKeypointVectors(mykpts, opencvkpts);
 
-
+    /*
     for (int i = 0; i < 10; ++i)
     {
         int idx = i + 30;//const uchar* center = &image.at<uchar> (cvRound(pt.y), cvRound(pt.x));
@@ -839,6 +952,14 @@ void ORBextractor::Tests(cv::InputArray inputImage, bool myImplementation,
 
         std::cout << "\nAngle " << i << " with my impl: " << myangle <<  "\n";
     }
+     */
+
+    for (auto &kpt : mykpts)
+    {
+        kpt.angle = IntensityCentroidAngle(&image.at<uchar> (cvRound(kpt.pt.y), cvRound(kpt.pt.x)), image.step1());
+    }
+
+    std::cout << "\nirgendein winkel:\n" << mykpts[3].angle << "\n";
 
     //nicht gefundene keys in meiner implementation (erstes bild von tum_xyz): (119,476) und (246,476)
 
@@ -861,7 +982,7 @@ void ORBextractor::Tests(cv::InputArray inputImage, bool myImplementation,
     //PrintKeyPoints(mykpts);
 
 
-    //resKeypoints = mykpts;
+    resKeypoints = mykpts;
 
 }
 
@@ -888,7 +1009,7 @@ void ORBextractor::PrintArray(T *array, const std::string &name, int start, int 
 void ORBextractor::PrintKeypoints(std::vector<cv::KeyPoint> &kpts)
 {
     std::cout << "\nKeypoints found: " << std::endl;
-    for (auto kpt : kpts)
+    for (auto &kpt : kpts)
     {
         std::cout << "kpt1: (" << kpt.pt.x << ", " << kpt.pt.y << ")\n";
     }
@@ -948,5 +1069,8 @@ void ORBextractor::CompareKeypointVectors(std::vector<cv::KeyPoint> &vec1, std::
             " keypoints were identical (and at the same index)\n";
     }
 }
+
+
 )
 }
+#pragma clang diagnostic pop
