@@ -9,6 +9,6 @@ find_package(OpenCV REQUIRED)
 
 include_directories(.)
 
-add_executable(ORBextractor src/main.cpp src/main.h src/ORBextractor.cpp src/ORBextractor.h)
+add_executable(ORBextractor src/main.cpp src/main.h src/ORBextractor.cpp src/ORBextractor.h src/Comparison_Descriptors.cpp src/Comparison_Descriptors.h)
 
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})

@@ -89,11 +89,11 @@ protected:
 
     int CornerScore(const uchar *pointer, int threshold);
 
-    void ComputeAngles(cv::Mat &image, std::vector<std::vector<cv::KeyPoint>> &allkpts);
+    void ComputeAngles(std::vector<std::vector<cv::KeyPoint>> &allkpts);
 
     void ComputeDescriptors(std::vector<std::vector<cv::KeyPoint>> &allkpts, cv::Mat &descriptors);
 
-    int inline CompareVal(const uchar* pixelPointer, int idx, float &a, float &b, int step);
+    int inline CompareVal(const uchar* pixelPointer, int idx, float &a, float &b, int step, const cv::Point* p);
 
 
     std::vector<cv::Point> pattern;
@@ -124,7 +124,7 @@ protected:
     std::vector<float> invLevelSigma2Vec;
 
 
-    //D(
+    D(
 
             template<class T>
             void PrintArray(T *array, const std::string &name, int start, int end);
@@ -136,9 +136,7 @@ protected:
             void PrintKeypoints(std::vector<cv::KeyPoint> &kpts, int start, int end);
 
             static void CompareKeypointVectors(std::vector<cv::KeyPoint> &vec1, std::vector<cv::KeyPoint> &vec2);
-
-            void DESCRIPTORS_FOR_COMPARISON(std::vector<std::vector<<cv::KeyPoint>> &allKeypoints)
-    //)
+    )
 
 };
 
