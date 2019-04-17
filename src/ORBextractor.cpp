@@ -4,6 +4,8 @@
 #include <iterator>
 #include <opencv2/imgproc/imgproc.hpp>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wfor-loop-analysis"
 #ifndef NDEBUG
 #   define D(x) x
 #   include <opencv2/highgui/highgui.hpp>
@@ -391,8 +393,6 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
 
     std::vector<std::vector<cv::KeyPoint>> allKeypoints;
     DivideAndFAST(allKeypoints);
-
-
 }
 
 
@@ -839,6 +839,15 @@ void ORBextractor::Tests(cv::InputArray inputImage, bool myImplementation,
 
         std::cout << "\nAngle " << i << " with my impl: " << myangle <<  "\n";
     }
+
+    for (int i = 0; i < mykpts.size(); ++i)
+    {
+        mykpts[i].angle = IntensityCentroidAngle(image.ptr<uchar>(cvRound(mykpts[i].pt.y), cvRound(mykpts[i].pt.x)), image.step1());
+    }
+
+    std::cout << "\nmykpts[20].angle = " << mykpts[20].angle << "\n";
+
+    resKeypoints = mykpts;
 
     //nicht gefundene keys in meiner implementation (erstes bild von tum_xyz): (119,476) und (246,476)
 
