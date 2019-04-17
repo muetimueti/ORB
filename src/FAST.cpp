@@ -1,10 +1,26 @@
 #include "FAST.h"
 
 
+const int CIRCLE_SIZE = 16;
+const int CIRCLE_OFFSETS[16][2] =
+        {{0,  3}, { 1,  3}, { 2,  2}, { 3,  1}, { 3, 0}, { 3, -1}, { 2, -2}, { 1, -3},
+         {0, -3}, {-1, -3}, {-2, -2}, {-3, -1}, {-3, 0}, {-3,  1}, {-2,  2}, {-1,  3}};
+const int PIXELS_TO_CHECK[16] =
+        {0, 8, 2, 10, 4, 12, 6, 14, 1, 9, 3, 11, 5, 13, 7, 15};
 
 
-FAST::FAST(int iniThreshold, int minThreshold)
+
+FAST::FAST(int iniThreshold, int minThreshold) :
+        initialThreshold(iniThreshold), minimumThreshold(minThreshold),
+            threshold_tab_min{}, threshold_tab_init{}, pixelOffset{}
 {
+
+    continuousPixelsRequired = CIRCLE_SIZE / 2;
+    onePointFiveCircles = CIRCLE_SIZE + continuousPixelsRequired + 1;
+
+    imageCols = 0;
+    imageRows = 0;
+
     //initialize threshold tabs for init and min threshold
     int i;
     for (i = 0; i < 512; ++i)
@@ -34,8 +50,10 @@ FAST::FAST(int iniThreshold, int minThreshold)
     }
 }
 
+
 void FAST::operator()(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int level)
 {
+    CheckDims(img);
     keypoints.clear();
 
     if (!(threshold == initialThreshold || threshold == minimumThreshold))
@@ -193,7 +211,7 @@ void FAST::operator()(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int th
                 score > currRowScores[pos-1] && score > currRowScores[pos] && score > currRowScores[pos+1])
             {
                 keypoints.emplace_back(cv::KeyPoint((float)pos, (float)(i-1),
-                                                    (int)(PATCH_SIZE*scaleFactorVec[level]), -1, (float)score, level));
+                                                    7.f, -1, (float)score, level));
             }
         }
     }
@@ -243,4 +261,19 @@ int FAST::CornerScore(const uchar* pointer, int threshold)
     }
 
     return -b0 - 1;
+}
+
+
+void FAST::CheckDims(cv::Mat &img)
+{
+    if (img.cols == imageCols && img.rows == imageRows)
+        return;
+
+    imageCols = img.cols;
+    imageRows = img.rows;
+
+    for (int i = 0; i < CIRCLE_SIZE; ++i)
+    {
+        pixelOffset[i] = CIRCLE_OFFSETS[i][0] + CIRCLE_OFFSETS[i][1] * img.step;
+    }
 }
