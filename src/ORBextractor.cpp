@@ -297,9 +297,6 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
         pixelOffset{}
 
 {
-    //debug
-    D(printInternalValues();)
-
     scaleFactorVec.resize(nlevels);
     invScaleFactorVec.resize(nlevels);
     imagePyramid.resize(nlevels);
@@ -370,9 +367,8 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
 
     const int nPoints = 512;
     const auto tempPattern = (const cv::Point*) bit_pattern_31_;
+    std::copy(tempPattern, tempPattern+nPoints, std::back_inserter(pattern));
 
-    std::vector<cv::Point> p(tempPattern, tempPattern + nPoints);
-    pattern = p;
 }
 
 
@@ -394,6 +390,64 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
     std::vector<std::vector<cv::KeyPoint>> allKeypoints;
     DivideAndFAST(allKeypoints);
 }
+
+
+void ORBextractor::ComputeAngles(std::vector<std::vector<cv::KeyPoint>> &allkpts)
+{
+    for (int lvl = 0; lvl < nlevels; ++lvl)
+    {
+        for (auto &kpt : allkpts[lvl])
+        {
+            kpt.angle = IntensityCentroidAngle(&imagePyramid[lvl].at<uchar>(cvRound(kpt.pt.y), cvRound(kpt.pt.x)), imagePyramid[lvl].step1());
+        }
+    }
+}
+
+
+void ORBextractor::ComputeDescriptors(std::vector<std::vector<cv::KeyPoint>> &allkpts, cv::Mat &descriptors)
+{
+    const auto degToRadFactor = (float)(CV_PI/180.f);
+    const cv::Point* p = &pattern[0];
+
+    for (int lvl = 0; lvl < nlevels; ++lvl)
+    {
+        cv::Mat lvlClone = imagePyramid[lvl].clone();
+        cv::GaussianBlur(lvlClone, lvlClone, cv::Size(7, 7), 2, 2, cv::BORDER_REFLECT_101);
+
+        const int step = (int)lvlClone.step;
+
+
+        int i = 0, nkpts = allkpts[lvl].size();
+        for (int k = 0; k < nkpts; ++k)
+        {
+            const cv::KeyPoint &kpt = allkpts[lvl][k];
+            auto descPointer = descriptors.ptr<uchar>((int)(k));        //ptr to beginning of current descriptor
+            const uchar* pixelPointer = &lvlClone.at<uchar>(cvRound(kpt.pt.y), cvRound(kpt.pt.x));  //ptr to kpt in img
+
+            float angleRad = kpt.angle * degToRadFactor;
+            auto a = (float)cos(angleRad), b = (float)sin(angleRad);
+
+            int byte = 0, v0, v1;
+            for (i = 0; i <= 512; i+=2)
+            {
+                if (i > 0 && i%16 == 0)
+                {
+                    descPointer[i/16 - 1] = (uchar)byte;  //write current byte
+                    byte = 0;      //reset working byte
+                    if (i == 512)  //break out after writing very last byte, so oob indices aren't accessed
+                        break;
+                }
+
+                v0 = pixelPointer[cvRound(p[i].x*a - p[i].y*b) + cvRound(p[i].x*b + p[i].y*a)*step];
+                v1 = pixelPointer[cvRound(p[i+1].x*a - p[i+1].y*b) + cvRound(p[i+1].x*b + p[i+1].y*a)*step];
+
+                byte |= (v0 < v1) << ((i%16)/2); //write comparison bit to current byte
+            }
+        }
+    }
+}
+
+
 
 
 void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeypoints)
@@ -427,7 +481,6 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeyp
              *
             int startY = minimumY + py * patchHeight - 3;
             int endY = startY + patchHeight + 3;
-
             if (startY < minimumY)
                 startY = minimumY;
             */
@@ -447,7 +500,6 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeyp
                 /*
                 int startX = minimumX + px * patchWidth - 3;
                 int endX = startX + patchWidth + 3;
-
                 if (startX < minimumX)
                     startX = minimumX;
                 */
@@ -474,7 +526,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeyp
                 if(patchKpts.empty())
                     continue;
 
-                for (auto kpt : patchKpts)
+                for (auto &kpt : patchKpts)
                 {
                     kpt.pt.y += py * patchHeight;
                     kpt.pt.x += px * patchWidth;
@@ -483,6 +535,9 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeyp
                 }
             }
         }
+
+        std::vector<cv::KeyPoint> levelKptsFinal;
+
         for (int i = 0; i < nkpts; ++i)
         {
             levelKpts[i].pt.y += minimumY;
@@ -684,7 +739,7 @@ void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int 
                 score > currRowScores[pos-1] && score > currRowScores[pos] && score > currRowScores[pos+1])
             {
                 keypoints.emplace_back(cv::KeyPoint((float)pos, (float)(i-1),
-                        (int)(PATCH_SIZE*scaleFactorVec[level]), -1, (float)score, level));
+                        7.f, -1, (float)score, level));
             }
         }
     }
