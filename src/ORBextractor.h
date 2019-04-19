@@ -93,8 +93,6 @@ protected:
 
     void ComputeDescriptors(std::vector<std::vector<cv::KeyPoint>> &allkpts, cv::Mat &descriptors);
 
-    int inline CompareVal(const uchar* pixelPointer, int idx, float &a, float &b, int step, const cv::Point* p);
-
 
     std::vector<cv::Point> pattern;
 
