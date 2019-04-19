@@ -79,11 +79,13 @@ public:
 protected:
 
     static float IntensityCentroidAngle(const uchar* pointer, int step);
+    static void RetainBestN(std::vector<cv::KeyPoint> &kpts, int &N);
+    static bool ResponseComparison(cv::KeyPoint &k1, cv::KeyPoint &k2);
 
     void ComputeScalePyramid(cv::Mat &image);
-    void DivideAndFAST(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);
-    std::vector<cv::KeyPoint> DistributeQuadTree(const std::vector<cv::KeyPoint>& vToDistributeKeys, const int &minX,
-                                                const int &maxX, const int &minY, const int &maxY, const int &nFeatures, const int &level);
+    void DivideAndFAST(std::vector<std::vector<cv::KeyPoint> >& allKeypoints, bool distribute = true);
+    std::vector<cv::KeyPoint> DistributeKeypoints(const std::vector<cv::KeyPoint>& kpts, const int &minX,
+                                                const int &maxX, const int &minY, const int &maxY, const int &level);
 
     void FAST(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
 
@@ -129,9 +131,11 @@ protected:
 
             void printInternalValues();
 
-            void PrintKeypoints(std::vector<cv::KeyPoint> &kpts);
+            static void PrintKeypoints(std::vector<cv::KeyPoint> &kpts);
 
-            void PrintKeypoints(std::vector<cv::KeyPoint> &kpts, int start, int end);
+            static void PrintKeypoints(std::vector<cv::KeyPoint> &kpts, int start, int end);
+
+            static void PrintKeypoints(std::vector<cv::KeyPoint> &kpts, int start, int end, bool printResponse);
 
             static void CompareKeypointVectors(std::vector<cv::KeyPoint> &vec1, std::vector<cv::KeyPoint> &vec2);
     )

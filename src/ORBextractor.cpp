@@ -6,6 +6,7 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wfor-loop-analysis"
+
 #ifndef NDEBUG
 #   define D(x) x
 #   include <opencv2/highgui/highgui.hpp>
@@ -376,6 +377,55 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
 }
 
 
+float ORBextractor::IntensityCentroidAngle(const uchar* pointer, int step)
+{
+    //m10 ~ x^1y^0, m01 ~ x^0y^1
+    int x, y, m01 = 0, m10 = 0;
+
+    int half_patch = PATCH_SIZE / 2;
+
+    for (x = -half_patch; x <= half_patch; ++x)
+    {
+        m10 += x * pointer[x];
+    }
+
+    for (y = 1; y <= half_patch; ++y)
+    {
+        int cols = CIRCULAR_ROWS[y];
+        int sumY = 0;
+        for (x = -cols; x <= cols; ++x)
+        {
+            int uptown = pointer[x + y*step];
+            int downtown = pointer[x - y*step];
+            sumY += uptown - downtown;
+            m10 += x * (uptown + downtown);
+        }
+        m01 += y * sumY;
+    }
+
+    return cv::fastAtan2((float)m01, (float)m10);
+}
+
+
+bool ORBextractor::ResponseComparison(cv::KeyPoint &k1, cv::KeyPoint &k2)
+{
+    return (k1.response > k2.response);
+}
+void ORBextractor::RetainBestN(std::vector<cv::KeyPoint> &kpts, int &N)
+{
+    std::vector<cv::KeyPoint> tempKpts;
+    tempKpts.reserve(N);
+
+    std::sort(kpts.begin(), kpts.end(), ResponseComparison);
+
+    for (int i = 0; i < N; ++i)
+    {
+        tempKpts.emplace_back(kpts[i]);
+    }
+    kpts = tempKpts;
+}
+
+
 void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
                               std::vector<cv::KeyPoint> &resKeypoints, cv::OutputArray outputDescriptors)
 {
@@ -457,7 +507,7 @@ void ORBextractor::ComputeDescriptors(std::vector<std::vector<cv::KeyPoint>> &al
             {
                 if (i > 0 && i%16 == 0)
                 {
-                    descPointer[i/16 - 1] = (uchar)byte;  //write current byte
+                    descPointer[i/16 - 1] = (uchar)byte;  //write current byte to descriptor-mat
                     byte = 0;      //reset working byte
                     if (i == 512)  //break out after writing very last byte, so oob indices aren't accessed
                         break;
@@ -475,7 +525,7 @@ void ORBextractor::ComputeDescriptors(std::vector<std::vector<cv::KeyPoint>> &al
 
 
 
-void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeypoints)
+void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeypoints, bool distribute)
 {
     allKeypoints.resize(nlevels);
 
@@ -484,10 +534,9 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeyp
 
     for (int lvl = 0; lvl < nlevels; ++lvl)
     {
-        int nkpts = 0;
         std::vector<cv::KeyPoint> levelKpts;
         levelKpts.clear();
-        levelKpts.reserve(nfeatures*2);
+        levelKpts.reserve(nfeatures*10);
 
         const int maximumX = imagePyramid[lvl].cols - EDGE_THRESHOLD + 3;
         const int maximumY = imagePyramid[lvl].rows - EDGE_THRESHOLD + 3;
@@ -558,53 +607,40 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeyp
                     kpt.pt.y += py * patchHeight;
                     kpt.pt.x += px * patchWidth;
                     levelKpts.emplace_back(kpt);
-                    nkpts++;
                 }
             }
         }
 
-        std::vector<cv::KeyPoint> levelKptsFinal;
+        allKeypoints[lvl].reserve(nfeatures);
 
-        for (int i = 0; i < nkpts; ++i)
+        if (distribute)
         {
-            levelKpts[i].pt.y += minimumY;
-            levelKpts[i].pt.x += minimumX;
-            levelKpts[i].angle = IntensityCentroidAngle(&imagePyramid[lvl].at<uchar>(
-                    cvRound(levelKpts[i].pt.x), cvRound(levelKpts[i].pt.y)), imagePyramid[lvl].step1());
+            allKeypoints[lvl] = DistributeKeypoints(levelKpts, minimumX, maximumX, minimumY, maximumY, lvl);
         }
-        allKeypoints[lvl] = levelKpts;
+        else
+        {
+            RetainBestN(levelKpts, nfeaturesPerLevelVec[lvl]);
+            allKeypoints[lvl] = levelKpts;
+        }
+
+
+        for (auto &kpt : allKeypoints[lvl])
+        {
+            kpt.pt.y += minimumY;
+            kpt.pt.x += minimumX;
+            //kpt.angle = IntensityCentroidAngle(&imagePyramid[lvl].at<uchar>(
+            //        cvRound(kpt.pt.x), cvRound(kpt.pt.y)), imagePyramid[lvl].step1());
+        }
     }
 }
 
 
-float ORBextractor::IntensityCentroidAngle(const uchar* pointer, int step)
+std::vector<cv::KeyPoint> ORBextractor::DistributeKeypoints(const std::vector<cv::KeyPoint>& kpts, const int &minX,
+                                              const int &maxX, const int &minY, const int &maxY, const int &lvl)
 {
-    //m10 ~ x^1y^0, m01 ~ x^0y^1
-    int x, y, m01 = 0, m10 = 0;
-
-    int half_patch = PATCH_SIZE / 2;
-
-    for (x = -half_patch; x <= half_patch; ++x)
-    {
-        m10 += x * pointer[x];
-    }
-
-    for (y = 1; y <= half_patch; ++y)
-    {
-        int cols = CIRCULAR_ROWS[y];
-        int sumY = 0;
-        for (x = -cols; x <= cols; ++x)
-        {
-            int uptown = pointer[x + y*step];
-            int downtown = pointer[x - y*step];
-            sumY += uptown - downtown;
-            m10 += x * (uptown + downtown);
-        }
-        m01 += y * sumY;
-    }
-
-    return cv::fastAtan2((float)m01, (float)m10);
+    //TODO: distribute kpts over img via quad tree
 }
+
 
 
 void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int level)
@@ -848,11 +884,12 @@ void ORBextractor::ComputeScalePyramid(cv::Mat &image)
     }
 }
 
-
+/*
 float ORBextractor::getScale(int lvl)
 {
     return std::pow(scaleFactor, (double)lvl);
 }
+*/
 
 //debug
 D(
@@ -987,10 +1024,17 @@ void ORBextractor::Tests(cv::InputArray inputImage, bool myImplementation,
 
 
     cv::Mat diff = myDescriptors != compDescriptors;
-// Equal if no elements disagree
     bool eq = (cv::countNonZero(diff) == 0);
 
     std::cout << "my and compDesc equal? -->" << (eq? " yes" : " no") << "\n";
+
+    std::cout << "sz of allmykpts[0]: " << allMyKeypoints[0].size() << "\n";
+    int n = 200;
+    RetainBestN(allMyKeypoints[0], n);
+
+    std::cout << "after retention of best " << n << ": " << allMyKeypoints[0].size() << "\n";
+
+    resKeypoints = allMyKeypoints[0];
 
     //std::cout << "\nidx 0 of comparison desc: " << compDescriptors.at<int>(0) << std::endl;
 
@@ -1059,6 +1103,22 @@ void ORBextractor::PrintKeypoints(std::vector<cv::KeyPoint> &kpts, int start, in
     for (int i = start; i < end; ++i)
     {
         std::cout << "kpt[" << i << "]: (" << kpts[i].pt.x << "," << kpts[i].pt.y << ")\n";
+    }
+}
+
+void ORBextractor::PrintKeypoints(std::vector<cv::KeyPoint> &kpts, int start, int end, bool printResponse)
+{
+    if (end <= start)
+        return;
+    std::cout << "\nKeypoints from " << start << " to " <<  end-1 << ":\n";
+    for (int i = start; i < end; ++i)
+    {
+        std::cout << "kpt[" << i << "]: (" << kpts[i].pt.x << "," << kpts[i].pt.y << ")";
+        if (printResponse)
+        {
+            std::cout << ", with cornerscore of " << kpts[i].response;
+        }
+        std::cout << "\n";
     }
 }
 
