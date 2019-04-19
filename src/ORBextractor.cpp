@@ -473,7 +473,8 @@ void ORBextractor::ComputeAngles(std::vector<std::vector<cv::KeyPoint>> &allkpts
     {
         for (auto &kpt : allkpts[lvl])
         {
-            kpt.angle = IntensityCentroidAngle(&imagePyramid[lvl].at<uchar>(cvRound(kpt.pt.y), cvRound(kpt.pt.x)), imagePyramid[lvl].step1());
+            kpt.angle = IntensityCentroidAngle(&imagePyramid[lvl].at<uchar>(cvRound(kpt.pt.y), cvRound(kpt.pt.x)),
+                    imagePyramid[lvl].step1());
         }
     }
 }
