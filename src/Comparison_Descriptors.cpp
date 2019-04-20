@@ -121,7 +121,7 @@ void Comparison_Descriptors::Compute(vector<Mat> &imagePyramid, vector < vector<
     int nlevels = 8;
 
     int nkeypoints = 0;
-    for (int level = 0; level < nlevels; ++level)
+    for (int level = 1; level < 2; ++level)   //TODO: revert to "for (int level = 0; level < nlevels; ++level)"
         nkeypoints += (int)allKeypoints[level].size();
     if( nkeypoints == 0 )
         _descriptors.release();
@@ -134,7 +134,7 @@ void Comparison_Descriptors::Compute(vector<Mat> &imagePyramid, vector < vector<
 
 
     int offset = 0;
-    for (int level = 0; level < nlevels; ++level)
+    for (int level = 1; level < 2; ++level)  //TODO: revert to "for (int level = 0; level < nlevels; ++level)"
     {
         vector<KeyPoint>& keypoints = allKeypoints[level];
         int nkeypointsLevel = (int)keypoints.size();

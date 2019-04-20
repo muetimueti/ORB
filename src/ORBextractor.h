@@ -80,7 +80,7 @@ protected:
 
     static float IntensityCentroidAngle(const uchar* pointer, int step);
     static void RetainBestN(std::vector<cv::KeyPoint> &kpts, int &N);
-    static bool ResponseComparison(cv::KeyPoint &k1, cv::KeyPoint &k2);
+    static bool ResponseComparison(const cv::KeyPoint &k1, const cv::KeyPoint &k2);
 
     void ComputeScalePyramid(cv::Mat &image);
     void DivideAndFAST(std::vector<std::vector<cv::KeyPoint> >& allKeypoints, bool distribute = true);
@@ -89,7 +89,7 @@ protected:
 
     void FAST(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
 
-    int CornerScore(const uchar *pointer, int threshold);
+    int CornerScore(const uchar *pointer, int offset[], int threshold);
 
     void ComputeAngles(std::vector<std::vector<cv::KeyPoint>> &allkpts);
 
@@ -103,7 +103,7 @@ protected:
 
     uchar threshold_tab_min[512];
     uchar threshold_tab_init[512];
-    int pixelOffset[16];
+    std::vector<int> pixelOffset;
     int continuousPixelsRequired;
     int onePointFiveCircles;
 
