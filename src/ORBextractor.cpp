@@ -996,11 +996,12 @@ D(
             }
 
 
+
             resKeypoints.clear();
             resKeypoints.reserve(nfeatures);
 
-            std::vector<std::vector<cv::KeyPoint>> allMyKeypoints;
 
+            std::vector<std::vector<cv::KeyPoint>> allMyKeypoints;
         }
 
         void ORBextractor::printInternalValues()
