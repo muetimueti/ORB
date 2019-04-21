@@ -6,6 +6,7 @@
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wfor-loop-analysis"
+
 #ifndef NDEBUG
 #   define D(x) x
 #   include <opencv2/highgui/highgui.hpp>
@@ -290,11 +291,62 @@ static int bit_pattern_31_[256*4] =
                 -1,-6, 0,-11/*mean (0.127148), correlation (0.547401)*/
         };
 
+float ORBextractor::IntensityCentroidAngle(const uchar* pointer, int step)
+{
+    //m10 ~ x^1y^0, m01 ~ x^0y^1
+    int x, y, m01 = 0, m10 = 0;
+
+    int half_patch = PATCH_SIZE / 2;
+
+    for (x = -half_patch; x <= half_patch; ++x)
+    {
+        m10 += x * pointer[x];
+    }
+
+    for (y = 1; y <= half_patch; ++y)
+    {
+        int cols = CIRCULAR_ROWS[y];
+        int sumY = 0;
+        for (x = -cols; x <= cols; ++x)
+        {
+            int uptown = pointer[x + y*step];
+            int downtown = pointer[x - y*step];
+            sumY += uptown - downtown;
+            m10 += x * (uptown + downtown);
+        }
+        m01 += y * sumY;
+    }
+
+    return cv::fastAtan2((float)m01, (float)m10);
+}
+
+
+bool ORBextractor::ResponseComparison(const cv::KeyPoint &k1, const cv::KeyPoint &k2)
+{
+    return (k1.response > k2.response);
+}
+void ORBextractor::RetainBestN(std::vector<cv::KeyPoint> &kpts, int &N)
+{
+    std::vector<cv::KeyPoint> tempKpts;
+    tempKpts.reserve(N);
+
+    std::sort(kpts.begin(), kpts.end(), ResponseComparison);
+
+    for (int i = 0; i < N; ++i)
+    {
+        tempKpts.emplace_back(kpts[i]);
+    }
+    //return tempKpts;
+    kpts = tempKpts;
+}
+
+
+
+
 ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
                            int _iniThFAST, int _minThFAST):
         nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels),
-        iniThFAST(_iniThFAST), minThFAST(_minThFAST), threshold_tab_min{}, threshold_tab_init{},
-        pixelOffset{}
+        iniThFAST(_iniThFAST), minThFAST(_minThFAST), threshold_tab_min{}, threshold_tab_init{}, pixelOffset{}
 
 {
 
@@ -302,6 +354,7 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
     invScaleFactorVec.resize(nlevels);
     imagePyramid.resize(nlevels);
     nfeaturesPerLevelVec.resize(nlevels);
+    pixelOffset.resize(nlevels * CIRCLE_SIZE);
 
     continuousPixelsRequired = CIRCLE_SIZE / 2;
     onePointFiveCircles = CIRCLE_SIZE + continuousPixelsRequired + 1;
@@ -355,51 +408,55 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
 
 
     float fac = 1.f / scaleFactor;
-    float nDesiredFeaturesPerScale = nfeatures * (1.f - fac) /
-                                     1.f - (float) std::pow(1 / (double) fac, (double) nlevels);
+    float nDesiredFeaturesPerScale = nfeatures * (1.f - fac) / (1.f - (float) pow((double) fac, (double) nlevels));
+
     int sumFeatures = 0;
     for (i = 0; i < nlevels - 1; ++i)
     {
         nfeaturesPerLevelVec[i] = cvRound(nDesiredFeaturesPerScale);
         sumFeatures += nfeaturesPerLevelVec[i];
-        nDesiredFeaturesPerScale *= 1.f / fac;
+        nDesiredFeaturesPerScale *= fac;
     }
     nfeaturesPerLevelVec[nlevels-1] = std::max(nfeatures - sumFeatures, 0);
 
     const int nPoints = 512;
     const auto tempPattern = (const cv::Point*) bit_pattern_31_;
     std::copy(tempPattern, tempPattern+nPoints, std::back_inserter(pattern));
-
-    //std::vector<cv::Point> p(tempPattern, tempPattern + nPoints);
-    //pattern = p;
 }
 
 
 void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
-                              std::vector<cv::KeyPoint> &resKeypoints, cv::OutputArray outputDescriptors)
+                              std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors)
 {
     if (inputImage.empty())
         return;
 
     cv::Mat image = inputImage.getMat();
+    assert(image.type() == CV_8UC1);
 
     ComputeScalePyramid(image);
 
-    for (int i = 0; i < CIRCLE_SIZE; ++i)
+
+    for (int lvl = 0; lvl < nlevels; ++lvl)
     {
-        pixelOffset[i] = CIRCLE_OFFSETS[i][0] + CIRCLE_OFFSETS[i][1] * image.step;
+        for (int i = 0; i < CIRCLE_SIZE; ++i)
+        {
+            pixelOffset[lvl*CIRCLE_SIZE + i] =
+                    CIRCLE_OFFSETS[i][0] + CIRCLE_OFFSETS[i][1] * (int)imagePyramid[lvl].step1();
+        }
     }
 
-    std::vector<std::vector<cv::KeyPoint>> allKeypoints;
-    DivideAndFAST(allKeypoints);
 
-    ComputeAngles(allKeypoints);
+    std::vector<std::vector<cv::KeyPoint>> allKpts;
+    DivideAndFAST(allKpts, false);
 
-    cv::Mat BRIEFDescriptors;
+    ComputeAngles(allKpts);
+
+    cv::Mat BRIEFdescriptors;
     int nkpts = 0;
     for (int lvl = 0; lvl < nlevels; ++lvl)
     {
-        nkpts += (int)allKeypoints[lvl].size();
+        nkpts += (int)allKpts[lvl].size();
     }
     if (nkpts <= 0)
     {
@@ -407,14 +464,29 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
     } else
     {
         outputDescriptors.create(nkpts, 32, CV_8U);
-        BRIEFDescriptors = outputDescriptors.getMat();
+        BRIEFdescriptors = outputDescriptors.getMat();
     }
 
-    resKeypoints.clear();
-    resKeypoints.reserve(nkpts);
+    resultKeypoints.clear();
+    resultKeypoints.reserve(nkpts);
 
-    ComputeDescriptors(allKeypoints, BRIEFDescriptors);
+    ComputeDescriptors(allKpts, BRIEFdescriptors);
+
+    for (int lvl = 1; lvl < nlevels; ++lvl)
+    {
+        float scale = scaleFactorVec[lvl];
+        for (auto &kpt : allKpts[lvl])
+        {
+            kpt.pt *= scale;
+        }
+    }
+
+    for (int lvl = 0; lvl < nlevels; ++lvl)
+    {
+        resultKeypoints.insert(resultKeypoints.end(), allKpts[lvl].begin(), allKpts[lvl].end());
+    }
 }
+
 
 void ORBextractor::ComputeAngles(std::vector<std::vector<cv::KeyPoint>> &allkpts)
 {
@@ -422,7 +494,8 @@ void ORBextractor::ComputeAngles(std::vector<std::vector<cv::KeyPoint>> &allkpts
     {
         for (auto &kpt : allkpts[lvl])
         {
-            kpt.angle = IntensityCentroidAngle(&imagePyramid[lvl].at<uchar>(cvRound(kpt.pt.y), cvRound(kpt.pt.x)), imagePyramid[lvl].step1());
+            kpt.angle = IntensityCentroidAngle(&imagePyramid[lvl].at<uchar>(cvRound(kpt.pt.y), cvRound(kpt.pt.x)),
+                                               imagePyramid[lvl].step1());
         }
     }
 }
@@ -433,6 +506,8 @@ void ORBextractor::ComputeDescriptors(std::vector<std::vector<cv::KeyPoint>> &al
     const auto degToRadFactor = (float)(CV_PI/180.f);
     const cv::Point* p = &pattern[0];
 
+    int current = 0;
+
     for (int lvl = 0; lvl < nlevels; ++lvl)
     {
         cv::Mat lvlClone = imagePyramid[lvl].clone();
@@ -442,173 +517,220 @@ void ORBextractor::ComputeDescriptors(std::vector<std::vector<cv::KeyPoint>> &al
 
 
         int i = 0, nkpts = allkpts[lvl].size();
-        for (int k = 0; k < nkpts; ++k)
+        for (int k = 0; k < nkpts; ++k, ++current)
         {
             const cv::KeyPoint &kpt = allkpts[lvl][k];
-            auto descPointer = descriptors.ptr<uchar>((int)(k));        //ptr to beginning of current descriptor
+            auto descPointer = descriptors.ptr<uchar>(current);        //ptr to beginning of current descriptor
             const uchar* pixelPointer = &lvlClone.at<uchar>(cvRound(kpt.pt.y), cvRound(kpt.pt.x));  //ptr to kpt in img
 
             float angleRad = kpt.angle * degToRadFactor;
             auto a = (float)cos(angleRad), b = (float)sin(angleRad);
 
-            int byte = 0, v0, v1;
+            int byte = 0, v0, v1, idx0, idx1;
             for (i = 0; i <= 512; i+=2)
             {
                 if (i > 0 && i%16 == 0)
                 {
-                    descPointer[i/16 - 1] = (uchar)byte;  //write current byte
+                    descPointer[i/16 - 1] = (uchar)byte;  //write current byte to descriptor-mat
                     byte = 0;      //reset working byte
                     if (i == 512)  //break out after writing very last byte, so oob indices aren't accessed
                         break;
                 }
 
-                v0 = pixelPointer[cvRound(p[i].x*a - p[i].y*b) + cvRound(p[i].x*b + p[i].y*a)*step];
-                v1 = pixelPointer[cvRound(p[i+1].x*a - p[i+1].y*b) + cvRound(p[i+1].x*b + p[i+1].y*a)*step];
+                idx0 = cvRound(p[i].x*a - p[i].y*b) + cvRound(p[i].x*b + p[i].y*a)*step;
+                idx1 = cvRound(p[i+1].x*a - p[i+1].y*b) + cvRound(p[i+1].x*b + p[i+1].y*a)*step;
+
+                v0 = pixelPointer[idx0];
+                v1 = pixelPointer[idx1];
 
                 byte |= (v0 < v1) << ((i%16)/2); //write comparison bit to current byte
+
+                /*debug
+                if (current == 402)
+                {
+                    std::cout << "kpt 402, byte " << i/16 << ": v0(" << idx0 << ")=" << v0 <<
+                        ", v1(" << idx1 << ")=" << v1 << "---> bit = " << (v0 < v1) << "\n";
+                    std::cout << "point in pattern: " << p[i] << ", kpt coords: " << kpt.pt << "\n";
+                    std::cout << kpt.pt << "entpricht x = " << kpt.pt.x << ", y =  " << kpt.pt.y << "\n";
+                    std::cout << "kpt octave = " << kpt.octave << "\n\n";
+                }
+                */
             }
         }
     }
 }
 
 
-
-
-void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeypoints)
+/**
+ * @param distribute : true-->kpts distributed over img via quad-tree,
+ * false-->best n per octave (n calculated from nfeatures, nlevels)
+ */
+void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeypoints, bool distribute)
 {
     allKeypoints.resize(nlevels);
 
     const int defPatchSize = PATCH_SIZE - 1;
     const int minimumX = EDGE_THRESHOLD - 3, minimumY = minimumX;
 
-    for (int lvl = 0; lvl < nlevels; ++lvl)
+    if (!distribute)
     {
-        int nkpts = 0;
-        std::vector<cv::KeyPoint> levelKpts;
-        levelKpts.clear();
-        levelKpts.reserve(nfeatures*2);
-
-        const int maximumX = imagePyramid[lvl].cols - EDGE_THRESHOLD + 3;
-        const int maximumY = imagePyramid[lvl].rows - EDGE_THRESHOLD + 3;
-        const int width = maximumX - minimumX;
-        const int height = maximumY - minimumY;
-
-        const int npatchesInX = width / defPatchSize;
-        const int npatchesInY = height / defPatchSize;
-        const int patchWidth = std::ceil(width / npatchesInX);
-        const int patchHeight = std::ceil(height / npatchesInY);
-
-        for (int py = 0; py < npatchesInY; ++py)
+        for (int lvl = 0; lvl < nlevels; ++lvl)
         {
+            std::vector<cv::KeyPoint> levelKpts;
+            levelKpts.clear();
+            levelKpts.reserve(nfeatures*10);
 
-            /* initially had overlap left and right, orbslam overlaps only to the right, adjusted so results are comparable
-             *
-            int startY = minimumY + py * patchHeight - 3;
-            int endY = startY + patchHeight + 3;
+            const int maximumX = imagePyramid[lvl].cols - EDGE_THRESHOLD + 3;
+            const int maximumY = imagePyramid[lvl].rows - EDGE_THRESHOLD + 3;
 
-            if (startY < minimumY)
-                startY = minimumY;
-            */
+            //std::cout << "lvl " << lvl << ": minX=" << minimumX << ", maxX=" << maximumX <<
+            //   ", minY=" << minimumY << ", maxY=" << maximumY << "\n";
 
-            int startY = minimumY + py * patchHeight;
-            int endY = startY + patchHeight + 6;
+            cv::Range colSelect(minimumX, maximumX);
+            cv::Range rowSelect(minimumY, maximumY);
+            cv::Mat levelMat = imagePyramid[lvl](rowSelect, colSelect);
 
-            if (startY >= maximumY)
+            this->FAST(levelMat, levelKpts, iniThFAST, lvl);
+
+            if (levelKpts.empty())
+                this->FAST(levelMat, levelKpts, minThFAST, lvl);
+
+            if(levelKpts.empty())
                 continue;
 
-            if (endY > maximumY)
-                endY = maximumY;
+            //TODO: retain best n fixed?
 
-            for (int px = 0; px < npatchesInY; ++px)
+            allKeypoints[lvl].reserve(nfeaturesPerLevelVec[lvl]);
+
+            RetainBestN(levelKpts, nfeaturesPerLevelVec[lvl]);
+            allKeypoints[lvl] = levelKpts;
+
+            for (auto &kpt : allKeypoints[lvl])
             {
-
-                /*
-                int startX = minimumX + px * patchWidth - 3;
-                int endX = startX + patchWidth + 3;
-
-                if (startX < minimumX)
-                    startX = minimumX;
-                */
-
-                int startX = minimumX + px * patchWidth;
-                int endX = startX + patchWidth + 6;
-
-                if (startX >= maximumX)
-                    continue;
-
-                if (endX > maximumX)
-                    endX = maximumX;
-
-                cv::Range colSelect(startY, endY);
-                cv::Range rowSelect(startX, endX);
-                cv::Mat patch = imagePyramid[lvl](rowSelect, colSelect);
-                std::vector<cv::KeyPoint> patchKpts;
-
-                this->FAST(patch, patchKpts, iniThFAST, lvl);
-
-                if (patchKpts.empty())
-                    this->FAST(patch, patchKpts, minThFAST, lvl);
-
-                if(patchKpts.empty())
-                    continue;
-
-                for (auto &kpt : patchKpts)
-                {
-                    kpt.pt.y += py * patchHeight;
-                    kpt.pt.x += px * patchWidth;
-                    levelKpts.emplace_back(kpt);
-                    nkpts++;
-                }
+                kpt.pt.y += minimumY;
+                kpt.pt.x += minimumX;
+                //kpt.angle = IntensityCentroidAngle(&imagePyramid[lvl].at<uchar>(
+                //        cvRound(kpt.pt.x), cvRound(kpt.pt.y)), imagePyramid[lvl].step1());
             }
         }
-
-        std::vector<cv::KeyPoint> levelKptsFinal;
-
-        for (int i = 0; i < nkpts; ++i)
+    }
+    else
+    {
+        for (int lvl = 0; lvl < nlevels; ++lvl)
         {
-            levelKpts[i].pt.y += minimumY;
-            levelKpts[i].pt.x += minimumX;
-            levelKpts[i].angle = IntensityCentroidAngle(&imagePyramid[lvl].at<uchar>(
-                    cvRound(levelKpts[i].pt.x), cvRound(levelKpts[i].pt.y)), imagePyramid[lvl].step1());
+            std::vector<cv::KeyPoint> levelKpts;
+            levelKpts.clear();
+            levelKpts.reserve(nfeatures*10);
+
+            const int maximumX = imagePyramid[lvl].cols - EDGE_THRESHOLD + 3;
+            const int maximumY = imagePyramid[lvl].rows - EDGE_THRESHOLD + 3;
+            const int width = maximumX - minimumX;
+            const int height = maximumY - minimumY;
+
+            const int npatchesInX = width / defPatchSize;
+            const int npatchesInY = height / defPatchSize;
+            const int patchWidth = std::ceil(width / npatchesInX);
+            const int patchHeight = std::ceil(height / npatchesInY);
+
+            for (int py = 0; py < npatchesInY; ++py)
+            {
+
+                /* initially had overlap left and right, orbslam overlaps only to the right, adjusted so results are comparable
+                 *
+                int startY = minimumY + py * patchHeight - 3;
+                int endY = startY + patchHeight + 3;
+
+                if (startY < minimumY)
+                    startY = minimumY;
+                */
+
+                int startY = minimumY + py * patchHeight;
+                int endY = startY + patchHeight + 6;
+
+                if (startY >= maximumY)
+                    continue;
+
+                if (endY > maximumY)
+                    endY = maximumY;
+
+                for (int px = 0; px < npatchesInY; ++px)
+                {
+
+                    /*
+                    int startX = minimumX + px * patchWidth - 3;
+                    int endX = startX + patchWidth + 3;
+
+                    if (startX < minimumX)
+                        startX = minimumX;
+                    */
+
+                    int startX = minimumX + px * patchWidth;
+                    int endX = startX + patchWidth + 6;
+
+                    if (startX >= maximumX)
+                        continue;
+
+                    if (endX > maximumX)
+                        endX = maximumX;
+
+                    cv::Range colSelect(startX, endX);
+                    cv::Range rowSelect(startY, endY);
+                    cv::Mat patch = imagePyramid[lvl](rowSelect, colSelect);
+                    std::vector<cv::KeyPoint> patchKpts;
+
+                    this->FAST(patch, patchKpts, iniThFAST, lvl);
+
+                    if (patchKpts.empty())
+                        this->FAST(patch, patchKpts, minThFAST, lvl);
+
+                    if(patchKpts.empty())
+                        continue;
+
+                    for (auto &kpt : patchKpts)
+                    {
+                        kpt.pt.y += py * patchHeight;
+                        kpt.pt.x += px * patchWidth;
+                        levelKpts.emplace_back(kpt);
+                    }
+                }
+            }
+
+            allKeypoints[lvl].reserve(nfeatures);
+
+
+            allKeypoints[lvl] = DistributeKeypoints(levelKpts, minimumX, maximumX, minimumY, maximumY, lvl);
+
+
+
+            for (auto &kpt : allKeypoints[lvl])
+            {
+                kpt.pt.y += minimumY;
+                kpt.pt.x += minimumX;
+                //kpt.angle = IntensityCentroidAngle(&imagePyramid[lvl].at<uchar>(
+                //        cvRound(kpt.pt.x), cvRound(kpt.pt.y)), imagePyramid[lvl].step1());
+            }
         }
-        allKeypoints[lvl] = levelKpts;
     }
 }
 
 
-float ORBextractor::IntensityCentroidAngle(const uchar* pointer, int step)
+std::vector<cv::KeyPoint> ORBextractor::DistributeKeypoints(const std::vector<cv::KeyPoint>& kpts, const int &minX,
+                                                            const int &maxX, const int &minY, const int &maxY, const int &lvl)
 {
-    //m10 ~ x^1y^0, m01 ~ x^0y^1
-    int x, y, m01 = 0, m10 = 0;
-
-    int half_patch = PATCH_SIZE / 2;
-
-    for (x = -half_patch; x <= half_patch; ++x)
-    {
-        m10 += x * pointer[x];
-    }
-
-    for (y = 1; y <= half_patch; ++y)
-    {
-        int cols = CIRCULAR_ROWS[y];
-        int sumY = 0;
-        for (x = -cols; x <= cols; ++x)
-        {
-            int uptown = pointer[x + y*step];
-            int downtown = pointer[x - y*step];
-            sumY += uptown - downtown;
-            m10 += x * (uptown + downtown);
-        }
-        m01 += y * sumY;
-    }
-
-    return cv::fastAtan2((float)m01, (float)m10);
+    //TODO: distribute kpts over img via quad tree
 }
+
 
 
 void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int level)
 {
     keypoints.clear();
+
+    int offset[CIRCLE_SIZE];
+    for (int i = 0; i < CIRCLE_SIZE; ++i)
+    {
+        offset[i] = pixelOffset[level*CIRCLE_SIZE + i];
+    }
 
     if (!(threshold == minThFAST || threshold == iniThFAST))
         //only initial or min threshold should be passed
@@ -621,8 +743,8 @@ void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int 
         threshold_tab = threshold_tab_min;
 
 
-    auto *cornerScores = new uchar[img.cols*3];
-    auto *cornerPos = new int[img.cols*3];
+    uchar cornerScores[img.cols*3];
+    int cornerPos[img.cols*3];
 
     memset(cornerScores, 0, img.cols*3);
     memset(cornerPos, 0, img.cols*3);
@@ -666,8 +788,8 @@ void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int 
             const uchar *tab = &threshold_tab[255] - val;       //shift threshold tab by val
 
 
-            int discard = tab[pointer[pixelOffset[PIXELS_TO_CHECK[0]]]]
-                          | tab[pointer[pixelOffset[PIXELS_TO_CHECK[1]]]];
+            int discard = tab[pointer[offset[PIXELS_TO_CHECK[0]]]]
+                          | tab[pointer[offset[PIXELS_TO_CHECK[1]]]];
 
             if (discard == 0)
                 continue;
@@ -675,8 +797,8 @@ void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int 
             bool gotoNextCol = false;
             for (k = 2; k < 16; k+=2)
             {
-                discard &= tab[pointer[pixelOffset[PIXELS_TO_CHECK[k]]]]
-                           | tab[pointer[pixelOffset[PIXELS_TO_CHECK[k+1]]]];
+                discard &= tab[pointer[offset[PIXELS_TO_CHECK[k]]]]
+                           | tab[pointer[offset[PIXELS_TO_CHECK[k+1]]]];
                 if (k == 6 && discard == 0)
                 {
                     gotoNextCol = true;
@@ -700,7 +822,7 @@ void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int 
 
                 for (k = 0; k < onePointFiveCircles; ++k)
                 {
-                    int a = pointer[pixelOffset[k%CIRCLE_SIZE]];
+                    int a = pointer[offset[k%CIRCLE_SIZE]];
                     if (a < compare)
                     {
                         ++contPixels;
@@ -708,7 +830,7 @@ void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int 
                         {
                             currRowPos[ncandidates++] = j;
 
-                            currRowScores[j] = CornerScore(pointer, threshold);
+                            currRowScores[j] = CornerScore(pointer, offset, threshold);
                             break;
                         }
                     } else
@@ -723,7 +845,7 @@ void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int 
 
                 for (k = 0; k < onePointFiveCircles; ++k)
                 {
-                    int a = pointer[pixelOffset[k%CIRCLE_SIZE]];
+                    int a = pointer[offset[k%CIRCLE_SIZE]];
                     if (a > compare)
                     {
                         ++contPixels;
@@ -731,7 +853,7 @@ void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int 
                         {
                             currRowPos[ncandidates++] = j;
 
-                            currRowScores[j] = CornerScore(pointer, threshold);
+                            currRowScores[j] = CornerScore(pointer, offset, threshold);
                             break;
                         }
                     } else
@@ -760,14 +882,14 @@ void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int 
 }
 
 
-int ORBextractor::CornerScore(const uchar* pointer, int threshold)
+int ORBextractor::CornerScore(const uchar* pointer, const int offset[], int threshold)
 {
     int val = pointer[0];
     int i;
     int diff[onePointFiveCircles];
     for (i = 0; i < onePointFiveCircles; ++i)
     {
-        diff[i] = (val - pointer[pixelOffset[i%CIRCLE_SIZE]]);
+        diff[i] = (val - pointer[offset[i%CIRCLE_SIZE]]);
     }
 
     int a0 = threshold;
@@ -810,18 +932,22 @@ void ORBextractor::ComputeScalePyramid(cv::Mat &image)
 {
     for (int lvl = 0; lvl < nlevels; ++ lvl)
     {
-        int width = (int)std::round(image.cols * invScaleFactorVec[lvl]); // 1.f / getScale(lvl));
-        int height = (int)std::round(image.rows * invScaleFactorVec[lvl]); // 1.f / getScale(lvl));
+        int width = (int)cvRound(image.cols * invScaleFactorVec[lvl]); // 1.f / getScale(lvl));
+        int height = (int)cvRound(image.rows * invScaleFactorVec[lvl]); // 1.f / getScale(lvl));
         int doubleEdge = EDGE_THRESHOLD * 2;
         int borderedWidth = width + doubleEdge;
         int borderedHeight = height + doubleEdge;
+
+        //Size sz(width, height);
+        //Size borderedSize(borderedWidth, borderedHeight);
 
         cv::Mat borderedImg(borderedHeight, borderedWidth, image.type());
         cv::Range rowRange(EDGE_THRESHOLD, height + EDGE_THRESHOLD);
         cv::Range colRange(EDGE_THRESHOLD, width + EDGE_THRESHOLD);
 
-        imagePyramid[lvl] = borderedImg(rowRange, colRange);
         //imagePyramid[lvl] = borderedImg(cv::Rect(EDGE_THRESHOLD, EDGE_THRESHOLD, width, height));
+        imagePyramid[lvl] = borderedImg(rowRange, colRange);
+
 
         if (lvl)
         {
@@ -835,23 +961,15 @@ void ORBextractor::ComputeScalePyramid(cv::Mat &image)
             cv::copyMakeBorder(image, borderedImg, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
                                cv::BORDER_REFLECT_101);
         }
-        /*
-        //debug
-        D(
-                cv::namedWindow("test", cv::WINDOW_AUTOSIZE);
-                cv::imshow("test", imagePyramid[lvl]);
-                //cv::imshow("test", borderedImg);
-                cv::waitKey(0);
-                )
-        */
     }
 }
 
-
+/*
 float ORBextractor::getScale(int lvl)
 {
     return std::pow(scaleFactor, (double)lvl);
 }
+*/
 
 //debug
 D(
@@ -861,151 +979,27 @@ D(
             if (inputImage.empty())
                 return;
             cv::Mat image = inputImage.getMat();
+            assert(image.type() == CV_8UC1);
 
             ComputeScalePyramid(image);
 
-            for (int i = 0; i < CIRCLE_SIZE; ++i)
+
+            for (int lvl = 0; lvl < nlevels; ++lvl)
             {
-                pixelOffset[i] = CIRCLE_OFFSETS[i][0] + CIRCLE_OFFSETS[i][1] * image.step;
+                int step = (int)imagePyramid[lvl].step1();
+                for (int i = 0; i < CIRCLE_SIZE; ++i)
+                {
+                    pixelOffset[lvl*CIRCLE_SIZE + i] = CIRCLE_OFFSETS[i][0] + CIRCLE_OFFSETS[i][1] * step;
+                    //pixelOffset[lvl][i] = CIRCLE_OFFSETS[i][0] + CIRCLE_OFFSETS[i][1] * image.step;
+                    //std::cout << "imgstep[" << lvl << "]=" << step << "\n";
+                }
             }
+
 
             resKeypoints.clear();
             resKeypoints.reserve(nfeatures);
 
-
             std::vector<std::vector<cv::KeyPoint>> allMyKeypoints;
-            std::vector<std::vector<cv::KeyPoint>> allOpencvKeypoints;
-
-            allMyKeypoints.clear();
-            allMyKeypoints.reserve(nfeatures * 100);
-
-            /*
-
-            std::vector<cv::KeyPoint> mykpts;
-            mykpts.reserve(nfeatures*10);
-
-            std::vector<cv::KeyPoint> opencvkpts;
-            opencvkpts.reserve(nfeatures*10);
-
-
-            this->FAST(image, mykpts, iniThFAST, 0);
-            cv::FAST(image, opencvkpts, iniThFAST, true);
-
-            int start = 2000;
-            int end = 2010;
-
-            std::cout << "\nmykpts (from " << start << " to " << end << "):\n";
-            PrintKeypoints(mykpts, start, end);
-            std::cout << "\nopencvkpts (from " << start << " to " << end << "):\n";
-            PrintKeypoints(opencvkpts, start, end);
-
-            std::cout << "\nNum of Keys in mykpts: " << mykpts.size() << std::endl;
-
-            std::cout << "\nNum of Keys in opencvkpts: " << opencvkpts.size() << std::endl;
-
-            CompareKeypointVectors(mykpts, opencvkpts);
-             */
-
-            /*
-            for (int lv = 0; lv < nlevels; ++lv)
-            {
-                this->FAST(imagePyramid[lv], allMyKeypoints[lv], iniThFAST, lv);
-            }
-             */
-
-            int minX = EDGE_THRESHOLD - 3;
-            int minY = minX;
-            int maxX = imagePyramid[0].cols - EDGE_THRESHOLD + 3;
-            int maxY = imagePyramid[0].rows - EDGE_THRESHOLD + 3;
-            cv::Range colRange(minX, maxX);
-            cv::Range rowRange(minY, maxY);
-
-            cv::Mat tem = imagePyramid[0](rowRange, colRange);
-
-            this->FAST(tem, allMyKeypoints[0], iniThFAST, 0);
-
-            for (auto &kpt : allMyKeypoints[0])
-            {
-                kpt.pt.x += 16;
-                kpt.pt.y += 16;
-            }
-
-
-
-            ComputeAngles(allMyKeypoints);
-
-
-            std::cout << "\nDESCRIPTORS:\n";
-
-
-
-            cv::Mat myDescriptors;
-
-
-            int nkpts = 0;
-            for (int lvl = 0; lvl < nlevels; ++lvl)
-            {
-                nkpts += (int)allMyKeypoints[lvl].size();
-            }
-            if (nkpts <= 0)
-            {
-                outputDescriptors.release();
-            } else
-            {
-                outputDescriptors.create(nkpts, 32, CV_8U);
-                myDescriptors = outputDescriptors.getMat();
-            }
-            std::cout << "\nnkpts = " << nkpts << "\n";
-
-
-            resKeypoints.clear();
-            resKeypoints.reserve(nkpts);
-
-            ComputeDescriptors(allMyKeypoints, myDescriptors);
-
-            std::cout << "\ndesc empty?:" << myDescriptors.empty() << "\n";
-
-            int start = 0;
-            int end = 32;
-            auto descPointer = myDescriptors.ptr<uchar>((int)0);
-            for (int i = start; i < end; ++i)
-            {
-                std::cout << "myDescriptors[" << i << "] = " << (int)descPointer[i] << "\n";
-            }
-
-
-
-
-
-
-
-            //std::cout << "\nidx 0 of comparison desc: " << compDescriptors.at<int>(0) << std::endl;
-
-
-            //vector<Mat> &imagePyramid, vector < vector<KeyPoint> > &allKeypoints, vector<KeyPoint>& _keypoints,
-            //                               OutputArray _descriptors, const std::vector<Point>& pattern
-
-            //nicht gefundene keys in meiner implementation (erstes bild von tum_xyz): (119,476) und (246,476)
-
-            /*
-            if (myImplementation)
-            {
-                this->FAST(image, mykpts, iniThFAST, 0);
-                resKeypoints = mykpts;
-            }
-
-            else
-            {
-                cv::FAST(image, opencvkpts, iniThFAST, true);
-                resKeypoints = opencvkpts;
-            }
-             */
-
-
-
-            //PrintKeyPoints(mykpts);
-
-            //resKeypoints = mykpts;
 
         }
 
@@ -1046,6 +1040,22 @@ D(
             for (int i = start; i < end; ++i)
             {
                 std::cout << "kpt[" << i << "]: (" << kpts[i].pt.x << "," << kpts[i].pt.y << ")\n";
+            }
+        }
+
+        void ORBextractor::PrintKeypoints(std::vector<cv::KeyPoint> &kpts, int start, int end, bool printResponse)
+        {
+            if (end <= start)
+                return;
+            std::cout << "\nKeypoints from " << start << " to " <<  end-1 << ":\n";
+            for (int i = start; i < end; ++i)
+            {
+                std::cout << "kpt[" << i << "]: (" << kpts[i].pt.x << "," << kpts[i].pt.y << ")";
+                if (printResponse)
+                {
+                    std::cout << ", with cornerscore of " << kpts[i].response;
+                }
+                std::cout << "\n";
             }
         }
 

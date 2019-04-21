@@ -56,20 +56,22 @@ int main(int argc, char **argv)
     int drawAngular = settingsFile["drawAngular"];
 
 
-    auto extractor = new ORB_SLAM2::ORBextractor(nFeatures, scaleFactor, nLevels,
-        FASTThresholdInit, FASTThresholdMin);
+    ORB_SLAM2::ORBextractor extractor (nFeatures, scaleFactor, nLevels,
+                                       FASTThresholdInit, FASTThresholdMin);
 
     std::vector<cv::KeyPoint> keypoints;
     cv::Mat descriptors;
 
-    cv::Mat imgcopy;
-    image.copyTo(imgcopy);
+    cv::Mat imgColor;
+    image.copyTo(imgColor);
+
+    cv::cvtColor(imgColor, image, CV_BGR2GRAY);
 
 
     //(*extractor)(image, cv::Mat(), keypoints, descriptors);
 
-    extractor->Tests(image, true, keypoints, descriptors);
-    DisplayKeypoints(image, keypoints, color, thickness, radius, drawAngular);
+    extractor(image, cv::Mat(), keypoints, descriptors);
+    DisplayKeypoints(imgColor, keypoints, color, thickness, radius, drawAngular);
 
     //keypoints.clear();
     //DisplayKeypoints(imgcopy, keypoints, color, thickness, radius, drawAngular);
@@ -82,12 +84,14 @@ int main(int argc, char **argv)
 
     //D(measureExecutionTime(10, *extractor, image);)
 
+
+
     return 0;
 }
 
 
 void DisplayKeypoints(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, cv::Scalar &color,
-        int thickness, int radius, int drawAngular)
+                      int thickness, int radius, int drawAngular)
 {
     cv::namedWindow("test", cv::WINDOW_AUTOSIZE);
     cv::imshow("test", image);
@@ -117,7 +121,7 @@ void DisplayKeypoints(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, cv::
 }
 D(
 
-void measureExecutionTime(int numIterations, ORB_SLAM2::ORBextractor &extractor, cv::Mat &image)
+        void measureExecutionTime(int numIterations, ORB_SLAM2::ORBextractor &extractor, cv::Mat &image)
 {
         using namespace std::chrono;
 
@@ -144,18 +148,18 @@ void measureExecutionTime(int numIterations, ORB_SLAM2::ORBextractor &extractor,
         std::cout << "\nExecution time of " << numIterations << " iterations with my impl: " << myDuration << "ms.\n";
 }
 
-void AddRandomKeypoints(std::vector<cv::KeyPoint> &keypoints)
+        void AddRandomKeypoints(std::vector<cv::KeyPoint> &keypoints)
 {
-    int nKeypoints = 150;
-    keypoints.clear();
-    keypoints.reserve(nKeypoints);
+        int nKeypoints = 150;
+        keypoints.clear();
+        keypoints.reserve(nKeypoints);
 
-    for (int i =0; i < nKeypoints; ++i)
-    {
+        for (int i =0; i < nKeypoints; ++i)
+{
         auto x = static_cast<float>(20 + (rand() % static_cast<int>(620 - 20 + 1)));
         auto y = static_cast<float>(20 + (rand() % static_cast<int>(460 - 20 + 1)));
         auto angle = static_cast<float>(0 + (rand() % static_cast<int>(359 - 0 + 1)));
         keypoints.emplace_back(cv::KeyPoint(x, y, 7.f, angle, 0));
-    }
+}
 )
 }
