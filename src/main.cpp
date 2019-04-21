@@ -70,7 +70,7 @@ int main(int argc, char **argv)
 
     //(*extractor)(image, cv::Mat(), keypoints, descriptors);
 
-    extractor.Tests(image, true, keypoints, descriptors);
+    extractor(image, cv::Mat(), keypoints, descriptors);
     DisplayKeypoints(imgColor, keypoints, color, thickness, radius, drawAngular);
 
     //keypoints.clear();
