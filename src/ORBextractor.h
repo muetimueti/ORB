@@ -83,13 +83,14 @@ protected:
     static bool ResponseComparison(const cv::KeyPoint &k1, const cv::KeyPoint &k2);
 
     void ComputeScalePyramid(cv::Mat &image);
+
     void DivideAndFAST(std::vector<std::vector<cv::KeyPoint> >& allKeypoints, bool distribute = true);
     std::vector<cv::KeyPoint> DistributeKeypoints(const std::vector<cv::KeyPoint>& kpts, const int &minX,
                                                 const int &maxX, const int &minY, const int &maxY, const int &level);
 
     void FAST(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
 
-    int CornerScore(const uchar *pointer, int offset[], int threshold);
+    int CornerScore(const uchar *pointer, const int offset[], int threshold);
 
     void ComputeAngles(std::vector<std::vector<cv::KeyPoint>> &allkpts);
 
@@ -103,7 +104,8 @@ protected:
 
     uchar threshold_tab_min[512];
     uchar threshold_tab_init[512];
-    std::vector<int> pixelOffset;
+
+
     int continuousPixelsRequired;
     int onePointFiveCircles;
 
@@ -114,6 +116,8 @@ protected:
     int minThFAST;
 
 
+    std::vector<int> pixelOffset;
+    //std::vector<int> stepVec;
 
     std::vector<int> nfeaturesPerLevelVec;
 

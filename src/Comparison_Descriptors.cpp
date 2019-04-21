@@ -8,6 +8,7 @@ using namespace cv;
 using namespace std;
 
 
+static bool firstInLvl;
 
 const float factorPI = (float)(CV_PI/180.f);
 static void computeOrbDescriptor(const KeyPoint& kpt,
@@ -21,7 +22,9 @@ static void computeOrbDescriptor(const KeyPoint& kpt,
     const int step = (int)img.step;
 
     //std::cout << "refkpt=" << kpt.pt << ", angle=" << angle << ", a=" << a << ", b=" << b << "\n";
-    //std::cout << "refstep=" << step << "\n";
+    //std::cout << "\nrefstep = " << step << "\n";
+
+
 
     //std::cout << "ref candidate I: " << (int)center[0] << "\n";
 
@@ -108,7 +111,7 @@ static void computeDescriptors(const Mat& image, vector<KeyPoint>& keypoints, Ma
 {
     descriptors = Mat::zeros((int)keypoints.size(), 32, CV_8UC1);
 
-    for (size_t i = 0; i < keypoints.size(); i++)
+    for (size_t i = 0; i < keypoints.size(); i++)  //TODO: revert to "size_t i = 0; i < keypoints.size(); i++"
         computeOrbDescriptor(keypoints[i], image, &pattern[0], descriptors.ptr((int)i));
 }
 
@@ -118,10 +121,10 @@ void Comparison_Descriptors::Compute(vector<Mat> &imagePyramid, vector < vector<
 {
     Mat descriptors;
 
-    int nlevels = 8;
+    int nlevels = 8;  //TODO: revert to 8
 
     int nkeypoints = 0;
-    for (int level = 1; level < 2; ++level)   //TODO: revert to "for (int level = 0; level < nlevels; ++level)"
+    for (int level = 0; level < nlevels; ++level)          //TODO: revert
         nkeypoints += (int)allKeypoints[level].size();
     if( nkeypoints == 0 )
         _descriptors.release();
@@ -134,7 +137,7 @@ void Comparison_Descriptors::Compute(vector<Mat> &imagePyramid, vector < vector<
 
 
     int offset = 0;
-    for (int level = 1; level < 2; ++level)  //TODO: revert to "for (int level = 0; level < nlevels; ++level)"
+    for (int level = 0; level < nlevels; ++level)  //TODO: revert to level = 0; level < nlevels
     {
         vector<KeyPoint>& keypoints = allKeypoints[level];
         int nkeypointsLevel = (int)keypoints.size();
@@ -148,7 +151,7 @@ void Comparison_Descriptors::Compute(vector<Mat> &imagePyramid, vector < vector<
 
         //std::cout << "working mat step: " << (int)workingMat.step << "\n";
 
-
+        firstInLvl = true;
         // Compute the descriptors
         Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);
         computeDescriptors(workingMat, keypoints, desc, pattern);

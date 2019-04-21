@@ -56,20 +56,22 @@ int main(int argc, char **argv)
     int drawAngular = settingsFile["drawAngular"];
 
 
-    auto extractor = new ORB_SLAM2::ORBextractor(nFeatures, scaleFactor, nLevels,
+    ORB_SLAM2::ORBextractor extractor (nFeatures, scaleFactor, nLevels,
         FASTThresholdInit, FASTThresholdMin);
 
     std::vector<cv::KeyPoint> keypoints;
     cv::Mat descriptors;
 
-    cv::Mat imgcopy;
-    image.copyTo(imgcopy);
+    cv::Mat imgColor;
+    image.copyTo(imgColor);
+
+    cv::cvtColor(imgColor, image, CV_BGR2GRAY);
 
 
     //(*extractor)(image, cv::Mat(), keypoints, descriptors);
 
-    extractor->Tests(image, true, keypoints, descriptors);
-    DisplayKeypoints(image, keypoints, color, thickness, radius, drawAngular);
+    extractor.Tests(image, true, keypoints, descriptors);
+    DisplayKeypoints(imgColor, keypoints, color, thickness, radius, drawAngular);
 
     //keypoints.clear();
     //DisplayKeypoints(imgcopy, keypoints, color, thickness, radius, drawAngular);
@@ -81,6 +83,8 @@ int main(int argc, char **argv)
 
 
     //D(measureExecutionTime(10, *extractor, image);)
+
+
 
     return 0;
 }
