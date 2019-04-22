@@ -67,10 +67,13 @@ int main(int argc, char **argv)
 
     cv::cvtColor(imgColor, image, CV_BGR2GRAY);
 
-
+    //TODO: remove junk
     //(*extractor)(image, cv::Mat(), keypoints, descriptors);
 
-    extractor(image, cv::Mat(), keypoints, descriptors);
+    //extractor(image, cv::Mat(), keypoints, descriptors);
+
+    extractor.Tests(image, true, keypoints, descriptors);
+
     DisplayKeypoints(imgColor, keypoints, color, thickness, radius, drawAngular);
 
     //keypoints.clear();
@@ -82,7 +85,7 @@ int main(int argc, char **argv)
     //DisplayKeypoints(imgcopy, keypoints, color, thickness, radius, drawAngular);
 
 
-    //D(measureExecutionTime(10, *extractor, image);)
+    //D(measureExecutionTime(10, extractor, image);)
 
 
 
@@ -119,47 +122,49 @@ void DisplayKeypoints(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, cv::
     cv::imshow("test", image);
     cv::waitKey(0);
 }
+
+//TODO: remove from master
 D(
-
-        void measureExecutionTime(int numIterations, ORB_SLAM2::ORBextractor &extractor, cv::Mat &image)
+void measureExecutionTime(int numIterations, ORB_SLAM2::ORBextractor &extractor, cv::Mat &image)
 {
-        using namespace std::chrono;
+    using namespace std::chrono;
 
-        std::vector<cv::KeyPoint> kpts;
-        cv::Mat desc;
-        high_resolution_clock::time_point cvStart = high_resolution_clock::now();
-        for (int i = 0; i < numIterations; ++i)
-{
+    std::vector<cv::KeyPoint> kpts;
+    cv::Mat desc;
+    high_resolution_clock::time_point cvStart = high_resolution_clock::now();
+    for (int i = 0; i < numIterations; ++i)
+    {
         extractor.Tests(image, false, kpts, desc);
-}
-        high_resolution_clock::time_point cvEnd = high_resolution_clock::now();
+    }
+    high_resolution_clock::time_point cvEnd = high_resolution_clock::now();
 
-        high_resolution_clock::time_point myStart = high_resolution_clock::now();
-        for (int i = 0; i < numIterations; ++i)
-{
+    high_resolution_clock::time_point myStart = high_resolution_clock::now();
+    for (int i = 0; i < numIterations; ++i)
+    {
         extractor.Tests(image, true, kpts, desc);
+    }
+    high_resolution_clock::time_point myEnd = high_resolution_clock::now();
+
+    auto cvDuration = duration_cast<microseconds>(cvEnd - cvStart).count();
+    auto myDuration = duration_cast<microseconds>(myEnd - myStart).count();
+
+    std::cout << "\nExecution time of " << numIterations << " iterations with openCV: " << cvDuration << "ms.\n";
+    std::cout << "\nExecution time of " << numIterations << " iterations with my impl: " << myDuration << "ms.\n";
 }
-        high_resolution_clock::time_point myEnd = high_resolution_clock::now();
 
-        auto cvDuration = duration_cast<microseconds>(cvEnd - cvStart).count();
-        auto myDuration = duration_cast<microseconds>(myEnd - myStart).count();
 
-        std::cout << "\nExecution time of " << numIterations << " iterations with openCV: " << cvDuration << "ms.\n";
-        std::cout << "\nExecution time of " << numIterations << " iterations with my impl: " << myDuration << "ms.\n";
-}
-
-        void AddRandomKeypoints(std::vector<cv::KeyPoint> &keypoints)
+void AddRandomKeypoints(std::vector<cv::KeyPoint> &keypoints)
 {
-        int nKeypoints = 150;
-        keypoints.clear();
-        keypoints.reserve(nKeypoints);
+    int nKeypoints = 150;
+    keypoints.clear();
+    keypoints.reserve(nKeypoints);
 
-        for (int i =0; i < nKeypoints; ++i)
-{
+    for (int i =0; i < nKeypoints; ++i)
+    {
         auto x = static_cast<float>(20 + (rand() % static_cast<int>(620 - 20 + 1)));
         auto y = static_cast<float>(20 + (rand() % static_cast<int>(460 - 20 + 1)));
         auto angle = static_cast<float>(0 + (rand() % static_cast<int>(359 - 0 + 1)));
         keypoints.emplace_back(cv::KeyPoint(x, y, 7.f, angle, 0));
-}
+    }
 )
 }
