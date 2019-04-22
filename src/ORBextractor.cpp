@@ -392,14 +392,6 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
                 threshold_tab_min[i] = (uchar)0;
         }
     }
-    /*
-    for (i = -255; i <= 255; ++i)
-    {
-        threshold_tab_init[i+255] = (uchar)(i < -iniThFAST ? 1 : i > iniThFAST ? 2 : 0);
-        threshold_tab_min[i+255] = (uchar)(i < -minThFAST ? 1 : i > minThFAST ? 2 : 0);
-    }
-     */
-
 
     scaleFactorVec[0] = 1.f;
     invScaleFactorVec[0] = 1.f;
@@ -713,6 +705,9 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeyp
 void ORBextractor::DistributeKeypoints(std::vector<cv::KeyPoint>& kpts, const int &minX,
                                                             const int &maxX, const int &minY, const int &maxY, const int &lvl)
 {
+    if (kpts.empty())
+        return;
+
     const int nroots = cvRound((maxX-minX)/(maxY-minY));
 
     int N = nfeaturesPerLevelVec[lvl];
@@ -745,21 +740,7 @@ void ORBextractor::DistributeKeypoints(std::vector<cv::KeyPoint>& kpts, const in
         rootVec[(int)(kpt.pt.x / nodeWidth)]->nodeKpts.emplace_back(kpt);
     }
 
-    /*
-    //debug TODO:remove
-    std::cout << "\nnodes:\n";
-    for (int i = 0; i < nroots; ++i)
-    {
-        std::cout << "kpts in node " << i << ", with boundaries (" << rootVec[i].UL << ", " << rootVec[i].UR <<
-            ", " << rootVec[i].LL << ", " << rootVec[i].LR << "):\n";
-        for (auto &kpt : rootVec[i].nodeKpts)
-        {
-            std::cout << "kpt " << kpt.pt << "\n";
-        }
-    }
-    */
-
-    auto current = nodesList.begin();
+    std::list<ExtractorNode>::iterator current;
 
     bool omegadoom = false;
     int lastSize = 0;
@@ -785,25 +766,25 @@ void ORBextractor::DistributeKeypoints(std::vector<cv::KeyPoint>& kpts, const in
             current->DivideNode(n1, n2, n3, n4);
             if (!n1.nodeKpts.empty())
             {
-                nodesList.push_front(n1);
+                nodesList.push_back(n1);
                 if (n1.nodeKpts.size() == 1)
                     n1.leaf = true;
             }
             if (!n2.nodeKpts.empty())
             {
-                nodesList.push_front(n2);
+                nodesList.push_back(n2);
                 if (n2.nodeKpts.size() == 1)
                     n2.leaf = true;
             }
             if (!n3.nodeKpts.empty())
             {
-                nodesList.push_front(n3);
+                nodesList.push_back(n3);
                 if (n3.nodeKpts.size() == 1)
                     n3.leaf = true;
             }
             if (!n4.nodeKpts.empty())
             {
-                nodesList.push_front(n4);
+                nodesList.push_back(n4);
                 if (n4.nodeKpts.size() == 1)
                     n4.leaf = true;
             }
@@ -826,11 +807,19 @@ void ORBextractor::DistributeKeypoints(std::vector<cv::KeyPoint>& kpts, const in
 
     std::vector<cv::KeyPoint> resKpts;
     resKpts.reserve(N);
+    auto iter = nodesList.begin();
+    for (int i = 0; i < N; ++i, ++iter)
+    {
+        RetainBestN(iter->nodeKpts, 1);
+        resKpts.emplace_back(iter->nodeKpts[0]);
+    }
+    /*
     for (auto &node : nodesList)
     {
         RetainBestN(node.nodeKpts, 1);
         resKpts.emplace_back(node.nodeKpts[0]);
     }
+     */
     kpts = resKpts;
     //TODO: refine implementation?
 }
@@ -876,7 +865,7 @@ void ExtractorNode::DivideNode(ORB_SLAM2::ExtractorNode &n1, ORB_SLAM2::Extracto
 
 
 
-//TODO: move to separate file
+//move to separate file?
 void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int level)
 {
     keypoints.clear();
