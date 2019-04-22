@@ -451,7 +451,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
 
 
     std::vector<std::vector<cv::KeyPoint>> allKpts;
-    DivideAndFAST(allKpts, false, false);
+    DivideAndFAST(allKpts, true, true);
 
     ComputeAngles(allKpts);
 
@@ -477,15 +477,15 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
 
     for (int lvl = 1; lvl < nlevels; ++lvl)
     {
-
+        float size = PATCH_SIZE * scaleFactorVec[lvl];
         float scale = scaleFactorVec[lvl];
         for (auto &kpt : allKpts[lvl])
         {
             kpt.pt *= scale;
+            kpt.size = size;
 
         }
     }
-    //TODO: scale kpts size
 
     for (int lvl = 0; lvl < nlevels; ++lvl)
     {

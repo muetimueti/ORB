@@ -63,9 +63,9 @@ Viewer.ViewpointF: 50
 #-----------------------------------------------
 Line.thickness: 1
 
-Color.b: 124
-Color.g: 124
-Color.r: 0
+Color.b: 0
+Color.g: 200
+Color.r: 60
 
 Circle.radius: 6
 

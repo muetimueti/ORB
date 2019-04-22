@@ -70,9 +70,9 @@ int main(int argc, char **argv)
     //TODO: remove junk
     //(*extractor)(image, cv::Mat(), keypoints, descriptors);
 
-    //extractor(image, cv::Mat(), keypoints, descriptors);
+    extractor(image, cv::Mat(), keypoints, descriptors);
 
-    extractor.Tests(image, true, keypoints, descriptors);
+    //extractor.Tests(image, true, keypoints, descriptors);
 
     DisplayKeypoints(imgColor, keypoints, color, thickness, radius, drawAngular);
 
@@ -96,8 +96,8 @@ int main(int argc, char **argv)
 void DisplayKeypoints(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, cv::Scalar &color,
                       int thickness, int radius, int drawAngular)
 {
-    cv::namedWindow("test", cv::WINDOW_AUTOSIZE);
-    cv::imshow("test", image);
+    cv::namedWindow("Keypoints", cv::WINDOW_AUTOSIZE);
+    cv::imshow("Keypoints", image);
     cv::waitKey(0);
 
     for (const cv::KeyPoint &k : keypoints)
@@ -119,7 +119,7 @@ void DisplayKeypoints(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, cv::
             cv::line(image, point, target, color, thickness, CV_AA);
         }
     }
-    cv::imshow("test", image);
+    cv::imshow("Keypoints", image);
     cv::waitKey(0);
 }
 
