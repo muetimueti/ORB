@@ -1,4 +1,5 @@
 #include "include/ORBextractor.h"
+#include "include/FAST.h"
 #include <string>
 #include <iostream>
 #include <iterator>
@@ -328,6 +329,9 @@ bool ORBextractor::ResponseComparison(const cv::KeyPoint &k1, const cv::KeyPoint
 }
 void ORBextractor::RetainBestN(std::vector<cv::KeyPoint> &kpts, int N)
 {
+    if (N >= kpts.size())
+        return;
+
     std::sort(kpts.begin(), kpts.end(), ResponseComparison);
     kpts.resize(N);
 
@@ -359,6 +363,7 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
     nfeaturesPerLevelVec.resize(nlevels);
     pixelOffset.resize(nlevels * CIRCLE_SIZE);
 
+    //TODO: superfluous once FAST is separated
     continuousPixelsRequired = CIRCLE_SIZE / 2;
     onePointFiveCircles = CIRCLE_SIZE + continuousPixelsRequired + 1;
 
@@ -667,7 +672,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeyp
                     cv::Mat patch = imagePyramid[lvl](rowSelect, colSelect);
                     std::vector<cv::KeyPoint> patchKpts;
 
-                    this->FAST(patch, patchKpts, iniThFAST, lvl);
+                    fast(patch, patchKpts, iniThFAST, lvl);
 
                     if (patchKpts.empty())
                         this->FAST(patch, patchKpts, minThFAST, lvl);
@@ -875,7 +880,7 @@ void ExtractorNode::DivideNode(ORB_SLAM2::ExtractorNode &n1, ORB_SLAM2::Extracto
 
 
 
-
+/*
 //TODO: move to separate file
 void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int level)
 {
@@ -1081,7 +1086,7 @@ int ORBextractor::CornerScore(const uchar* pointer, const int offset[], int thre
 
     return -b0 - 1;
 }
-
+*/
 
 void ORBextractor::ComputeScalePyramid(cv::Mat &image)
 {
@@ -1159,6 +1164,11 @@ D(
 
             //first bool: distribute, 2nd bool: divide
             DivideAndFAST(allMyKeypoints, true, false, 20);
+
+            FAST fast (iniThFAST, minThFAST);
+            fast(image, allMyKeypoints[0], pixelOffset, iniThFAST, 0);
+
+
 
             //DistributeKeypoints(allMyKeypoints[0], 0, 1000, 0, 440, 0);
 

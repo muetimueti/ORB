@@ -86,9 +86,9 @@ protected:
     void DistributeKeypoints(std::vector<cv::KeyPoint>& kpts, const int &minX,
                                                   const int &maxX, const int &minY, const int &maxY, const int &level);
 
-    void FAST(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
+    //void FAST(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
 
-    int CornerScore(const uchar *pointer, const int offset[], int threshold);
+    //int CornerScore(const uchar *pointer, const int offset[], int threshold);
 
     void ComputeAngles(std::vector<std::vector<cv::KeyPoint>> &allkpts);
 
@@ -97,7 +97,7 @@ protected:
 
     std::vector<cv::Point> pattern;
 
-    inline float getScale(int lvl);
+    //inline float getScale(int lvl);
 
 
     uchar threshold_tab_min[512];
