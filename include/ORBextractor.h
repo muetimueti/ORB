@@ -67,18 +67,29 @@ public:
 
     std::vector<cv::Mat> imagePyramid;
 
-    //TODO: remove from master
+    //TODO: remove from master--------------------------------------------------------------------------
 
-    void testingFAST();
+    void testingFAST(cv::Mat &img, std::vector<cv::KeyPoint> &kpts, bool myFAST, bool printTime);
 
     void testingDescriptors(cv::Mat myDescriptors, cv::Mat compDescriptors, int nkpts, bool printdif,
                             int start, int end);
 
-    void Tests(cv::InputArray inputImage, bool myImplementation,
-                       std::vector<cv::KeyPoint> &resKeypoints, cv::OutputArray inputDescriptors);
+    void Tests(cv::InputArray inputImage, std::vector<cv::KeyPoint> &resKeypoints,
+               cv::OutputArray outputDescriptors, bool myFAST = true, bool myDesc = true);
 
+    //---------------------------------------------------------------------------------------------------
 
 protected:
+
+    CV_INLINE  int  myRound( float value )
+    {
+    #if defined HAVE_LRINT || defined CV_ICC || defined __GNUC__
+        return (int)lrint(value);
+    #else
+        // while this is not IEEE754-compliant rounding, it's usually a good enough approximation
+      return (int)(value + (value >= 0 ? 0.5f : -0.5f));
+    #endif
+    }
 
     static float IntensityCentroidAngle(const uchar* pointer, int step);
     static void RetainBestN(std::vector<cv::KeyPoint> &kpts, int N);
@@ -102,7 +113,7 @@ protected:
 
     std::vector<cv::Point> pattern;
 
-    inline float getScale(int lvl);
+    //inline float getScale(int lvl);
 
 
     uchar threshold_tab_min[512];
@@ -135,21 +146,20 @@ protected:
 
 
 
+    template<class T>
+    void PrintArray(T *array, const std::string &name, int start, int end);
 
+    void printInternalValues();
 
-            template<class T>
-            void PrintArray(T *array, const std::string &name, int start, int end);
+    static void PrintKeypoints(std::vector<cv::KeyPoint> &kpts);
 
-            void printInternalValues();
+    static void PrintKeypoints(std::vector<cv::KeyPoint> &kpts, int start, int end);
 
-            static void PrintKeypoints(std::vector<cv::KeyPoint> &kpts);
+    static void PrintKeypoints(std::vector<cv::KeyPoint> &kpts, int start, int end, bool printResponse);
 
-            static void PrintKeypoints(std::vector<cv::KeyPoint> &kpts, int start, int end);
+    static void CompareKeypointVectors(std::vector<cv::KeyPoint> &vec1, std::vector<cv::KeyPoint> &vec2);
 
-            static void PrintKeypoints(std::vector<cv::KeyPoint> &kpts, int start, int end, bool printResponse);
-
-            static void CompareKeypointVectors(std::vector<cv::KeyPoint> &vec1, std::vector<cv::KeyPoint> &vec2);
-
+    //
 
 };
 
