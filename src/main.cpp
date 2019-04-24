@@ -1,5 +1,5 @@
 #include <iostream>
-#include "main.h"
+#include "include/main.h"
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -57,7 +57,7 @@ int main(int argc, char **argv)
 
 
     ORB_SLAM2::ORBextractor extractor (nFeatures, scaleFactor, nLevels,
-        FASTThresholdInit, FASTThresholdMin);
+                                       FASTThresholdInit, FASTThresholdMin);
 
     std::vector<cv::KeyPoint> keypoints;
     cv::Mat descriptors;
@@ -67,10 +67,13 @@ int main(int argc, char **argv)
 
     cv::cvtColor(imgColor, image, CV_BGR2GRAY);
 
-
+    //TODO: remove junk
     //(*extractor)(image, cv::Mat(), keypoints, descriptors);
 
     extractor(image, cv::Mat(), keypoints, descriptors);
+
+    //extractor.Tests(image, true, keypoints, descriptors);
+
     DisplayKeypoints(imgColor, keypoints, color, thickness, radius, drawAngular);
 
     //keypoints.clear();
@@ -82,7 +85,7 @@ int main(int argc, char **argv)
     //DisplayKeypoints(imgcopy, keypoints, color, thickness, radius, drawAngular);
 
 
-    //D(measureExecutionTime(10, *extractor, image);)
+    //D(measureExecutionTime(10, extractor, image);)
 
 
 
@@ -91,10 +94,10 @@ int main(int argc, char **argv)
 
 
 void DisplayKeypoints(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, cv::Scalar &color,
-        int thickness, int radius, int drawAngular)
+                      int thickness, int radius, int drawAngular)
 {
-    cv::namedWindow("test", cv::WINDOW_AUTOSIZE);
-    cv::imshow("test", image);
+    cv::namedWindow("Keypoints", cv::WINDOW_AUTOSIZE);
+    cv::imshow("Keypoints", image);
     cv::waitKey(0);
 
     for (const cv::KeyPoint &k : keypoints)
@@ -116,12 +119,13 @@ void DisplayKeypoints(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, cv::
             cv::line(image, point, target, color, thickness, CV_AA);
         }
     }
-    cv::imshow("test", image);
+    cv::imshow("Keypoints", image);
     cv::waitKey(0);
 }
-D(
 
-void measureExecutionTime(int numIterations, ORB_SLAM2::ORBextractor &extractor, cv::Mat &image)
+//TODO: remove from master
+
+        void measureExecutionTime(int numIterations, ORB_SLAM2::ORBextractor &extractor, cv::Mat &image)
 {
         using namespace std::chrono;
 
@@ -148,18 +152,19 @@ void measureExecutionTime(int numIterations, ORB_SLAM2::ORBextractor &extractor,
         std::cout << "\nExecution time of " << numIterations << " iterations with my impl: " << myDuration << "ms.\n";
 }
 
-void AddRandomKeypoints(std::vector<cv::KeyPoint> &keypoints)
-{
-    int nKeypoints = 150;
-    keypoints.clear();
-    keypoints.reserve(nKeypoints);
 
-    for (int i =0; i < nKeypoints; ++i)
-    {
+        void AddRandomKeypoints(std::vector<cv::KeyPoint> &keypoints)
+{
+        int nKeypoints = 150;
+        keypoints.clear();
+        keypoints.reserve(nKeypoints);
+
+        for (int i =0; i < nKeypoints; ++i)
+{
         auto x = static_cast<float>(20 + (rand() % static_cast<int>(620 - 20 + 1)));
         auto y = static_cast<float>(20 + (rand() % static_cast<int>(460 - 20 + 1)));
         auto angle = static_cast<float>(0 + (rand() % static_cast<int>(359 - 0 + 1)));
         keypoints.emplace_back(cv::KeyPoint(x, y, 7.f, angle, 0));
-    }
-)
+}
+
 }

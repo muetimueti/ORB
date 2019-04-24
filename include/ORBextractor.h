@@ -1,7 +1,3 @@
-//
-// Created by ralph on 3/31/19.
-//
-
 #ifndef ORBEXTRACTOR_ORBEXTRACTOR_H
 #define ORBEXTRACTOR_ORBEXTRACTOR_H
 
@@ -23,14 +19,14 @@ namespace ORB_SLAM2
 class ExtractorNode
 {
 public:
-    ExtractorNode():bNoMore(false){}
+    ExtractorNode():leaf(false){}
 
     void DivideNode(ExtractorNode &n1, ExtractorNode &n2, ExtractorNode &n3, ExtractorNode &n4);
 
-    std::vector<cv::KeyPoint> vKeys;
-    cv::Point2i UL, UR, BL, BR;
-    std::list<ExtractorNode>::iterator lit;
-    bool bNoMore;
+    std::vector<cv::KeyPoint> nodeKpts;
+    cv::Point2i UL, UR, LL, LR;
+    //std::list<ExtractorNode>::iterator lit;
+    bool leaf;
 };
 
 class ORBextractor
@@ -71,22 +67,29 @@ public:
 
     std::vector<cv::Mat> imagePyramid;
 
-    D(
-            void Tests(cv::InputArray inputImage, bool myImplementation,
+    //TODO: remove from master
+
+    void testingFAST();
+
+    void testingDescriptors(cv::Mat myDescriptors, cv::Mat compDescriptors, int nkpts, bool printdif,
+                            int start, int end);
+
+    void Tests(cv::InputArray inputImage, bool myImplementation,
                        std::vector<cv::KeyPoint> &resKeypoints, cv::OutputArray inputDescriptors);
-            )
+
 
 protected:
 
     static float IntensityCentroidAngle(const uchar* pointer, int step);
-    static void RetainBestN(std::vector<cv::KeyPoint> &kpts, int &N);
+    static void RetainBestN(std::vector<cv::KeyPoint> &kpts, int N);
     static bool ResponseComparison(const cv::KeyPoint &k1, const cv::KeyPoint &k2);
 
     void ComputeScalePyramid(cv::Mat &image);
 
-    void DivideAndFAST(std::vector<std::vector<cv::KeyPoint> >& allKeypoints, bool distribute = true);
-    std::vector<cv::KeyPoint> DistributeKeypoints(const std::vector<cv::KeyPoint>& kpts, const int &minX,
-                                                const int &maxX, const int &minY, const int &maxY, const int &level);
+    void DivideAndFAST(std::vector<std::vector<cv::KeyPoint> >& allKeypoints,
+                       bool distributeKpts = true, bool divideImage = true, int cellSize = 30);
+    void DistributeKeypoints(std::vector<cv::KeyPoint>& kpts, const int &minX,
+                             const int &maxX, const int &minY, const int &maxY, const int &level);
 
     void FAST(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
 
@@ -128,7 +131,11 @@ protected:
     std::vector<float> invLevelSigma2Vec;
 
 
-    D(
+    //TODO: remove from master
+
+
+
+
 
             template<class T>
             void PrintArray(T *array, const std::string &name, int start, int end);
@@ -142,7 +149,7 @@ protected:
             static void PrintKeypoints(std::vector<cv::KeyPoint> &kpts, int start, int end, bool printResponse);
 
             static void CompareKeypointVectors(std::vector<cv::KeyPoint> &vec1, std::vector<cv::KeyPoint> &vec2);
-    )
+
 
 };
 
