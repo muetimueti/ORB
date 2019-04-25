@@ -401,10 +401,8 @@ referenceORB::referenceORB(int _nfeatures, float _scaleFactor, int _nlevels,
     for (v = 0; v <= vmax; ++v)
     {
         umax[v] = cvRound(sqrt(hp2 - v * v));
-        cout << "umax[" << v << "] = " << umax[v] << endl;
     }
 
-    cout << "\n after symmetry check: " << endl;
     // Make sure we are symmetric
     for (v = HALF_PATCH_SIZE, v0 = 0; v >= vmin; --v)
     {
@@ -412,17 +410,8 @@ referenceORB::referenceORB(int _nfeatures, float _scaleFactor, int _nlevels,
             ++v0;
         umax[v] = v0;
         ++v0;
-        cout << "umax[" << v << "] = " << umax[v] << endl;
 
     }
-
-    cout << "\nfinal umax: \n";
-
-    for (int i = 0; i < umax.size(); ++i)
-    {
-        cout << "umax[" << i << "] = " << umax[i] << endl;
-    }
-
 }
 
 static void computeOrientation(const Mat& image, vector<KeyPoint>& keypoints, const vector<int>& umax)

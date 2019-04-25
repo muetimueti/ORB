@@ -445,7 +445,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
 
 
     std::vector<std::vector<cv::KeyPoint>> allKpts;
-    DivideAndFAST(allKpts, true, true);
+    DivideAndFAST(allKpts, true, false);
 
     ComputeAngles(allKpts);
 
@@ -586,6 +586,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeyp
 
             if (levelKpts.empty())
                 this->FAST(levelMat, levelKpts, minThFAST, lvl);
+                //cv::FAST(levelMat, levelKpts, minThFAST, true);
 
             if(levelKpts.empty())
                 continue;
@@ -770,25 +771,25 @@ void ORBextractor::DistributeKeypoints(std::vector<cv::KeyPoint>& kpts, const in
             current->DivideNode(n1, n2, n3, n4);
             if (!n1.nodeKpts.empty())
             {
-                nodesList.push_back(n1);
+                nodesList.push_front(n1);
                 if (n1.nodeKpts.size() == 1)
                     n1.leaf = true;
             }
             if (!n2.nodeKpts.empty())
             {
-                nodesList.push_back(n2);
+                nodesList.push_front(n2);
                 if (n2.nodeKpts.size() == 1)
                     n2.leaf = true;
             }
             if (!n3.nodeKpts.empty())
             {
-                nodesList.push_back(n3);
+                nodesList.push_front(n3);
                 if (n3.nodeKpts.size() == 1)
                     n3.leaf = true;
             }
             if (!n4.nodeKpts.empty())
             {
-                nodesList.push_back(n4);
+                nodesList.push_front(n4);
                 if (n4.nodeKpts.size() == 1)
                     n4.leaf = true;
             }
@@ -868,7 +869,7 @@ void ExtractorNode::DivideNode(ORB_SLAM2::ExtractorNode &n1, ORB_SLAM2::Extracto
 //move to separate file?
 void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int level)
 {
-    keypoints.clear();
+   keypoints.clear();
 
     int offset[CIRCLE_SIZE];
     for (int i = 0; i < CIRCLE_SIZE; ++i)
@@ -900,6 +901,7 @@ void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int 
     int* currRowPos = &cornerPos[0];
     int* prevRowPos = &cornerPos[img.cols];
     int* pprevRowPos = &cornerPos[img.cols*2];
+
 
 
     int i, j, k, ncandidates = 0, ncandidatesprev = 0;
@@ -958,7 +960,6 @@ void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int 
                 continue;
 
 
-
             if (discard & 1) // check for continuous circle of pixels darker than threshold
             {
                 int compare = val - threshold;
@@ -974,7 +975,7 @@ void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int 
                         {
                             currRowPos[ncandidates++] = j;
 
-                            currRowScores[j] = CornerScore(pointer, offset, threshold);
+                            currRowScores[j] = OptimizedCornerScore(pointer, offset, threshold);
                             break;
                         }
                     } else
@@ -997,7 +998,7 @@ void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int 
                         {
                             currRowPos[ncandidates++] = j;
 
-                            currRowScores[j] = CornerScore(pointer, offset, threshold);
+                            currRowScores[j] = OptimizedCornerScore(pointer, offset, threshold);
                             break;
                         }
                     } else
@@ -1005,6 +1006,7 @@ void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int 
                 }
             }
         }
+
 
         if (i == 3)   //skip first row
             continue;
@@ -1026,67 +1028,168 @@ void ORBextractor::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int 
 }
 
 
-int ORBextractor::CornerScore(const uchar* pointer, const int offset[], int threshold)
+void ORBextractor::OptimizedFAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int level)
 {
+    keypoints.clear();
 
-    //TODO: REMOVE ////////////////////////////////////////////////////////////////////////////////////////////////////
-#if CV_SIMD128
-    const int K = 8, N = K*3 + 1;
-    int k, v = pointer[0];
-    short d[N];
-    for( k = 0; k < N; k++ )
-        d[k] = (short)(v - pointer[offset[k%CIRCLE_SIZE]]);
-
-
-    if (hasSIMD128())
+    int offset[CIRCLE_SIZE];
+    for (int i = 0; i < CIRCLE_SIZE; ++i)
     {
-        v_int16x8 q0 = v_setall_s16(-1000), q1 = v_setall_s16(1000);
-        for (k = 0; k < 16; k += 8)
-        {
-            v_int16x8 v0 = v_load(d + k + 1);
-            v_int16x8 v1 = v_load(d + k + 2);
-            v_int16x8 a = v_min(v0, v1);
-            v_int16x8 b = v_max(v0, v1);
-            v0 = v_load(d + k + 3);
-            a = v_min(a, v0);
-            b = v_max(b, v0);
-            v0 = v_load(d + k + 4);
-            a = v_min(a, v0);
-            b = v_max(b, v0);
-            v0 = v_load(d + k + 5);
-            a = v_min(a, v0);
-            b = v_max(b, v0);
-            v0 = v_load(d + k + 6);
-            a = v_min(a, v0);
-            b = v_max(b, v0);
-            v0 = v_load(d + k + 7);
-            a = v_min(a, v0);
-            b = v_max(b, v0);
-            v0 = v_load(d + k + 8);
-            a = v_min(a, v0);
-            b = v_max(b, v0);
-            v0 = v_load(d + k);
-            q0 = v_max(q0, v_min(a, v0));
-            q1 = v_min(q1, v_max(b, v0));
-            v0 = v_load(d + k + 9);
-            q0 = v_max(q0, v_min(a, v0));
-            q1 = v_min(q1, v_max(b, v0));
-        }
-        q0 = v_max(q0, v_setzero_s16() - q1);
-        threshold = v_reduce_max(q0) - 1;
+        offset[i] = pixelOffset[level*CIRCLE_SIZE + i];
     }
-    else
-#endif
-    {
 
-        //////////////////////////////////////////////////////////////////////////////////////////////////////
-        int val = pointer[0];
-        int i;
-        int diff[onePointFiveCircles];
-        for (i = 0; i < onePointFiveCircles; ++i)
+    if (!(threshold == minThFAST || threshold == iniThFAST))
+        //only initial or min threshold should be passed
+        return;
+
+    uchar *threshold_tab;
+    if (threshold == iniThFAST)
+        threshold_tab = threshold_tab_init;
+    else
+        threshold_tab = threshold_tab_min;
+
+
+    AutoBuffer<uchar> _buf((img.cols+16)*3*(sizeof(int) + sizeof(uchar)) + 128);
+    uchar* buf[3];
+    buf[0] = _buf.data(); buf[1] = buf[0] + img.cols; buf[2] = buf[1] + img.cols;
+    int* cpbuf[3];
+    cpbuf[0] = (int*)alignPtr(buf[2] + img.cols, sizeof(int)) + 1;
+    cpbuf[1] = cpbuf[0] + img.cols + 1;
+    cpbuf[2] = cpbuf[1] + img.cols + 1;
+    memset(buf[0], 0, img.cols*3);
+
+    int i, j, k, ncandidates;
+
+    for(i = 3; i < img.rows-2; i++)
+    {
+        const uchar* pointer = img.ptr<uchar>(i) + 3;
+        uchar* curr = buf[(i - 3)%3];
+        int* cornerpos = cpbuf[(i - 3)%3];
+        memset(curr, 0, img.cols);
+        ncandidates = 0;
+
+        if( i < img.rows - 3 )
         {
-            diff[i] = (val - pointer[offset[i % CIRCLE_SIZE]]);
+            j = 3;
+            for (; j < img.cols - 3; ++j, ++pointer)
+            {
+                int val = pointer[0];                           //value of central pixel
+                const uchar *tab = &threshold_tab[255] - val;       //shift threshold tab by val
+
+
+                int discard = tab[pointer[offset[PIXELS_TO_CHECK[0]]]]
+                              | tab[pointer[offset[PIXELS_TO_CHECK[1]]]];
+
+                if (discard == 0)
+                    continue;
+
+                bool gotoNextCol = false;
+                for (k = 2; k < 16; k += 2)
+                {
+                    discard &= tab[pointer[offset[PIXELS_TO_CHECK[k]]]]
+                               | tab[pointer[offset[PIXELS_TO_CHECK[k + 1]]]];
+                    if (k == 6 && discard == 0)
+                    {
+                        gotoNextCol = true;
+                        break;
+                    }
+                    if (k == 14 && discard == 0)
+                    {
+                        gotoNextCol = true;
+                    }
+
+                }
+                if (gotoNextCol) // initial FAST-check failed
+                    continue;
+
+
+                if (discard & 1) // check for continuous circle of pixels darker than threshold
+                {
+                    int compare = val - threshold;
+                    int contPixels = 0;
+
+                    for (k = 0; k < onePointFiveCircles; ++k)
+                    {
+                        int a = pointer[offset[k % CIRCLE_SIZE]];
+                        if (a < compare)
+                        {
+                            ++contPixels;
+                            if (contPixels > continuousPixelsRequired)
+                            {
+                                cornerpos[ncandidates++] = j;
+
+                                curr[j] = OptimizedCornerScore(pointer, offset, threshold);
+                                break;
+                            }
+                        } else
+                            contPixels = 0;
+                    }
+                }
+
+                if (discard & 2) // check for continuous circle of pixels brighter than threshold
+                {
+                    int compare = val + threshold;
+                    int contPixels = 0;
+
+                    for (k = 0; k < onePointFiveCircles; ++k)
+                    {
+                        int a = pointer[offset[k % CIRCLE_SIZE]];
+                        if (a > compare)
+                        {
+                            ++contPixels;
+                            if (contPixels > continuousPixelsRequired)
+                            {
+                                cornerpos[ncandidates++] = j;
+
+                                curr[j] = OptimizedCornerScore(pointer, offset, threshold);
+                                break;
+                            }
+                        } else
+                            contPixels = 0;
+                    }
+                }
+            }
+
+
+            cornerpos[-1] = ncandidates;
+
+            if (i == 3)
+                continue;
+
+            const uchar *prev = buf[(i - 4 + 3) % 3];
+            const uchar *pprev = buf[(i - 5 + 3) % 3];
+            cornerpos = cpbuf[(i - 4 + 3) % 3];
+            ncandidates = cornerpos[-1];
+
+            for (k = 0; k < ncandidates; k++)
+            {
+                j = cornerpos[k];
+                int score = prev[j];
+                if (score > prev[j + 1] && score > prev[j - 1] &&
+                    score > pprev[j - 1] && score > pprev[j] && score > pprev[j + 1] &&
+                    score > curr[j - 1] && score > curr[j] && score > curr[j + 1])
+                {
+                    keypoints.push_back(KeyPoint((float) j, (float) (i - 1), 7.f, -1, (float) score));
+                }
+            }
         }
+    }
+}
+
+
+int ORBextractor::CornerScore(const uchar* pointer, const int offset[], int &threshold)
+{
+    int val = pointer[0];
+    int i;
+    int diff[onePointFiveCircles];
+    for (i = 0; i < CIRCLE_SIZE; ++i)
+    {
+        diff[i] = (val - pointer[offset[i]]);
+    }
+    for ( ; i < onePointFiveCircles; ++i)
+    {
+        diff[i] = diff[i-CIRCLE_SIZE];
+    }
 
     int a0 = threshold;
     for (i = 0; i < CIRCLE_SIZE; i += 2)
@@ -1120,10 +1223,102 @@ int ORBextractor::CornerScore(const uchar* pointer, const int offset[], int thre
         b0 = std::min(b0, std::max(b, diff[i + 9]));
     }
 
-    threshold = -b0 - 1;
+    return -b0 - 1;
+}
+
+int ORBextractor::OptimizedCornerScore(const uchar* pointer, const int offset[], int &threshold)
+{
+    int val = pointer[0];
+    int i;
+    int diff[onePointFiveCircles];
+    for (i = 0; i < CIRCLE_SIZE; ++i)
+    {
+        diff[i] = (val - pointer[offset[i]]);
+    }
+    for ( ; i < onePointFiveCircles; ++i)
+    {
+        diff[i] = diff[i-CIRCLE_SIZE];
     }
 
-    return threshold;
+    int a0 = threshold;
+    for (i = 0; i < CIRCLE_SIZE; i += 2)
+    {
+        int a;
+        if (diff[i+1] < diff[i+2])
+            a = diff[i+1];
+        else
+            a = diff[i+2];
+
+        if (diff[i+3] < a)
+            a = diff[i+3];
+        if (a0 > a)
+            continue;
+
+        if (diff[i+4] < a)
+            a = diff[i+4];
+        if (diff[i+5] < a)
+            a = diff[i+5];
+        if (diff[i+6] < a)
+            a = diff[i+6];
+        if (diff[i+7] < a)
+            a = diff[i+7];
+        if (diff[i+8] < a)
+            a = diff[i+8];
+
+        int c;
+        if (a < diff[i])
+            c = a;
+        else
+            c = diff[i];
+
+        if (c > a0)
+            a0 = c;
+        if (diff[i+9] < a)
+            a = diff[i+9];
+        if (a > a0)
+            a0 = a;
+    }
+
+    int b0 = -a0;
+    for (i = 0; i < CIRCLE_SIZE; i += 2)
+    {
+        int b;
+        if (diff[i+1] > diff[i+2])
+            b = diff[i+1];
+        else
+            b = diff[i+2];
+
+        if (diff[i+3] > b)
+            b = diff[i+3];
+        if (diff[i+4] > b)
+            b = diff[i+4];
+        if (diff[i+5] > b)
+            b = diff[i+5];
+
+        if (b0 < b)
+            continue;
+
+        if (diff[i+6] > b)
+            b = diff[i+6];
+        if (diff[i+7] > b)
+            b = diff[i+7];
+        if (diff[i+8] > b)
+            b = diff[i+8];
+
+        int c;
+        if (diff[i] > b)
+            c = diff[i];
+        else
+            c = b;
+
+        if (c < b0)
+            b0 = c;
+        if (diff[i+9] > b)
+            b = diff[i+9];
+        if (b < b0)
+            b0 = b;
+    }
+    return -b0 - 1;
 }
 
 
@@ -1200,6 +1395,55 @@ void ORBextractor::Tests(cv::InputArray inputImage, std::vector<cv::KeyPoint> &r
 
     std::vector<std::vector<cv::KeyPoint>> allMyKeypoints;
 
+
+    //TODO: remove ////////////////////////////////////////////////////////////////////////////////////////////////////
+    int offset[CIRCLE_SIZE];
+    for (int i = 0; i < CIRCLE_SIZE; ++i)
+    {
+        offset[i] = pixelOffset[i];
+    }
+
+
+    std::vector<cv::KeyPoint> testkpts;
+    int N = 1000;
+    testkpts.reserve(N);
+    this->FAST(image, testkpts, iniThFAST, 0);
+
+    std::vector<uchar*> ptrvec;
+    for (auto &kpt : testkpts)
+    {
+        uchar* ptr = &image.at<uchar>(myRound(kpt.pt.y), myRound(kpt.pt.x));
+        ptrvec.emplace_back(ptr);
+
+    }
+
+    std::chrono::high_resolution_clock::time_point stdminstart = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < N; ++i)
+    {
+        this->CornerScore(ptrvec[i], offset, iniThFAST);
+    }
+
+
+    std::chrono::high_resolution_clock::time_point stdminend = std::chrono::high_resolution_clock::now();
+
+    auto stdminduration = std::chrono::duration_cast<std::chrono::microseconds>(stdminend-stdminstart).count();
+    std::cout << "\nnormal duration = " << stdminduration << " microseconds.\n";
+
+
+    std::chrono::high_resolution_clock::time_point ifstart = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < N; ++i)
+    {
+        this->OptimizedCornerScore(ptrvec[i], offset, iniThFAST);
+    }
+    std::chrono::high_resolution_clock::time_point ifend = std::chrono::high_resolution_clock::now();
+
+
+    auto ifduration = std::chrono::duration_cast<std::chrono::microseconds>(ifend-ifstart).count();
+    std::cout << "\noptimized(?) duration = " << ifduration << " microseconds.\n";
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //TODO: remove
+    return;
+
     //first bool: quad-tree distribution, 2nd bool: divide
     DivideAndFAST(allMyKeypoints, true, false, 30);
 
@@ -1241,7 +1485,7 @@ void ORBextractor::Tests(cv::InputArray inputImage, std::vector<cv::KeyPoint> &r
 
 }
 
-void ORBextractor::testingFAST(cv::Mat &img, std::vector<cv::KeyPoint> &kpts, bool myFAST, bool printTime)
+long ORBextractor::testingFAST(cv::Mat &img, std::vector<cv::KeyPoint> &kpts, bool myFAST, bool printTime)
 {
     using namespace std::chrono;
     kpts.reserve(nfeatures*10);
@@ -1259,20 +1503,21 @@ void ORBextractor::testingFAST(cv::Mat &img, std::vector<cv::KeyPoint> &kpts, bo
 
     if (myFAST)
     {
-        this->FAST(tempMat, kpts, iniThFAST, 0);
+        this->OptimizedFAST(tempMat, kpts, iniThFAST, 0);
     }
     else
     {
         cv::FAST(img, kpts, iniThFAST, true);
     }
 
+    high_resolution_clock::time_point end = high_resolution_clock::now();
+    auto duration = duration_cast<microseconds>(end - start).count();
+
     if (printTime)
     {
-        high_resolution_clock::time_point end = high_resolution_clock::now();
-        auto cvDuration = duration_cast<microseconds>(end - start).count();
-
-        std::cout << "\nExecution time of " << (myFAST? "my " : "openCV ") << "FAST was " << cvDuration << " ms.\n";
+        std::cout << "\nExecution time of " << (myFAST? "my " : "openCV ") << "FAST was " << duration << " ms.\n";
     }
+    return duration;
 }
 
 void ORBextractor::testingDescriptors(cv::Mat myDescriptors, cv::Mat compDescriptors, int nkpts, bool printdif,

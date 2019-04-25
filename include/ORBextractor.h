@@ -69,7 +69,7 @@ public:
 
     //TODO: remove from master--------------------------------------------------------------------------
 
-    void testingFAST(cv::Mat &img, std::vector<cv::KeyPoint> &kpts, bool myFAST, bool printTime);
+    long testingFAST(cv::Mat &img, std::vector<cv::KeyPoint> &kpts, bool myFAST, bool printTime);
 
     void testingDescriptors(cv::Mat myDescriptors, cv::Mat compDescriptors, int nkpts, bool printdif,
                             int start, int end);
@@ -103,8 +103,10 @@ protected:
                              const int &maxX, const int &minY, const int &maxY, const int &level);
 
     void FAST(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
+    void OptimizedFAST(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
 
-    int CornerScore(const uchar *pointer, const int offset[], int threshold);
+    int CornerScore(const uchar *pointer, const int offset[], int &threshold);
+    int OptimizedCornerScore(const uchar *pointer, const int offset[], int &threshold);
 
     void ComputeAngles(std::vector<std::vector<cv::KeyPoint>> &allkpts);
 
