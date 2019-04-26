@@ -445,7 +445,81 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
 
 
     std::vector<std::vector<cv::KeyPoint>> allKpts;
-    DivideAndFAST(allKpts, true, false);
+    DivideAndFAST(allKpts, DISTRIBUTION_QUADTREE, false);
+
+    ComputeAngles(allKpts);
+
+    cv::Mat BRIEFdescriptors;
+    int nkpts = 0;
+    for (int lvl = 0; lvl < nlevels; ++lvl)
+    {
+        nkpts += (int)allKpts[lvl].size();
+    }
+    if (nkpts <= 0)
+    {
+        outputDescriptors.release();
+    } else
+    {
+        outputDescriptors.create(nkpts, 32, CV_8U);
+        BRIEFdescriptors = outputDescriptors.getMat();
+    }
+
+    resultKeypoints.clear();
+    resultKeypoints.reserve(nkpts);
+
+    ComputeDescriptors(allKpts, BRIEFdescriptors);
+
+    for (int lvl = 1; lvl < nlevels; ++lvl)
+    {
+        float size = PATCH_SIZE * scaleFactorVec[lvl];
+        float scale = scaleFactorVec[lvl];
+        for (auto &kpt : allKpts[lvl])
+        {
+            kpt.pt *= scale;
+            kpt.size = size;
+
+        }
+    }
+
+    for (int lvl = 0; lvl < nlevels; ++lvl)
+    {
+        resultKeypoints.insert(resultKeypoints.end(), allKpts[lvl].begin(), allKpts[lvl].end());
+    }
+}
+
+/** @overload
+ * @param inputImage single channel img-matrix
+ * @param mask ignored
+ * @param resultKeypoints keypoint vector in which results will be stored
+ * @param outputDescriptors matrix in which descriptors will be stored
+ * @param distributionMode decides the method to call for kpt-distribution, see Distribution.h
+ */
+
+void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
+        std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors,
+        DistributionMethod distributionMode)
+{
+    if (inputImage.empty())
+        return;
+
+    cv::Mat image = inputImage.getMat();
+    assert(image.type() == CV_8UC1);
+
+    ComputeScalePyramid(image);
+
+
+    for (int lvl = 0; lvl < nlevels; ++lvl)
+    {
+        for (int i = 0; i < CIRCLE_SIZE; ++i)
+        {
+            pixelOffset[lvl*CIRCLE_SIZE + i] =
+                    CIRCLE_OFFSETS[i][0] + CIRCLE_OFFSETS[i][1] * (int)imagePyramid[lvl].step1();
+        }
+    }
+
+
+    std::vector<std::vector<cv::KeyPoint>> allKpts;
+    DivideAndFAST(allKpts, distributionMode, true);
 
     ComputeAngles(allKpts);
 
@@ -551,14 +625,13 @@ void ORBextractor::ComputeDescriptors(std::vector<std::vector<cv::KeyPoint>> &al
 
 
 /**
- * @param distributeKpts: true-->Kpts distributed over image via quadtree
- *                        false-->best N kpts retained by response (per octave)
- * @param divideImage:  true-->divide image into cellSize x cellSize cells, run FAST per cell
- *                      false-->run FAST over whole image
- * @param cellSize: 16 < cellSize < (min(rows, cols) of lowest level image)
+ * @param allKeypoints KeyPoint vector in which the result will be stored
+ * @param mode decides which method to call for keypoint distribution over image, see Distribution.h
+ * @param divideImage  true-->divide image into cellSize x cellSize cells, run FAST per cell
+ * @param cellSize must be greater than 16 and lesser than min(rows, cols) of smallest image in pyramid
  */
 void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeypoints,
-                                 bool distributeKpts, bool divideImage, int cellSize)
+                                 DistributionMethod mode, bool divideImage, int cellSize)
 {
     allKeypoints.resize(nlevels);
 
@@ -593,14 +666,18 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeyp
 
             allKeypoints[lvl].reserve(nfeaturesPerLevelVec[lvl]);
 
-            if (distributeKpts)
+            DistributeKeypoints(levelKpts, minimumX, maximumX, minimumY, maximumY, nfeaturesPerLevelVec[lvl], mode);
+            /*
+            if (mode == DISTRIBUTION_QUADTREE)
             {
-                DistributeKeypoints(levelKpts, minimumX, maximumX, minimumY, maximumY, lvl);
+                DistributeKeypointsQuadTree(levelKpts, minimumX, maximumX, minimumY, maximumY,
+                        nfeaturesPerLevelVec[lvl]);
             }
-            else
+            else if (mode == DISTRIBUTION_NAIVE)
             {
-                RetainBestN(levelKpts, nfeaturesPerLevelVec[lvl]);
+                DistributeKeypointsNaive(levelKpts, nfeaturesPerLevelVec[lvl]);
             }
+             */
 
             allKeypoints[lvl] = levelKpts;
 
@@ -682,15 +759,18 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeyp
 
             allKeypoints[lvl].reserve(nfeatures);
 
-            if (distributeKpts)
+            DistributeKeypoints(levelKpts, minimumX, maximumX, minimumY, maximumY, nfeaturesPerLevelVec[lvl], mode);
+            /*
+            if (mode == DISTRIBUTION_QUADTREE)
             {
-                DistributeKeypoints(levelKpts, minimumX, maximumX, minimumY, maximumY, lvl);
+                DistributeKeypointsQuadTree(levelKpts, minimumX, maximumX, minimumY, maximumY,
+                                            nfeaturesPerLevelVec[lvl]);
             }
-            else
+            else if (mode == DISTRIBUTION_NAIVE)
             {
-                RetainBestN(levelKpts, nfeaturesPerLevelVec[lvl]);
+                DistributeKeypointsNaive(levelKpts, nfeaturesPerLevelVec[lvl]);
             }
-
+            */
             allKeypoints[lvl] = levelKpts;
 
 
@@ -705,165 +785,6 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeyp
         }
     }
 }
-
-
-void ORBextractor::DistributeKeypoints(std::vector<cv::KeyPoint>& kpts, const int &minX,
-                                       const int &maxX, const int &minY, const int &maxY, const int &lvl)
-{
-    if (kpts.empty())
-        return;
-
-    const int nroots = myRound((maxX-minX)/(maxY-minY));
-
-    int N = nfeaturesPerLevelVec[lvl];
-    int nodeWidth = myRound((float)(maxX - minX) / nroots);
-
-    std::list<ExtractorNode> nodesList;
-
-    std::vector<ExtractorNode*> rootVec;
-    rootVec.resize(nroots);
-
-    for (int i = 0; i < nroots; ++i)
-    {
-        int x0 = minX + nodeWidth * i;
-        int x1 = minX + nodeWidth * (i+1);
-        int y0 = minY;
-        int y1 = maxY;
-        ExtractorNode n;
-        n.UL = cv::Point2i(x0, y0);
-        n.UR = cv::Point2i(x1, y0);
-        n.LL = cv::Point2i(x0, y1);
-        n.LR = cv::Point2i(x1, y1);
-        n.nodeKpts.reserve(kpts.size());
-
-        nodesList.push_back(n);
-        rootVec[i] = &nodesList.back();
-    }
-
-    for (auto &kpt : kpts)
-    {
-        rootVec[(int)(kpt.pt.x / nodeWidth)]->nodeKpts.emplace_back(kpt);
-    }
-
-    std::list<ExtractorNode>::iterator current;
-
-    bool omegadoom = false;
-    int lastSize = 0;
-    while (!omegadoom)
-    {
-        current = nodesList.begin();
-        lastSize = nodesList.size();
-
-        while (current != nodesList.end())
-        {
-            if (current->nodeKpts.empty())
-            {
-                current = nodesList.erase(current);
-            }
-
-            if (current->leaf)
-            {
-                ++current;
-                continue;
-            }
-
-            ExtractorNode n1, n2, n3, n4;
-            current->DivideNode(n1, n2, n3, n4);
-            if (!n1.nodeKpts.empty())
-            {
-                nodesList.push_front(n1);
-                if (n1.nodeKpts.size() == 1)
-                    n1.leaf = true;
-            }
-            if (!n2.nodeKpts.empty())
-            {
-                nodesList.push_front(n2);
-                if (n2.nodeKpts.size() == 1)
-                    n2.leaf = true;
-            }
-            if (!n3.nodeKpts.empty())
-            {
-                nodesList.push_front(n3);
-                if (n3.nodeKpts.size() == 1)
-                    n3.leaf = true;
-            }
-            if (!n4.nodeKpts.empty())
-            {
-                nodesList.push_front(n4);
-                if (n4.nodeKpts.size() == 1)
-                    n4.leaf = true;
-            }
-
-            current = nodesList.erase(current);
-
-            if (nodesList.size() == lastSize)
-            {
-                omegadoom = true;
-                break;
-            }
-
-            if (nodesList.size() >= N)
-            {
-                omegadoom = true;
-                break;
-            }
-        }
-    }
-
-    std::vector<cv::KeyPoint> resKpts;
-    resKpts.reserve(N);
-    auto iter = nodesList.begin();
-    for (int i = 0; i < N&& iter != nodesList.end(); ++i, ++iter)
-    {
-        if (!iter->leaf)
-            RetainBestN(iter->nodeKpts, 1);
-
-        resKpts.emplace_back(iter->nodeKpts[0]);
-    }
-
-    kpts = resKpts;
-    //TODO: refine implementation?
-}
-
-
-void ExtractorNode::DivideNode(ORB_SLAM2::ExtractorNode &n1, ORB_SLAM2::ExtractorNode &n2, ORB_SLAM2::ExtractorNode &n3,
-                               ORB_SLAM2::ExtractorNode &n4)
-{
-    int middleX = UL.x + (int)std::ceil((float)(UR.x - UL.x)/2.f);
-    int middleY = UL.y + (int)std::ceil((float)(LL.y - UL.y)/2.f);
-
-    cv::Point2i M (middleX, middleY);
-    cv::Point2i upperM (middleX, UL.y);
-    cv::Point2i lowerM (middleX, LL.y);
-    cv::Point2i leftM (UL.x, middleY);
-    cv::Point2i rightM (UR.x, middleY);
-
-    n1.UL = UL, n1.UR = upperM, n1.LL = leftM, n1.LR = M;
-    n2.UL = upperM, n2.UR = UR, n2.LL = M, n2.LR = rightM;
-    n3.UL = leftM, n3.UR = M, n3.LL = LL, n3.LR = lowerM;
-    n4.UL = M, n4.UR = rightM, n4.LL = lowerM, n4.LR = LR;
-
-    for (auto &kpt : nodeKpts)
-    {
-        if (kpt.pt.x < middleX)
-        {
-            if(kpt.pt.y < middleY)
-                n1.nodeKpts.emplace_back(kpt);
-            else
-                n3.nodeKpts.emplace_back(kpt);
-
-        }
-        else
-        {
-            if (kpt.pt.y < middleY)
-                n2.nodeKpts.emplace_back(kpt);
-            else
-                n4.nodeKpts.emplace_back(kpt);
-        }
-    }
-}
-
-
 
 
 //move to separate file?
@@ -1445,7 +1366,7 @@ void ORBextractor::Tests(cv::InputArray inputImage, std::vector<cv::KeyPoint> &r
     return;
 
     //first bool: quad-tree distribution, 2nd bool: divide
-    DivideAndFAST(allMyKeypoints, true, false, 30);
+    DivideAndFAST(allMyKeypoints, DISTRIBUTION_QUADTREE, false, 30);
 
     ComputeAngles(allMyKeypoints);
 
@@ -1521,13 +1442,61 @@ long ORBextractor::testingFAST(cv::Mat &img, std::vector<cv::KeyPoint> &kpts, bo
 }
 
 void ORBextractor::testingDescriptors(cv::Mat myDescriptors, cv::Mat compDescriptors, int nkpts, bool printdif,
-        int start, int end)
+        int start, int end, bool testTime, cv::OutputArray _descr)
 {
+
     std::cout << "\ndesc empty?:" << myDescriptors.empty() << "\n";
 
     auto descPointer = myDescriptors.ptr<uchar>((int)0);
     auto compPointer = compDescriptors.ptr<uchar>((int)0);
 
+    if (testTime)
+    {
+        using namespace std::chrono;
+
+
+
+        cv::Mat ref_descriptors;
+        cv::Mat my_descriptors;
+
+
+        std::vector<std::vector<cv::KeyPoint>> allkpts;
+        assert(!imagePyramid[0].empty());
+        this->DivideAndFAST(allkpts, DISTRIBUTION_QUADTREE, false);
+
+
+
+        int nkeypoints = 0;
+        for (int level = 0; level < nlevels; ++level)
+            nkeypoints += (int)allkpts[level].size();
+        if( nkeypoints == 0 )
+            _descr.release();
+        else
+        {
+            _descr.create(nkeypoints, 32, CV_8U);
+            my_descriptors = _descr.getMat();
+        }
+
+        my_descriptors = _descr.getMat();
+
+        high_resolution_clock::time_point t1 = high_resolution_clock::now();
+
+        Comparison_Descriptors().Compute(imagePyramid, allkpts, ref_descriptors, pattern);
+
+        high_resolution_clock::time_point t2 = high_resolution_clock::now();
+
+        this->ComputeDescriptors(allkpts, myDescriptors);
+
+        high_resolution_clock::time_point t3 = high_resolution_clock::now();
+
+        auto myduration = duration_cast<microseconds>(t3 - t2).count();
+        auto refduration = duration_cast<microseconds>(t2 - t1).count();
+
+        std::cout << "\nComputation time for reference descriptors: " << refduration << " microseconds.\n";
+        std::cout << "\nComputation time for my descriptors: " << myduration << " microseconds.\n";
+    }
+
+    /*
     for (int i = start; i < end; ++i)
     {
         std::cout << "myDescriptors[" << i << "] = " << (int)descPointer[i] << "\n";
@@ -1539,10 +1508,9 @@ void ORBextractor::testingDescriptors(cv::Mat myDescriptors, cv::Mat compDescrip
         std::cout << "compDescriptors[" << i << "] = " << (int)compPointer[i] << "\n";
     }
 
-
     std::cout << "desc size: " << myDescriptors.total() << "\n";
     std::cout << "comp des size: " << compDescriptors.total() << "\n";
-
+     */
 
     bool eq = true;
     int count = 0;

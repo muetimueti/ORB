@@ -75,12 +75,13 @@ int main(int argc, char **argv)
    std::chrono::high_resolution_clock::time_point program_end = std::chrono::high_resolution_clock::now();
    auto program_duration = std::chrono::duration_cast<std::chrono::microseconds>(program_end - program_start).count();
 
+   /*
    ofstream log;
    log.open("/home/ralph/Documents/ComparisonLog.txt", ios::app);
    if (!log.is_open())
        cerr << "\nFailed to open log file...\n";
    log << "Program duration (mine): " << program_duration << " microseconds.\n";
-
+    */
    std::cout << "\nProgram duration: " << program_duration << " microseconds.\n";
 
    return 0;
@@ -105,17 +106,35 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     std::vector<cv::KeyPoint> keypoints;
     cv::Mat descriptors;
 
-    ORB_SLAM2::ORBextractor extractor (nFeatures, scaleFactor, nLevels,
-                                       FASTThresholdInit, FASTThresholdMin);
+    std::vector<cv::KeyPoint> refkeypoints;
+    cv::Mat refdescriptors;
+
+    ORB_SLAM2::ORBextractor extractor (nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
+
+    ORB_SLAM_REF::referenceORB refExtractor (nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
 
     cv::Mat imgColor;
+    cv::Mat imgColor2;
     image.copyTo(imgColor);
+    image.copyTo(imgColor2);
 
-    cv::cvtColor(imgColor, image, CV_BGR2GRAY);
+    if (image.channels() == 3)
+        cv::cvtColor(imgColor, image, CV_BGR2GRAY);
+    else if (image.channels() == 4)
+        cv::cvtColor(imgColor, image, CV_BGRA2GRAY);
 
     ///CHANGE FUNCTION CALLS FOR TESTS HERE ///////////////////////////////////////////////////////////////////////
 
-    extractor(image, cv::Mat(), keypoints, descriptors);
+    //extractor(image, cv::Mat(), keypoints, descriptors);
+    extractor(image, cv::Mat(), keypoints, descriptors, DISTRIBUTION_KEEP_ALL);
+
+
+    refExtractor(image, cv::Mat(), refkeypoints, refdescriptors);
+
+    //DistributionComparisonSuite(extractor, imgColor, color, thickness, radius, drawAngular);
+
+
+    //extractor.testingDescriptors(cv::Mat(), cv::Mat(), keypoints.size(), false, 0, 0, true, cv::Mat());
 
     //extractor.Tests(image, keypoints, descriptors, true, true);
 
@@ -125,7 +144,11 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     //MeasureExecutionTime(1, extractor, image, FAST_RUNTIME);
 
 
-    DisplayKeypoints(imgColor, keypoints, color, thickness, radius, drawAngular);
+    DisplayKeypoints(imgColor, keypoints, color, thickness, radius, drawAngular, "mine");
+    DisplayKeypoints(imgColor2, refkeypoints, color, thickness, radius, drawAngular, "reference");
+
+    //CompareKeypoints(keypoints, "mine", refkeypoints, "reference", -1, true);
+    //CompareDescriptors(descriptors, "mine", refdescriptors, "reference", keypoints.size(), -1, true);
 
 
     //LoadHugeImage(extractor);
@@ -156,8 +179,11 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     cout << "\n/////////////////////////\n"
            << "Images in sequence: " << nImages << "\n";
 
-        cv::Mat img;
-    for(int ni=0; ni<nImages; ni++) //TODO: < nImages
+    bool eqkpts = true;
+    bool eqdescriptors = true;
+
+    cv::Mat img;
+    for(int ni=0; ni<5; ni++) //TODO: < nImages
     {
         //cout << "\nNow processing image nr. " << ni << "...\n";
         // Read image from file
@@ -173,14 +199,34 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
         cv::cvtColor(img, img, CV_BGR2GRAY);
 
-        vector<cv::KeyPoint> kpts;
-        cv::Mat descriptors;
+        vector<cv::KeyPoint> mykpts;
+        cv::Mat mydescriptors;
 
-        //refExtractor(img, cv::Mat(), kpts, descriptors);
+        vector<cv::KeyPoint> refkpts;
+        cv::Mat refdescriptors;
 
-        myExtractor(img, cv::Mat(), kpts, descriptors);
 
-        /* time measurement per image:
+
+        refExtractor(img, cv::Mat(), refkpts, refdescriptors);
+
+        myExtractor(img, cv::Mat(), mykpts, mydescriptors);
+
+        vector<std::pair<cv::KeyPoint, cv::KeyPoint>> kptDiffs;
+        kptDiffs = CompareKeypoints(mykpts, string("my kpts"), refkpts, string("reference kpts"), ni, true);
+
+        if (!kptDiffs.empty())
+            eqkpts = false;
+
+        int nkpts = mykpts.size();
+
+        vector<Descriptor_Pair> descriptorDiffs;
+        descriptorDiffs = CompareDescriptors(mydescriptors, "my descriptors", refdescriptors,
+                                                 "reference descriptors", nkpts, ni, true);
+        if (!descriptorDiffs.empty())
+            eqdescriptors = false;
+
+        /** time measurement per image:
+         *
         chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
 
         refExtractor(img, cv::Mat(), kpts, descriptors);
@@ -199,8 +245,87 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
          */
 
     }
+    cout << "\n" << (eqkpts ? "All keypoints across all images were equal!\n" : "Not all keypoints are equal...:(\n");
+    cout << "\n" << (eqdescriptors ? "All descriptors across all images and keypoints were equal!\n" :
+                        "Not all descriptors were equal... :(\n");
 }
 
+vector<std::pair<cv::KeyPoint, cv::KeyPoint>> CompareKeypoints(vector<cv::KeyPoint> &kpts1, string name1,
+        vector<cv::KeyPoint> &kpts2, string name2, int imgNr, bool print)
+{
+    int sz1 = kpts1.size();
+    int sz2 = kpts2.size();
+    if (print)
+        cout << "\nSize of vector " << name1 << ": " << sz1 << ", size of vector " << name2 << ": "  << sz2 << "\n";
+
+    int N;
+    if (sz1 > sz2)
+        N = sz2;
+    else
+        N = sz1;
+
+    vector<std::pair<cv::KeyPoint, cv::KeyPoint>> differences;
+    differences.reserve(N);
+
+    bool eq = true;
+    int count = 0;
+    for (int i = 0; i < N; ++i)
+    {
+        if (!(kpts1[i].pt.x == kpts2[i].pt.x && kpts1[i].pt.y == kpts2[i].pt.y &&
+            kpts1[i].octave == kpts2[i].octave && kpts1[i].response == kpts2[i].response &&
+            kpts1[i].size == kpts2[i].size && kpts1[i].angle == kpts2[i].angle))
+        {
+            eq = false;
+            ++count;
+            differences.emplace_back(make_pair(kpts1[i], kpts2[i]));
+            if (print)
+            {
+                cout << "\ndiffering keypoint at idx " << i << " in image " <<
+                        (imgNr == -1? "" : std::to_string(imgNr)) << "\n";
+            }
+        }
+    }
+    if (print && eq)
+        cout << "\nKeypoints from image " << (imgNr == -1? "" : std::to_string(imgNr)) << " are equal.\n";
+
+    return differences;
+}
+
+
+vector<Descriptor_Pair> CompareDescriptors (cv::Mat &desc1, string name1, cv::Mat &desc2, string name2,
+                                                int nkpts, int imgNr, bool print)
+{
+    vector<Descriptor_Pair> differences;
+
+    uchar* ptr1 = &desc1.at<uchar>(0);
+    uchar* ptr2 = &desc2.at<uchar>(0);
+
+    assert(desc1.size == desc2.size);
+
+    bool eq = true;
+
+    int N = nkpts * 32;
+    for (int i = 0; i < N; ++i)
+    {
+        if ((int)ptr1[i] != (int)ptr2[i])
+        {
+            eq = false;
+            Descriptor_Pair d;
+            d.byte1 = (int)ptr1[i];
+            d.byte2 = (int)ptr2[i];
+            d.index = i;
+            differences.emplace_back(d);
+        }
+    }
+
+    if (print)
+    {
+        cout << "\nDescriptors of kpts of image " << (imgNr == -1? "" : std::to_string(imgNr)) <<
+        (eq? " are equal.\n" : " are not equal\n");
+    }
+
+    return differences;
+}
 
 void LoadHugeImage(ORB_SLAM2::ORBextractor &extractor)
 {
@@ -220,11 +345,11 @@ void LoadHugeImage(ORB_SLAM2::ORBextractor &extractor)
 }
 
 void DisplayKeypoints(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, cv::Scalar &color,
-                     int thickness, int radius, int drawAngular)
+                     int thickness, int radius, int drawAngular, string windowname)
 {
-   cv::namedWindow("Keypoints", cv::WINDOW_AUTOSIZE);
-   cv::imshow("Keypoints", image);
-   cv::waitKey(0);
+   cv::namedWindow(windowname, cv::WINDOW_AUTOSIZE);
+   cv::imshow(windowname, image);
+   //cv::waitKey(0);
 
    for (const cv::KeyPoint &k : keypoints)
    {
@@ -245,7 +370,7 @@ void DisplayKeypoints(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, cv::
            cv::line(image, point, target, color, thickness, CV_AA);
        }
    }
-   cv::imshow("Keypoints", image);
+   cv::imshow(windowname, image);
    cv::waitKey(0);
 }
 
@@ -288,6 +413,30 @@ void MeasureExecutionTime(int numIterations, ORB_SLAM2::ORBextractor &extractor,
 
 }
 
+void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &imgColor, cv::Scalar &color,
+        int thickness, int radius, bool drawAngular)
+{
+    cv::Mat imgGray;
+    imgColor.copyTo(imgGray);
+
+    std::vector<cv::KeyPoint> kptsNaive;
+    std::vector<cv::KeyPoint> kptsQuadtree;
+    std::vector<cv::KeyPoint> kptsQuadtreeORBSLAMSTYLE;
+    std::vector<cv::KeyPoint> kptsGrid;
+
+    cv::Mat descriptors;
+
+    if (imgGray.channels() == 3)
+        cv::cvtColor(imgGray, imgGray, CV_BGR2GRAY);
+    else if (imgGray.channels() == 4)
+        cv::cvtColor(imgGray, imgGray, CV_BGRA2GRAY);
+
+
+    extractor(imgGray, cv::Mat(), kptsNaive, descriptors, DISTRIBUTION_NAIVE);
+    extractor(imgGray, cv::Mat(), kptsQuadtree, descriptors, DISTRIBUTION_QUADTREE);
+    extractor(imgGray, cv::Mat(), kptsQuadtreeORBSLAMSTYLE, descriptors, DISTRIBUTION_QUADTREE_ORBSLAMSTYLE);
+    extractor(imgGray, cv::Mat(), kptsGrid, descriptors, DISTRIBUTION_GRID);
+}
 
 void AddRandomKeypoints(std::vector<cv::KeyPoint> &keypoints)
 {

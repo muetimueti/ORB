@@ -2,8 +2,9 @@
 #define ORBEXTRACTOR_ORBEXTRACTOR_H
 
 #include <vector>
-#include <list>
+//#include <list>
 #include <opencv/cv.h>
+#include "include/Distribution.h"
 
 
 #ifndef NDEBUG
@@ -15,19 +16,6 @@
 
 namespace ORB_SLAM2
 {
-
-class ExtractorNode
-{
-public:
-    ExtractorNode():leaf(false){}
-
-    void DivideNode(ExtractorNode &n1, ExtractorNode &n2, ExtractorNode &n3, ExtractorNode &n4);
-
-    std::vector<cv::KeyPoint> nodeKpts;
-    cv::Point2i UL, UR, LL, LR;
-    //std::list<ExtractorNode>::iterator lit;
-    bool leaf;
-};
 
 class ORBextractor
 {
@@ -42,6 +30,10 @@ public:
     void operator()( cv::InputArray image, cv::InputArray mask,
                      std::vector<cv::KeyPoint>& keypoints,
                      cv::OutputArray descriptors);
+
+    void operator()(cv::InputArray inputImage, cv::InputArray mask,
+                                  std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors,
+                                  DistributionMethod distributionMode);
 
     int inline GetLevels(){
         return nlevels;}
@@ -72,7 +64,7 @@ public:
     long testingFAST(cv::Mat &img, std::vector<cv::KeyPoint> &kpts, bool myFAST, bool printTime);
 
     void testingDescriptors(cv::Mat myDescriptors, cv::Mat compDescriptors, int nkpts, bool printdif,
-                            int start, int end);
+                            int start, int end, bool testTime, cv::OutputArray _descr);
 
     void Tests(cv::InputArray inputImage, std::vector<cv::KeyPoint> &resKeypoints,
                cv::OutputArray outputDescriptors, bool myFAST = true, bool myDesc = true);
@@ -98,9 +90,7 @@ protected:
     void ComputeScalePyramid(cv::Mat &image);
 
     void DivideAndFAST(std::vector<std::vector<cv::KeyPoint> >& allKeypoints,
-                       bool distributeKpts = true, bool divideImage = true, int cellSize = 30);
-    void DistributeKeypoints(std::vector<cv::KeyPoint>& kpts, const int &minX,
-                             const int &maxX, const int &minY, const int &maxY, const int &level);
+                       DistributionMethod mode = DISTRIBUTION_NAIVE, bool divideImage = false, int cellSize = 30);
 
     void FAST(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
     void OptimizedFAST(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
