@@ -1520,11 +1520,11 @@ long ORBextractor::testingFAST(cv::Mat &img, std::vector<cv::KeyPoint> &kpts, bo
 
     if (myFAST)
     {
-        this->OptimizedFAST(tempMat, kpts, iniThFAST, 0);
+        FAST(tempMat, kpts, iniThFAST, 0);
     }
     else
     {
-        cv::FAST(img, kpts, iniThFAST, true);
+        FAST_cv(img, kpts, iniThFAST, true);
     }
 
     high_resolution_clock::time_point end = high_resolution_clock::now();

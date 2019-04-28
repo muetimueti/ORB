@@ -616,7 +616,7 @@ vector<cv::KeyPoint> referenceORB::DistributeOctTree(const vector<cv::KeyPoint>&
             bFinish = true;
         }
         //TODO:revert
-        /*
+
         else if(((int)lNodes.size()+nToExpand*3)>N)
         {
 
@@ -628,7 +628,7 @@ vector<cv::KeyPoint> referenceORB::DistributeOctTree(const vector<cv::KeyPoint>&
                 vector<pair<int,ExtractorNode*> > vPrevSizeAndPointerToNode = vSizeAndPointerToNode;
                 vSizeAndPointerToNode.clear();
 
-                sort(vPrevSizeAndPointerToNode.begin(),vPrevSizeAndPointerToNode.end());
+                stable_sort(vPrevSizeAndPointerToNode.begin(),vPrevSizeAndPointerToNode.end());
                 for(int j=vPrevSizeAndPointerToNode.size()-1;j>=0;j--)
                 {
                     ExtractorNode n1,n2,n3,n4;
@@ -683,7 +683,7 @@ vector<cv::KeyPoint> referenceORB::DistributeOctTree(const vector<cv::KeyPoint>&
 
             }
         }
-        */
+
         ///////
     }
 

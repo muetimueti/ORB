@@ -250,9 +250,21 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     //                    "Not all descriptors were equal... :(\n");
 }
 
+static bool CompareXThenY(cv::KeyPoint &k1, cv::KeyPoint &k2)
+{
+    return (k1.pt.x < k2.pt.x || (k1.pt.x == k2.pt.x && k1.pt.y < k2.pt.y));
+}
+void SortKeypoints(vector<cv::KeyPoint> &kpts)
+{
+    sort(kpts.begin(), kpts.end(), CompareXThenY);
+}
+
+
 vector<std::pair<cv::KeyPoint, cv::KeyPoint>> CompareKeypoints(vector<cv::KeyPoint> &kpts1, string name1,
         vector<cv::KeyPoint> &kpts2, string name2, int imgNr, bool print)
 {
+    SortKeypoints(kpts1);
+    SortKeypoints(kpts2);
     int sz1 = kpts1.size();
     int sz2 = kpts2.size();
     if (print)

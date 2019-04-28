@@ -327,7 +327,7 @@ void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, c
             omegadoom = true;
         }
         //TODO: revert
-        /*
+
         else if ((int)nodesList.size() + nToExpand*3 > N)
         {
             while(!omegadoom)
@@ -337,7 +337,7 @@ void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, c
 
                 nodesToExpand.clear();
 
-                std::sort(prevNodes.begin(), prevNodes.end(), CompareVectorSize);
+                std::stable_sort(prevNodes.begin(), prevNodes.end(), CompareVectorSize);
 
                 for (auto &node : prevNodes)
                 {
@@ -403,7 +403,7 @@ void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, c
 
             }
         }
-        */
+
         //////
 
     }
