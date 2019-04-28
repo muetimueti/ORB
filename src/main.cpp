@@ -82,7 +82,8 @@ int main(int argc, char **argv)
        cerr << "\nFailed to open log file...\n";
    log << "Program duration (mine): " << program_duration << " microseconds.\n";
     */
-   std::cout << "\nProgram duration: " << program_duration << " microseconds.\n";
+   std::cout << "\nProgram duration: " << program_duration << " microseconds.\n" <<
+   "(equals ~" <<  (float)program_duration / 1000000.f << " seconds)\n";
 
    return 0;
 }
@@ -126,8 +127,7 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     ///CHANGE FUNCTION CALLS FOR TESTS HERE ///////////////////////////////////////////////////////////////////////
 
     //extractor(image, cv::Mat(), keypoints, descriptors);
-    extractor(image, cv::Mat(), keypoints, descriptors, DISTRIBUTION_KEEP_ALL);
-
+    extractor(image, cv::Mat(), keypoints, descriptors, DISTRIBUTION_QUADTREE_ORBSLAMSTYLE);
 
     refExtractor(image, cv::Mat(), refkeypoints, refdescriptors);
 
@@ -144,10 +144,10 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     //MeasureExecutionTime(1, extractor, image, FAST_RUNTIME);
 
 
-    DisplayKeypoints(imgColor, keypoints, color, thickness, radius, drawAngular, "mine");
-    DisplayKeypoints(imgColor2, refkeypoints, color, thickness, radius, drawAngular, "reference");
+    //DisplayKeypoints(imgColor, keypoints, color, thickness, radius, drawAngular, "mine");
+    //DisplayKeypoints(imgColor2, refkeypoints, color, thickness, radius, drawAngular, "reference");
 
-    //CompareKeypoints(keypoints, "mine", refkeypoints, "reference", -1, true);
+    CompareKeypoints(keypoints, "mine", refkeypoints, "reference", -1, true);
     //CompareDescriptors(descriptors, "mine", refdescriptors, "reference", keypoints.size(), -1, true);
 
 
@@ -183,7 +183,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     bool eqdescriptors = true;
 
     cv::Mat img;
-    for(int ni=0; ni<5; ni++) //TODO: < nImages
+    for(int ni=0; ni<nImages; ni++)
     {
         //cout << "\nNow processing image nr. " << ni << "...\n";
         // Read image from file
@@ -209,7 +209,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
         refExtractor(img, cv::Mat(), refkpts, refdescriptors);
 
-        myExtractor(img, cv::Mat(), mykpts, mydescriptors);
+        myExtractor(img, cv::Mat(), mykpts, mydescriptors, DISTRIBUTION_KEEP_ALL);
 
         vector<std::pair<cv::KeyPoint, cv::KeyPoint>> kptDiffs;
         kptDiffs = CompareKeypoints(mykpts, string("my kpts"), refkpts, string("reference kpts"), ni, true);
@@ -219,11 +219,11 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
         int nkpts = mykpts.size();
 
-        vector<Descriptor_Pair> descriptorDiffs;
-        descriptorDiffs = CompareDescriptors(mydescriptors, "my descriptors", refdescriptors,
-                                                 "reference descriptors", nkpts, ni, true);
-        if (!descriptorDiffs.empty())
-            eqdescriptors = false;
+        //vector<Descriptor_Pair> descriptorDiffs;
+        //descriptorDiffs = CompareDescriptors(mydescriptors, "my descriptors", refdescriptors,
+        //                                         "reference descriptors", nkpts, ni, true);
+        //if (!descriptorDiffs.empty())
+        //    eqdescriptors = false;
 
         /** time measurement per image:
          *
@@ -246,8 +246,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
     }
     cout << "\n" << (eqkpts ? "All keypoints across all images were equal!\n" : "Not all keypoints are equal...:(\n");
-    cout << "\n" << (eqdescriptors ? "All descriptors across all images and keypoints were equal!\n" :
-                        "Not all descriptors were equal... :(\n");
+    //cout << "\n" << (eqdescriptors ? "All descriptors across all images and keypoints were equal!\n" :
+    //                    "Not all descriptors were equal... :(\n");
 }
 
 vector<std::pair<cv::KeyPoint, cv::KeyPoint>> CompareKeypoints(vector<cv::KeyPoint> &kpts1, string name1,
@@ -269,7 +269,7 @@ vector<std::pair<cv::KeyPoint, cv::KeyPoint>> CompareKeypoints(vector<cv::KeyPoi
 
     bool eq = true;
     int count = 0;
-    for (int i = 0; i < N; ++i)
+    for (int i = 0; i < N; ++i) //TODO: revert to i = 0; i < N
     {
         if (!(kpts1[i].pt.x == kpts2[i].pt.x && kpts1[i].pt.y == kpts2[i].pt.y &&
             kpts1[i].octave == kpts2[i].octave && kpts1[i].response == kpts2[i].response &&
@@ -282,6 +282,11 @@ vector<std::pair<cv::KeyPoint, cv::KeyPoint>> CompareKeypoints(vector<cv::KeyPoi
             {
                 cout << "\ndiffering keypoint at idx " << i << " in image " <<
                         (imgNr == -1? "" : std::to_string(imgNr)) << "\n";
+                cout << "kpt1: " << kpts1[i].pt << ", kpt2: " << kpts2[i].pt << "\n";
+                cout << "kpt1.angle=" << kpts1[i].angle << ", kpt2.angle=" << kpts2[i].angle << "\n" <<
+                    "kpt1.octave=" << kpts1[i].octave << ", kpt2.octave=" << kpts2[i].octave << "\n" <<
+                    "kpt1.response=" << kpts1[i].response << ", kpt2.response=" << kpts2[i].response << "\n" <<
+                    "kpt1.size=" << kpts1[i].size << ", kpt2.size=" << kpts2[i].size << "\n";
             }
         }
     }

@@ -92,8 +92,8 @@ protected:
     void DivideAndFAST(std::vector<std::vector<cv::KeyPoint> >& allKeypoints,
                        DistributionMethod mode = DISTRIBUTION_NAIVE, bool divideImage = false, int cellSize = 30);
 
-    void FAST(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
-    void OptimizedFAST(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
+    void FAST(cv::Mat image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
+    void OptimizedFAST(cv::Mat image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
 
     int CornerScore(const uchar *pointer, const int offset[], int &threshold);
     int OptimizedCornerScore(const uchar *pointer, const int offset[], int &threshold);
@@ -123,7 +123,6 @@ protected:
 
 
     std::vector<int> pixelOffset;
-    //std::vector<int> stepVec;
 
     std::vector<int> nfeaturesPerLevelVec;
 

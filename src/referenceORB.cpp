@@ -484,9 +484,6 @@ void ExtractorNode::DivideNode(ExtractorNode &n1, ExtractorNode &n2, ExtractorNo
 vector<cv::KeyPoint> referenceORB::DistributeOctTree(const vector<cv::KeyPoint>& vToDistributeKeys, const int &minX,
                                                      const int &maxX, const int &minY, const int &maxY, const int &N, const int &level)
 {
-    //TODO:remove
-    return vToDistributeKeys;
-
     // Compute how many initial nodes
     const int nIni = round(static_cast<float>(maxX-minX)/(maxY-minY));
 
@@ -618,6 +615,8 @@ vector<cv::KeyPoint> referenceORB::DistributeOctTree(const vector<cv::KeyPoint>&
         {
             bFinish = true;
         }
+        //TODO:revert
+        /*
         else if(((int)lNodes.size()+nToExpand*3)>N)
         {
 
@@ -684,6 +683,8 @@ vector<cv::KeyPoint> referenceORB::DistributeOctTree(const vector<cv::KeyPoint>&
 
             }
         }
+        */
+        ///////
     }
 
     // Retain the best point in each node
@@ -733,6 +734,15 @@ void referenceORB::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
         const int nRows = height/W;
         const int wCell = ceil(width/nCols);
         const int hCell = ceil(height/nRows);
+
+        //TODO: remove
+        /*
+        std::cout << "reference:\npyramid[" << level << "]: cols = " << mvImagePyramid[level].cols <<
+                  ", rows = " << mvImagePyramid[level].rows << "\nmaximumX = " << maxBorderX << ", maximumY = " << maxBorderY <<
+                  ", minimumX = " << minBorderX << ", minimumY = " << minBorderY <<
+                  "\nwidth = " << width << ", height = " << height << ", npatchesinX = " << nCols << ", npatchesinY = "
+                  << nRows << ", patchWidth = " << wCell << ", patchHeight = " << hCell << "\n";
+                  */
 
         for(int i=0; i<nRows; i++)
         {

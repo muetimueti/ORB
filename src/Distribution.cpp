@@ -73,11 +73,10 @@ void DistributeKeypointsNaive(std::vector<cv::KeyPoint> &kpts, const int &N)
 }
 
 
-void DistributeKeypointsQuadTree(std::vector<cv::KeyPoint>& kpts, const int &minX,        //N = n desired features
+void DistributeKeypointsQuadTree(std::vector<cv::KeyPoint>& kpts, const int &minX,
                                        const int &maxX, const int &minY, const int &maxY, const int &N)
 {
-    if (kpts.empty())
-        return;
+    assert(!kpts.empty());
 
     const int nroots = myRound((float)(maxX-minX)/(float)(maxY-minY));
 
@@ -193,26 +192,26 @@ void DistributeKeypointsQuadTree(std::vector<cv::KeyPoint>& kpts, const int &min
 void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, const int &minX,
                                  const int &maxX, const int &minY, const int &maxY, const int &N)
 {
-    //TODO: implement
+    //TODO: fix so results equal orbslam's results
 
-    if (kpts.empty())
-        return;
+    assert(!kpts.empty());
 
-    const int nroots = myRound((float)(maxX-minX)/(float)(maxY-minY));
+    const int nroots = round(static_cast<float>(maxX-minX)/(maxY-minY));
 
-    int nodeWidth = myRound((float)(maxX - minX) / nroots);
+    const float nodeWidth = static_cast<float>(maxX - minX) / nroots;
 
     std::list<ExtractorNode> nodesList;
 
     std::vector<ExtractorNode*> rootVec;
     rootVec.resize(nroots);
 
+
     for (int i = 0; i < nroots; ++i)
     {
-        int x0 = minX + nodeWidth * i;
-        int x1 = minX + nodeWidth * (i+1);
-        int y0 = minY;
-        int y1 = maxY;
+        int x0 = nodeWidth * (float)i;
+        int x1 = nodeWidth * (float)(i+1);
+        int y0 = 0;
+        int y1 = maxY-minY;
         ExtractorNode n;
         n.UL = cv::Point2i(x0, y0);
         n.UR = cv::Point2i(x1, y0);
@@ -224,14 +223,32 @@ void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, c
         rootVec[i] = &nodesList.back();
     }
 
+
     for (auto &kpt : kpts)
     {
         rootVec[(int)(kpt.pt.x / nodeWidth)]->nodeKpts.emplace_back(kpt);
     }
 
     std::list<ExtractorNode>::iterator current;
+    current = nodesList.begin();
+
+    while (current != nodesList.end())
+    {
+        if (current->nodeKpts.size() == 1)
+        {
+            current->leaf = true;
+            ++current;
+        }
+        else if (current->nodeKpts.empty())
+        {
+            current = nodesList.erase(current);
+        }
+        else
+            ++current;
+    }
 
     std::vector<ExtractorNode*> nodesToExpand;
+    nodesToExpand.reserve(nodesList.size()*4);
 
     bool omegadoom = false;
     int lastSize = 0;
@@ -245,11 +262,6 @@ void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, c
 
         while (current != nodesList.end())
         {
-            if (current->nodeKpts.empty())
-            {
-                current = nodesList.erase(current);
-            }
-
             if (current->leaf)
             {
                 ++current;
@@ -269,7 +281,6 @@ void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, c
                     nodesToExpand.emplace_back(&nodesList.front());
                     nodesList.front().lit = nodesList.begin();
                 }
-
             }
             if (!n2.nodeKpts.empty())
             {
@@ -282,7 +293,6 @@ void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, c
                     nodesToExpand.emplace_back(&nodesList.front());
                     nodesList.front().lit = nodesList.begin();
                 }
-
             }
             if (!n3.nodeKpts.empty())
             {
@@ -295,7 +305,6 @@ void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, c
                     nodesToExpand.emplace_back(&nodesList.front());
                     nodesList.front().lit = nodesList.begin();
                 }
-
             }
             if (!n4.nodeKpts.empty())
             {
@@ -308,7 +317,6 @@ void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, c
                     nodesToExpand.emplace_back(&nodesList.front());
                     nodesList.front().lit = nodesList.begin();
                 }
-
             }
 
             current = nodesList.erase(current);
@@ -318,6 +326,8 @@ void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, c
         {
             omegadoom = true;
         }
+        //TODO: revert
+        /*
         else if ((int)nodesList.size() + nToExpand*3 > N)
         {
             while(!omegadoom)
@@ -393,18 +403,36 @@ void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, c
 
             }
         }
+        */
+        //////
 
     }
 
-    std::vector<cv::KeyPoint> resKpts;
-    resKpts.reserve(N);
-    auto iter = nodesList.begin();
-    for (int i = 0; i < N&& iter != nodesList.end(); ++i, ++iter)
-    {
-        if (!iter->leaf)
-            RetainBestN(iter->nodeKpts, 1);
 
-        resKpts.emplace_back(iter->nodeKpts[0]);
+    std::vector<cv::KeyPoint> resKpts;
+    resKpts.reserve(N*2);
+    auto iter = nodesList.begin();
+    for (; iter != nodesList.end(); ++iter)
+    {
+        std::vector<cv::KeyPoint> &nodekpts = iter->nodeKpts;
+        cv::KeyPoint* kpt = &nodekpts[0];
+        if (iter->leaf)
+        {
+            resKpts.emplace_back(*kpt);
+            continue;
+        }
+
+        float maxScore = kpt->response;
+        for (auto &k : nodekpts)
+        {
+            if (k.response > maxScore)
+            {
+                kpt = &k;
+                maxScore = k.response;
+            }
+
+        }
+        resKpts.emplace_back(*kpt);
     }
 
     kpts = resKpts;
