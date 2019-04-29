@@ -127,9 +127,9 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
 
 
     //LoadHugeImage(refExtractor);
-    //extractor(image, cv::Mat(), keypoints, descriptors, DISTRIBUTION_QUADTREE_ORBSLAMSTYLE);
+    extractor(image, cv::Mat(), keypoints, descriptors, DISTRIBUTION_QUADTREE_ORBSLAMSTYLE);
 
-    //refExtractor(image, cv::Mat(), refkeypoints, refdescriptors);
+    refExtractor(image, cv::Mat(), refkeypoints, refdescriptors);
 
     /*
     vector<int> mysizes(2000, 0);
@@ -167,8 +167,8 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     DisplayKeypoints(imgColor, keypoints, color, thickness, radius, drawAngular, "mine");
     DisplayKeypoints(imgColor2, refkeypoints, color, thickness, radius, drawAngular, "reference");
 
-    CompareKeypoints(keypoints, "mine", refkeypoints, "reference", -1, true);
-    CompareDescriptors(descriptors, "mine", refdescriptors, "reference", keypoints.size(), -1, true);
+    //CompareKeypoints(keypoints, "mine", refkeypoints, "reference", -1, true);
+    //CompareDescriptors(descriptors, "mine", refdescriptors, "reference", keypoints.size(), -1, true);
 
 
     //LoadHugeImage(extractor);
@@ -231,13 +231,13 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
 
         chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
-        //refExtractor(img, cv::Mat(), refkpts, refdescriptors);
+        refExtractor(img, cv::Mat(), refkpts, refdescriptors);
 
 
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
 
 
-        myExtractor(img, cv::Mat(), mykpts, mydescriptors, DISTRIBUTION_QUADTREE_ORBSLAMSTYLE);
+        myExtractor(img, cv::Mat(), mykpts, mydescriptors, DISTRIBUTION_QUADTREE);
         chrono::high_resolution_clock ::time_point t3 = chrono::high_resolution_clock::now();
 
         auto refduration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();

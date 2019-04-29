@@ -13,21 +13,34 @@ static bool CompareVectorSize(const ExtractorNode *n1, const ExtractorNode *n2)
 {
     return (n1->nodeKpts.size() > n2->nodeKpts.size());
 }
+struct CompareVecSz
+{
+bool operator()(const ExtractorNode *n1, const ExtractorNode *n2) const
+{
+    return (n1->nodeKpts.size() > n2->nodeKpts.size());
+}
+};
 
 static bool ResponseComparison(const cv::KeyPoint &k1, const cv::KeyPoint &k2)
 {
     return (k1.response > k2.response);
 }
-void RetainBestN(std::vector<cv::KeyPoint> &kpts, int N)
+struct CompareResponse {
+bool operator()(const cv::KeyPoint &k1, const cv::KeyPoint &k2) const
 {
-    std::sort(kpts.begin(), kpts.end(), ResponseComparison);
+    return k1.response > k2.response;
+}
+};
+static void RetainBestN(std::vector<cv::KeyPoint> &kpts, int N)
+{
+    std::sort(kpts.begin(), kpts.end(), CompareResponse());
     kpts.resize(N);
 }
 
 
 void
 DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int &minX, const int &maxX, const int &minY,
-        const int &maxY, const int &N, DistributionMethod mode)
+                    const int &maxY, const int &N, DistributionMethod mode)
 {
     switch (mode)
     {
@@ -74,7 +87,7 @@ void DistributeKeypointsNaive(std::vector<cv::KeyPoint> &kpts, const int &N)
 
 
 void DistributeKeypointsQuadTree(std::vector<cv::KeyPoint>& kpts, const int &minX,
-                                       const int &maxX, const int &minY, const int &maxY, const int &N)
+                                 const int &maxX, const int &minY, const int &maxY, const int &N)
 {
     assert(!kpts.empty());
 
@@ -190,7 +203,7 @@ void DistributeKeypointsQuadTree(std::vector<cv::KeyPoint>& kpts, const int &min
 
 
 void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, const int &minX,
-                                 const int &maxX, const int &minY, const int &maxY, const int &N)
+                                              const int &maxX, const int &minY, const int &maxY, const int &N)
 {
     //TODO: fix so results equal orbslam's results
     // (seems it literally cannot be done, as orbslams implementation is not deterministic)
@@ -353,7 +366,7 @@ void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, c
 
                 nodesToExpand.clear();
 
-                std::stable_sort(prevNodes.begin(), prevNodes.end(), CompareVectorSize);
+                std::sort(prevNodes.begin(), prevNodes.end(), CompareVecSz());
 
                 for (auto &node : prevNodes)
                 {
@@ -460,7 +473,7 @@ void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, c
  * @param cellSize : must be larger than 16, lesser than min(width, height)
  */
 void DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, const int &minX, const int &maxX, const int &minY,
-                                        const int &maxY, const int &N, const int &cellSize)
+                             const int &maxY, const int &N, const int &cellSize)
 {
     //TODO: implement
     const int width = maxX - minX;
@@ -473,6 +486,10 @@ void DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, const int &minX, c
     const int npatchesInY = height / cellSize;
     const int patchWidth = std::ceil(width / npatchesInX);
     const int patchHeight = std::ceil(height / npatchesInY);
+
+    std::vector<cv::KeyPoint> colKpts;
+    colKpts.reserve(npatchesInX * npatchesInY);
+
 
 
     for (int py = 0; py < npatchesInY; ++py)

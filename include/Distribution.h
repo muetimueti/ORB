@@ -16,22 +16,21 @@ public:
 };
 
 enum DistributionMethod
-        {
-            DISTRIBUTION_NAIVE,
-            DISTRIBUTION_QUADTREE,
-            DISTRIBUTION_QUADTREE_ORBSLAMSTYLE,
-            DISTRIBUTION_GRID,
-            DISTRIBUTION_ANMS_KDTREE,
-            DISTRIBUTION_ANMS_RT,
-            DISTRIBUTION_SSC,
-            DISTRIBUTION_KEEP_ALL
-        };
+{
+DISTRIBUTION_NAIVE,
+DISTRIBUTION_QUADTREE,
+DISTRIBUTION_QUADTREE_ORBSLAMSTYLE,
+DISTRIBUTION_GRID,
+DISTRIBUTION_ANMS_KDTREE,
+DISTRIBUTION_ANMS_RT,
+DISTRIBUTION_SSC,
+DISTRIBUTION_KEEP_ALL
+};
 
 
-static void RetainBestN(std::vector<cv::KeyPoint> &kpts, int N);
 
 void DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int &minX, const int &maxX, const int &minY,
-        const int &maxY, const int &N, DistributionMethod mode);
+                         const int &maxY, const int &N, DistributionMethod mode);
 
 void DistributeKeypointsNaive(std::vector<cv::KeyPoint> &kpts, const int &N);
 
@@ -43,6 +42,8 @@ void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, c
 
 void DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, const int &minX,
                              const int &maxX, const int &minY, const int &maxY, const int &N, const int& cellSize);
+
+
 
 CV_INLINE  int myRound( float value )
 {

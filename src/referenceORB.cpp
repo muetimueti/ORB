@@ -726,15 +726,6 @@ vector<cv::KeyPoint> referenceORB::DistributeOctTree(const vector<cv::KeyPoint>&
 
 void referenceORB::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoints)
 {
-    //todo: remove infi loop
-    vector<KeyPoint> v;
-    while(true)
-    {
-        cv::FAST(mvImagePyramid[0].rowRange(0,mvImagePyramid[0].rows).colRange(0,mvImagePyramid[0].cols),
-                 v,iniThFAST,true);
-    }
-    ////
-
     allKeypoints.resize(nlevels);
 
     const float W = 30;

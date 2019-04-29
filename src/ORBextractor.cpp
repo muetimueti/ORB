@@ -12,7 +12,6 @@
 #   include <opencv2/highgui/highgui.hpp>
 #   include <opencv2/features2d/features2d.hpp>
 #   include <chrono>
-#   include "include/Comparison_Descriptors.h"
 #   include "include/referenceORB.h"
 #   include "include/CVFAST.h"
 #else
@@ -1514,8 +1513,8 @@ void ORBextractor::testingDescriptors(cv::Mat myDescriptors, cv::Mat compDescrip
 
     std::cout << "\ndesc empty?:" << myDescriptors.empty() << "\n";
 
-    auto descPointer = myDescriptors.ptr<uchar>((int)0);
-    auto compPointer = compDescriptors.ptr<uchar>((int)0);
+    auto descPointer = myDescriptors.ptr<uchar>((int) 0);
+    auto compPointer = compDescriptors.ptr<uchar>((int) 0);
 
     if (testTime)
     {
@@ -1532,11 +1531,10 @@ void ORBextractor::testingDescriptors(cv::Mat myDescriptors, cv::Mat compDescrip
         this->DivideAndFAST(allkpts, DISTRIBUTION_QUADTREE, false);
 
 
-
         int nkeypoints = 0;
         for (int level = 0; level < nlevels; ++level)
-            nkeypoints += (int)allkpts[level].size();
-        if( nkeypoints == 0 )
+            nkeypoints += (int) allkpts[level].size();
+        if (nkeypoints == 0)
             _descr.release();
         else
         {
@@ -1546,67 +1544,51 @@ void ORBextractor::testingDescriptors(cv::Mat myDescriptors, cv::Mat compDescrip
 
         my_descriptors = _descr.getMat();
 
-        high_resolution_clock::time_point t1 = high_resolution_clock::now();
 
-        Comparison_Descriptors().Compute(imagePyramid, allkpts, ref_descriptors, pattern);
-
-        high_resolution_clock::time_point t2 = high_resolution_clock::now();
-
-        this->ComputeDescriptors(allkpts, myDescriptors);
-
-        high_resolution_clock::time_point t3 = high_resolution_clock::now();
-
-        auto myduration = duration_cast<microseconds>(t3 - t2).count();
-        auto refduration = duration_cast<microseconds>(t2 - t1).count();
-
-        std::cout << "\nComputation time for reference descriptors: " << refduration << " microseconds.\n";
-        std::cout << "\nComputation time for my descriptors: " << myduration << " microseconds.\n";
-    }
-
-    /*
-    for (int i = start; i < end; ++i)
-    {
-        std::cout << "myDescriptors[" << i << "] = " << (int)descPointer[i] << "\n";
-
-    }
-
-    for (int i = start; i < end; ++i)
-    {
-        std::cout << "compDescriptors[" << i << "] = " << (int)compPointer[i] << "\n";
-    }
-
-    std::cout << "desc size: " << myDescriptors.total() << "\n";
-    std::cout << "comp des size: " << compDescriptors.total() << "\n";
-     */
-
-    bool eq = true;
-    int count = 0;
-    if (myDescriptors.total() == compDescriptors.total())
-    {
-        int N = nkpts * 32;
-        for (int i = 0; i < N; ++i)
+        /*
+        for (int i = start; i < end; ++i)
         {
-            if (descPointer[i] != compPointer[i])
-            {
-                ++count;
-                if (printdif)
-                {
-                    std::cout << "dif: my[" << i << "]=" << (int)descPointer[i] <<
-                        ", comp[" << i << "]=" <<(int) compPointer[i] << "\n";
-                }
+            std::cout << "myDescriptors[" << i << "] = " << (int)descPointer[i] << "\n";
 
-                eq = false;
-            }
         }
-    }
-    else
-    {
-        std::cout << "\ndescs not of eq sz\n";
-    }
+
+        for (int i = start; i < end; ++i)
+        {
+            std::cout << "compDescriptors[" << i << "] = " << (int)compPointer[i] << "\n";
+        }
+
+        std::cout << "desc size: " << myDescriptors.total() << "\n";
+        std::cout << "comp des size: " << compDescriptors.total() << "\n";
+         */
+
+        bool eq = true;
+        int count = 0;
+        if (myDescriptors.total() == compDescriptors.total())
+        {
+            int N = nkpts * 32;
+            for (int i = 0; i < N; ++i)
+            {
+                if (descPointer[i] != compPointer[i])
+                {
+                    ++count;
+                    if (printdif)
+                    {
+                        std::cout << "dif: my[" << i << "]=" << (int) descPointer[i] <<
+                                  ", comp[" << i << "]=" << (int) compPointer[i] << "\n";
+                    }
+
+                    eq = false;
+                }
+            }
+        } else
+        {
+            std::cout << "\ndescs not of eq sz\n";
+        }
 
 
-    std::cout << "my and compDesc equal? -->" << (eq? " yes" : " no") << "\n";
-    std::cout << "differences: " << count << "\n";
+        std::cout << "my and compDesc equal? -->" << (eq ? " yes" : " no") << "\n";
+        std::cout << "differences: " << count << "\n";
+    }
 }
 
 
