@@ -1,5 +1,6 @@
 #include "include/CVFAST.h"
 #include <iostream>
+#include <chrono>
 using namespace cv;
 
 void makeOffsets(int pixel[25], int rowStride, int patternSize)

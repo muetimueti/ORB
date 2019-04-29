@@ -10,7 +10,6 @@
 #  define D(x) x
 #  include <random>
 #  include <chrono>
-#  include "include/referenceORB.h"
 #else
 # define D(x)
 #endif
@@ -126,10 +125,31 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
 
     ///CHANGE FUNCTION CALLS FOR TESTS HERE ///////////////////////////////////////////////////////////////////////
 
-    //extractor(image, cv::Mat(), keypoints, descriptors);
-    extractor(image, cv::Mat(), keypoints, descriptors, DISTRIBUTION_QUADTREE_ORBSLAMSTYLE);
 
-    refExtractor(image, cv::Mat(), refkeypoints, refdescriptors);
+    //LoadHugeImage(refExtractor);
+    //extractor(image, cv::Mat(), keypoints, descriptors, DISTRIBUTION_QUADTREE_ORBSLAMSTYLE);
+
+    //refExtractor(image, cv::Mat(), refkeypoints, refdescriptors);
+
+    /*
+    vector<int> mysizes(2000, 0);
+    vector<int> refsizes(2000, 0);
+    for (int i = 0; i < 1000; ++i)
+    {
+        keypoints.clear();
+        refkeypoints.clear();
+        extractor(image, cv::Mat(), keypoints, descriptors, DISTRIBUTION_QUADTREE_ORBSLAMSTYLE);
+        refExtractor(image, cv::Mat(), refkeypoints, refdescriptors);
+        ++mysizes[keypoints.size()];
+        ++refsizes[refkeypoints.size()];
+    }
+    for (int i = 900; i < 1100; ++i)
+    {
+        std::cout << "Number of times my keypoint vec was size " << i << ": " << mysizes[i] << "\n";
+        std::cout << "Number of times ref keypoint vec was size " << i << ": " << refsizes[i] << "\n";
+    }
+     */
+
 
     //DistributionComparisonSuite(extractor, imgColor, color, thickness, radius, drawAngular);
 
@@ -144,11 +164,11 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     //MeasureExecutionTime(1, extractor, image, FAST_RUNTIME);
 
 
-    //DisplayKeypoints(imgColor, keypoints, color, thickness, radius, drawAngular, "mine");
-    //DisplayKeypoints(imgColor2, refkeypoints, color, thickness, radius, drawAngular, "reference");
+    DisplayKeypoints(imgColor, keypoints, color, thickness, radius, drawAngular, "mine");
+    DisplayKeypoints(imgColor2, refkeypoints, color, thickness, radius, drawAngular, "reference");
 
     CompareKeypoints(keypoints, "mine", refkeypoints, "reference", -1, true);
-    //CompareDescriptors(descriptors, "mine", refdescriptors, "reference", keypoints.size(), -1, true);
+    CompareDescriptors(descriptors, "mine", refdescriptors, "reference", keypoints.size(), -1, true);
 
 
     //LoadHugeImage(extractor);
@@ -182,6 +202,9 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     bool eqkpts = true;
     bool eqdescriptors = true;
 
+    long myTotalDuration = 0;
+    long refTotalDuration = 0;
+
     cv::Mat img;
     for(int ni=0; ni<nImages; ni++)
     {
@@ -207,10 +230,23 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
 
 
-        refExtractor(img, cv::Mat(), refkpts, refdescriptors);
+        chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
+        //refExtractor(img, cv::Mat(), refkpts, refdescriptors);
 
-        myExtractor(img, cv::Mat(), mykpts, mydescriptors, DISTRIBUTION_KEEP_ALL);
 
+        chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
+
+
+        myExtractor(img, cv::Mat(), mykpts, mydescriptors, DISTRIBUTION_QUADTREE_ORBSLAMSTYLE);
+        chrono::high_resolution_clock ::time_point t3 = chrono::high_resolution_clock::now();
+
+        auto refduration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
+        auto myduration = chrono::duration_cast<chrono::microseconds>(t3 - t2).count();
+
+        myTotalDuration += myduration;
+        refTotalDuration += refduration;
+
+        /** compare kpts and descriptors per image:
         vector<std::pair<cv::KeyPoint, cv::KeyPoint>> kptDiffs;
         kptDiffs = CompareKeypoints(mykpts, string("my kpts"), refkpts, string("reference kpts"), ni, true);
 
@@ -219,11 +255,13 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
         int nkpts = mykpts.size();
 
-        //vector<Descriptor_Pair> descriptorDiffs;
-        //descriptorDiffs = CompareDescriptors(mydescriptors, "my descriptors", refdescriptors,
-        //                                         "reference descriptors", nkpts, ni, true);
-        //if (!descriptorDiffs.empty())
-        //    eqdescriptors = false;
+        vector<Descriptor_Pair> descriptorDiffs;
+        descriptorDiffs = CompareDescriptors(mydescriptors, "my descriptors", refdescriptors,
+                                                 "reference descriptors", nkpts, ni, true);
+        if (!descriptorDiffs.empty())
+            eqdescriptors = false;
+        */
+
 
         /** time measurement per image:
          *
@@ -240,14 +278,20 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         auto refduration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
         auto myduration = chrono::duration_cast<chrono::microseconds>(t3 - t2).count();
 
+
         std::cout << "Computation time with my ORB for image nr. " << ni << ": " << myduration << " microseconds.\n";
         std::cout << "Computation time with ref ORB for image nr. " << ni << ": " << refduration << " microseconds.\n";
          */
 
     }
     cout << "\n" << (eqkpts ? "All keypoints across all images were equal!\n" : "Not all keypoints are equal...:(\n");
-    //cout << "\n" << (eqdescriptors ? "All descriptors across all images and keypoints were equal!\n" :
-    //                    "Not all descriptors were equal... :(\n");
+    cout << "\n" << (eqdescriptors ? "All descriptors across all images and keypoints were equal!\n" :
+                        "Not all descriptors were equal... :(\n");
+
+    cout << "\nTotal computation time using my orb: " << myTotalDuration/1000 <<
+        " milliseconds, which averages to ~" << myTotalDuration/nImages << " microseconds.\n";
+    cout << "\nTotal computation time using ref orb: " << refTotalDuration/1000 <<
+        " milliseconds, which averages to ~" << refTotalDuration/nImages << " microseconds.\n";
 }
 
 static bool CompareXThenY(cv::KeyPoint &k1, cv::KeyPoint &k2)
@@ -263,8 +307,8 @@ void SortKeypoints(vector<cv::KeyPoint> &kpts)
 vector<std::pair<cv::KeyPoint, cv::KeyPoint>> CompareKeypoints(vector<cv::KeyPoint> &kpts1, string name1,
         vector<cv::KeyPoint> &kpts2, string name2, int imgNr, bool print)
 {
-    SortKeypoints(kpts1);
-    SortKeypoints(kpts2);
+    //SortKeypoints(kpts1);
+    //SortKeypoints(kpts2);
     int sz1 = kpts1.size();
     int sz2 = kpts2.size();
     if (print)
@@ -358,7 +402,37 @@ void LoadHugeImage(ORB_SLAM2::ORBextractor &extractor)
    cout << "Running cv::FAST repeatedly with " << img.cols << "x" << img.rows << " image...\n";
    vector<cv::KeyPoint> kpts;
 
-   extractor.testingFAST(img, kpts, false, false);
+    if (img.channels() == 3)
+        cv::cvtColor(img, img, CV_BGR2GRAY);
+    else if (img.channels() == 4)
+        cv::cvtColor(img, img, CV_BGRA2GRAY);
+
+   extractor(img, cv::Mat(), kpts, cv::Mat());
+}
+
+/**
+ * @overload
+ */
+void LoadHugeImage(ORB_SLAM_REF::referenceORB &extractor)
+{
+    string path = string("/home/ralph/Downloads/world.topo.bathy.200407.3x21600x10800.png");
+    cv::Mat img;
+    img = cv::imread(path, cv::IMREAD_UNCHANGED);
+    if (img.empty())
+    {
+        cerr << "Failed to load image at" << path << "!" << endl;
+        exit(EXIT_FAILURE);
+    }
+    cout << "\nImage loaded successfully!\n" << endl;
+    vector<cv::KeyPoint> kpts;
+
+    if (img.channels() == 3)
+        cv::cvtColor(img, img, CV_BGR2GRAY);
+    else if (img.channels() == 4)
+        cv::cvtColor(img, img, CV_BGRA2GRAY);
+
+
+    extractor(img, cv::Mat(), kpts, cv::Mat());
 }
 
 void DisplayKeypoints(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, cv::Scalar &color,

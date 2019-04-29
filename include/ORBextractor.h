@@ -73,26 +73,24 @@ public:
 
 protected:
 
-    CV_INLINE  int  myRound( float value )
+    CV_INLINE int myRound(float value)
     {
     #if defined HAVE_LRINT || defined CV_ICC || defined __GNUC__
         return (int)lrint(value);
     #else
-        // while this is not IEEE754-compliant rounding, it's usually a good enough approximation
+        // not IEEE754-compliant
       return (int)(value + (value >= 0 ? 0.5f : -0.5f));
     #endif
     }
 
     static float IntensityCentroidAngle(const uchar* pointer, int step);
-    static void RetainBestN(std::vector<cv::KeyPoint> &kpts, int N);
-    static bool ResponseComparison(const cv::KeyPoint &k1, const cv::KeyPoint &k2);
 
     void ComputeScalePyramid(cv::Mat &image);
 
     void DivideAndFAST(std::vector<std::vector<cv::KeyPoint> >& allKeypoints,
                        DistributionMethod mode = DISTRIBUTION_NAIVE, bool divideImage = false, int cellSize = 30);
 
-    void FAST(cv::Mat image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
+    void FAST(cv::Mat image, std::vector<cv::KeyPoint> &keypoints, int &threshold, int level = 0);
     void OptimizedFAST(cv::Mat image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
 
     int CornerScore(const uchar *pointer, const int offset[], int &threshold);
@@ -151,7 +149,6 @@ protected:
     static void CompareKeypointVectors(std::vector<cv::KeyPoint> &vec1, std::vector<cv::KeyPoint> &vec2);
 
     //
-
 };
 
 

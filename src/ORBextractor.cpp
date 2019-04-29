@@ -325,29 +325,6 @@ float ORBextractor::IntensityCentroidAngle(const uchar* pointer, int step)
 }
 
 
-bool ORBextractor::ResponseComparison(const cv::KeyPoint &k1, const cv::KeyPoint &k2)
-{
-    return (k1.response > k2.response);
-}
-void ORBextractor::RetainBestN(std::vector<cv::KeyPoint> &kpts, int N)
-{
-    std::sort(kpts.begin(), kpts.end(), ResponseComparison);
-    kpts.resize(N);
-
-    //std::vector<cv::KeyPoint> tempKpts;
-    //tempKpts.reserve(N);
-
-    /*
-    for (int i = 0; i < N; ++i)
-    {
-        tempKpts.emplace_back(kpts[i]);
-    }
-     */
-    //kpts = tempKpts;
-}
-
-
-
 
 ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
                            int _iniThFAST, int _minThFAST):
@@ -520,9 +497,17 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
 
 
     std::vector<std::vector<cv::KeyPoint>> allKpts;
+
+    //using namespace std::chrono;
+    //high_resolution_clock::time_point t1 = high_resolution_clock::now();
+
     DivideAndFAST(allKpts, distributionMode, true);
 
     ComputeAngles(allKpts);
+
+    //high_resolution_clock::time_point t2 = high_resolution_clock::now();
+    //auto d = duration_cast<microseconds>(t2-t1).count();
+    //std::cout << "\nmy comp time for FAST + distr: " << d << "\n";
 
     cv::Mat BRIEFdescriptors;
     int nkpts = 0;
@@ -555,6 +540,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
                 kpt.pt *= scale;
         }
     }
+
 
     for (int lvl = 0; lvl < nlevels; ++lvl)
     {
@@ -751,32 +737,25 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeyp
                     //cv::Mat patch = imagePyramid[lvl](rowSelect, colSelect);
                     std::vector<cv::KeyPoint> patchKpts;
 
-                    /*
-                    //TODO: revert after debugging FAST
-                    std::cout << "current cell (minX, maxX, minY, maxY) = (" << startX << ", " << endX << ", " <<
-                        startY << ", " << endY << ")\n";
 
-
-                    if (52 < endX && 52 > startX && 178 < endY && 178 > startY)
-                    {
-                        this->OptimizedFAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
-                                   patchKpts, iniThFAST, lvl);
-                        FAST_cv(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX), patchKpts, iniThFAST);
-                    }
-                    */////
-
-                    this->FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
-                            patchKpts, iniThFAST, lvl);
+                    std::chrono::high_resolution_clock::time_point FASTEntry = std::chrono::high_resolution_clock::now();
+                    //this->FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
+                    //        patchKpts, iniThFAST, lvl);
                     //FAST_cv(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
                     //        patchKpts, iniThFAST, true);
+                    cv::FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
+                            patchKpts, iniThFAST, true);
 
                     if (patchKpts.empty())
 
-                        this->FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
-                               patchKpts, minThFAST, lvl);
-                    //    FAST_cv(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
-                    //             patchKpts, minThFAST, true);
-                    ////////////////////////////////////////////////////////////////////
+                        //this->FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
+                        //       patchKpts, minThFAST, lvl);
+                        //FAST_cv(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
+                        //         patchKpts, minThFAST, true);
+                        cv::FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
+                                 patchKpts, minThFAST, true);
+
+
 
                     if(patchKpts.empty())
                         continue;
@@ -792,18 +771,10 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeyp
 
             allKeypoints[lvl].reserve(nfeatures);
 
+
             DistributeKeypoints(levelKpts, minimumX, maximumX, minimumY, maximumY, nfeaturesPerLevelVec[lvl], mode);
-            /*
-            if (mode == DISTRIBUTION_QUADTREE)
-            {
-                DistributeKeypointsQuadTree(levelKpts, minimumX, maximumX, minimumY, maximumY,
-                                            nfeaturesPerLevelVec[lvl]);
-            }
-            else if (mode == DISTRIBUTION_NAIVE)
-            {
-                DistributeKeypointsNaive(levelKpts, nfeaturesPerLevelVec[lvl]);
-            }
-            */
+
+
             allKeypoints[lvl] = levelKpts;
 
 
@@ -822,7 +793,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allKeyp
 
 
 //move to separate file?
-void ORBextractor::FAST(cv::Mat img, std::vector<cv::KeyPoint> &keypoints, int threshold, int level)
+void ORBextractor::FAST(cv::Mat img, std::vector<cv::KeyPoint> &keypoints, int &threshold, int level)
 {
    keypoints.clear();
 
@@ -832,9 +803,8 @@ void ORBextractor::FAST(cv::Mat img, std::vector<cv::KeyPoint> &keypoints, int t
         offset[i] = pixelOffset[level*CIRCLE_SIZE + i];
     }
 
-    if (!(threshold == minThFAST || threshold == iniThFAST))
-        //only initial or min threshold should be passed
-        return;
+    assert(threshold == minThFAST || threshold == iniThFAST); //only initial or min threshold should be passed
+
 
     uchar *threshold_tab;
     if (threshold == iniThFAST)
@@ -1495,6 +1465,7 @@ void ORBextractor::Tests(cv::InputArray inputImage, std::vector<cv::KeyPoint> &r
         }
     }
 
+
     for (int lvl = 0; lvl < nlevels; ++lvl)
     {
         resKeypoints.insert(resKeypoints.end(), allMyKeypoints[lvl].begin(), allMyKeypoints[lvl].end());
@@ -1742,3 +1713,5 @@ void ORBextractor::testingDescriptors(cv::Mat myDescriptors, cv::Mat compDescrip
 }
 
 #pragma clang diagnostic pop
+
+

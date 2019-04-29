@@ -4,6 +4,7 @@
 #include <string>
 #include <opencv2/core/core.hpp>
 #include "include/ORBextractor.h"
+#include "include/referenceORB.h"
 
 #include <unistd.h>
 
@@ -48,5 +49,6 @@ void LoadImages(const std::string &strFile, std::vector<std::string> &vstrImageF
 void MeasureExecutionTime(int numIterations, ORB_SLAM2::ORBextractor &extractor, cv::Mat &imagem, MODE mode);
 void AddRandomKeypoints(std::vector<cv::KeyPoint> &keypoints);
 void LoadHugeImage(ORB_SLAM2::ORBextractor &extractor);
+void LoadHugeImage(ORB_SLAM_REF::referenceORB &extractor);
 
 #endif //ORBEXTRACTOR_MAIN_H

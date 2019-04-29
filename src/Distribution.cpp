@@ -193,8 +193,10 @@ void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, c
                                  const int &maxX, const int &minY, const int &maxY, const int &N)
 {
     //TODO: fix so results equal orbslam's results
+    // (seems it literally cannot be done, as orbslams implementation is not deterministic)
 
     assert(!kpts.empty());
+
 
     const int nroots = round(static_cast<float>(maxX-minX)/(maxY-minY));
 
@@ -262,6 +264,21 @@ void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, c
 
         while (current != nodesList.end())
         {
+
+            /*
+            //TODO:remove
+            if (current->nodeKpts[0].pt.x > 0 && current->nodeKpts[0].pt.y > 50 &&
+                current->nodeKpts[0].pt.x < 40 && current->nodeKpts[0].pt.y < 90)
+            {
+                std::cout << "kpt vec of node:\n";
+                for (auto &kpt : current->nodeKpts)
+                {
+                    std::cout << kpt.pt << "\n";
+                }
+            }
+            */
+            //////////////
+
             if (current->leaf)
             {
                 ++current;
@@ -326,7 +343,6 @@ void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, c
         {
             omegadoom = true;
         }
-        //TODO: revert
 
         else if ((int)nodesList.size() + nToExpand*3 > N)
         {
@@ -403,9 +419,6 @@ void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, c
 
             }
         }
-
-        //////
-
     }
 
 
@@ -479,7 +492,7 @@ void DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, const int &minX, c
             if (endX > maxX)
                 endX = maxX;
 
-            //TODO: sort kpts into cells, calculate and retain N per cell
+            //TODO: sort kpts into cells, calculate N and retain N per cell
         }
     }
 }

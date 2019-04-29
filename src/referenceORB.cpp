@@ -5,6 +5,8 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <vector>
 #include <iostream>
+#include <chrono>
+#include "include/CVFAST.h"
 
 
 
@@ -91,6 +93,15 @@ static void computeOrbDescriptor(const KeyPoint& kpt,
 #undef GET_VALUE
 }
 
+
+static void PrintKeypoints(std::vector<cv::KeyPoint> &kpts)
+{
+    std::cout << "\nKeypoints found: " << std::endl;
+    for (auto &kpt : kpts)
+    {
+        std::cout << "kpt1: (" << kpt.pt.x << ", " << kpt.pt.y << ")\n";
+    }
+}
 
 static int bit_pattern_31_[256*4] =
         {
@@ -484,6 +495,9 @@ void ExtractorNode::DivideNode(ExtractorNode &n1, ExtractorNode &n2, ExtractorNo
 vector<cv::KeyPoint> referenceORB::DistributeOctTree(const vector<cv::KeyPoint>& vToDistributeKeys, const int &minX,
                                                      const int &maxX, const int &minY, const int &maxY, const int &N, const int &level)
 {
+    //TODO: revert, if not commented out all kpts are kept
+    //return vToDistributeKeys;
+
     // Compute how many initial nodes
     const int nIni = round(static_cast<float>(maxX-minX)/(maxY-minY));
 
@@ -615,7 +629,6 @@ vector<cv::KeyPoint> referenceORB::DistributeOctTree(const vector<cv::KeyPoint>&
         {
             bFinish = true;
         }
-        //TODO:revert
 
         else if(((int)lNodes.size()+nToExpand*3)>N)
         {
@@ -628,7 +641,8 @@ vector<cv::KeyPoint> referenceORB::DistributeOctTree(const vector<cv::KeyPoint>&
                 vector<pair<int,ExtractorNode*> > vPrevSizeAndPointerToNode = vSizeAndPointerToNode;
                 vSizeAndPointerToNode.clear();
 
-                stable_sort(vPrevSizeAndPointerToNode.begin(),vPrevSizeAndPointerToNode.end());
+                //TODO: check if the non-stable sorting makes a difference here
+                sort(vPrevSizeAndPointerToNode.begin(),vPrevSizeAndPointerToNode.end());
                 for(int j=vPrevSizeAndPointerToNode.size()-1;j>=0;j--)
                 {
                     ExtractorNode n1,n2,n3,n4;
@@ -684,7 +698,6 @@ vector<cv::KeyPoint> referenceORB::DistributeOctTree(const vector<cv::KeyPoint>&
             }
         }
 
-        ///////
     }
 
     // Retain the best point in each node
@@ -713,6 +726,15 @@ vector<cv::KeyPoint> referenceORB::DistributeOctTree(const vector<cv::KeyPoint>&
 
 void referenceORB::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoints)
 {
+    //todo: remove infi loop
+    vector<KeyPoint> v;
+    while(true)
+    {
+        cv::FAST(mvImagePyramid[0].rowRange(0,mvImagePyramid[0].rows).colRange(0,mvImagePyramid[0].cols),
+                 v,iniThFAST,true);
+    }
+    ////
+
     allKeypoints.resize(nlevels);
 
     const float W = 30;
@@ -735,15 +757,6 @@ void referenceORB::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
         const int wCell = ceil(width/nCols);
         const int hCell = ceil(height/nRows);
 
-        //TODO: remove
-        /*
-        std::cout << "reference:\npyramid[" << level << "]: cols = " << mvImagePyramid[level].cols <<
-                  ", rows = " << mvImagePyramid[level].rows << "\nmaximumX = " << maxBorderX << ", maximumY = " << maxBorderY <<
-                  ", minimumX = " << minBorderX << ", minimumY = " << minBorderY <<
-                  "\nwidth = " << width << ", height = " << height << ", npatchesinX = " << nCols << ", npatchesinY = "
-                  << nRows << ", patchWidth = " << wCell << ", patchHeight = " << hCell << "\n";
-                  */
-
         for(int i=0; i<nRows; i++)
         {
             const float iniY =minBorderY+i*hCell;
@@ -764,12 +777,16 @@ void referenceORB::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
                     maxX = maxBorderX;
 
                 vector<cv::KeyPoint> vKeysCell;
-                FAST(mvImagePyramid[level].rowRange(iniY,maxY).colRange(iniX,maxX),
+                //FAST_cv(mvImagePyramid[level].rowRange(iniY, maxY).colRange(iniX, maxX),
+                //         vKeysCell, iniThFAST, true);
+                cv::FAST(mvImagePyramid[level].rowRange(iniY,maxY).colRange(iniX,maxX),
                      vKeysCell,iniThFAST,true);
 
                 if(vKeysCell.empty())
                 {
-                    FAST(mvImagePyramid[level].rowRange(iniY,maxY).colRange(iniX,maxX),
+                    //FAST_cv(mvImagePyramid[level].rowRange(iniY, maxY).colRange(iniX, maxX),
+                    //        vKeysCell, minThFAST, true);
+                    cv::FAST(mvImagePyramid[level].rowRange(iniY,maxY).colRange(iniX,maxX),
                          vKeysCell,minThFAST,true);
                 }
 
@@ -789,9 +806,9 @@ void referenceORB::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
         vector<KeyPoint> & keypoints = allKeypoints[level];
         keypoints.reserve(nfeatures);
 
-        //TODO: put back in
         keypoints = DistributeOctTree(vToDistributeKeys, minBorderX, maxBorderX,
                                      minBorderY, maxBorderY,mnFeaturesPerLevel[level], level);
+
 
         const int scaledPatchSize = PATCH_SIZE*mvScaleFactor[level];
 
@@ -990,7 +1007,7 @@ void referenceORB::ComputeKeyPointsOld(std::vector<std::vector<KeyPoint> > &allK
         computeOrientation(mvImagePyramid[level], allKeypoints[level], umax);
 }
 
-static void computeDescriptors(const Mat& image, vector<KeyPoint>& keypoints, Mat& descriptors,
+void computeDescriptors(const Mat& image, vector<KeyPoint>& keypoints, Mat& descriptors,
                                const vector<Point>& pattern)
 {
     descriptors = Mat::zeros((int)keypoints.size(), 32, CV_8UC1);
@@ -1012,8 +1029,15 @@ void referenceORB::operator()( InputArray _image, InputArray _mask, vector<KeyPo
     ComputePyramid(image);
 
     vector < vector<KeyPoint> > allKeypoints;
+    //using namespace std::chrono;
+    //high_resolution_clock::time_point t1 = high_resolution_clock::now();
+
     ComputeKeyPointsOctTree(allKeypoints);
     //ComputeKeyPointsOld(allKeypoints);
+
+    //high_resolution_clock::time_point t2 = high_resolution_clock::now();
+    //auto d = duration_cast<microseconds>(t2-t1).count();
+    //std::cout << "\nref comp time for FAST + distr: " << d << "\n";
 
     Mat descriptors;
 
@@ -1032,6 +1056,8 @@ void referenceORB::operator()( InputArray _image, InputArray _mask, vector<KeyPo
     _keypoints.reserve(nkeypoints);
 
     int offset = 0;
+
+
     for (int level = 0; level < nlevels; ++level)
     {
         vector<KeyPoint>& keypoints = allKeypoints[level];
