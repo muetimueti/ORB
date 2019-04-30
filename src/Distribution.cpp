@@ -464,10 +464,9 @@ void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, c
  * @param kpts : keypoints to distribute
  * @param minX, maxX, minY, maxY : relevant image dimensions
  * @param N : number of keypoints to retain
- * @param cellSize : must be larger than 16, lesser than min(width, height)
  */
 void DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, const int &minX, const int &maxX, const int &minY,
-                             const int &maxY, const int &N, const int &cellSize)
+                             const int &maxY, const int &N)
 {
     //TODO: test
     const float width = maxX - minX;
@@ -487,19 +486,19 @@ void DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, const int &minX, c
     for (auto &kptVec : cellkpts)
         kptVec.reserve(kpts.size());
 
-
+    /*
     std::cout << "\n\nDims: x between " << cv::Point(minX, maxX) << ", y between " << cv::Point(minY, maxY) <<
         "\ncellCols=" << cellCols << ", cellRows=" << cellRows
         << ", cellWidth=" << cellWidth << ", cellHeight=" << cellHeight << "\nN per Cell = " << ceil(N / nCells) <<
         ", nCells = " << nCells << ", N = " << N << "\n\n";
-
+    */
 
     for (auto &kpt : kpts)
     {
         int idx = (int)(kpt.pt.y/cellHeight) * cellCols + (int)(kpt.pt.x/cellWidth);
         if (idx >= nCells)
             idx = nCells-1;
-        std::cout << "cell-idx of kpt " << kpt.pt <<" would be: " << idx << "\n";
+        //std::cout << "cell-idx of kpt " << kpt.pt <<" would be: " << idx << "\n";
         cellkpts[idx].emplace_back(kpt);
     }
 
