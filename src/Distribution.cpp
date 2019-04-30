@@ -47,7 +47,7 @@ DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int &minX, const int 
         }
         case DISTRIBUTION_GRID :
         {
-            DistributeKeypointsGrid(kpts, minX, maxX, minY, maxY, N, 40);
+            DistributeKeypointsGrid(kpts, minX, maxX, minY, maxY, N);
             break;
         }
         case DISTRIBUTION_KEEP_ALL :
