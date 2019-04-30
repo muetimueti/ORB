@@ -127,7 +127,7 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
 
 
     //LoadHugeImage(refExtractor);
-    extractor(image, cv::Mat(), keypoints, descriptors, DISTRIBUTION_QUADTREE_ORBSLAMSTYLE);
+    extractor(image, cv::Mat(), keypoints, descriptors, DISTRIBUTION_GRID);
 
     refExtractor(image, cv::Mat(), refkeypoints, refdescriptors);
 
@@ -164,8 +164,12 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     //MeasureExecutionTime(1, extractor, image, FAST_RUNTIME);
 
 
-    DisplayKeypoints(imgColor, keypoints, color, thickness, radius, drawAngular, "mine");
+
+
     DisplayKeypoints(imgColor2, refkeypoints, color, thickness, radius, drawAngular, "reference");
+
+    //DrawCellGrid(imgColor, 16, imgColor.cols-16, 16, imgColor.rows-16, 80);
+    DisplayKeypoints(imgColor, keypoints, color, thickness, radius, drawAngular, "mine");
 
     //CompareKeypoints(keypoints, "mine", refkeypoints, "reference", -1, true);
     //CompareDescriptors(descriptors, "mine", refdescriptors, "reference", keypoints.size(), -1, true);
@@ -465,7 +469,32 @@ void DisplayKeypoints(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, cv::
    cv::waitKey(0);
 }
 
-//TODO: remove from master
+void DrawCellGrid(cv::Mat &image, int minX, int maxX, int minY, int maxY, int cellSize)
+{
+    const float width = maxX - minX;
+    const float height = maxY - minY;
+
+    int c = std::min(myRound(width), myRound(height));
+    assert(cellSize < c && cellSize > 16);
+
+    const int cellCols = width / cellSize;
+    const int cellRows = height / cellSize;
+    const int cellWidth = std::ceil(width / cellCols);
+    const int cellHeight = std::ceil(height / cellRows);
+
+    for (int y = 0; y <= cellRows; ++y)
+    {
+        cv::Point2f start(minX, minY + y*cellHeight);
+        cv::Point2f end(maxX, minY + y*cellHeight);
+        cv::line(image, start, end, cv::Scalar(100, 0, 255), 1, CV_AA);
+    }
+    for (int x = 0; x <= cellCols; ++x)
+    {
+        cv::Point2f start(minX + x*cellWidth, minY);
+        cv::Point2f end(minX + x*cellWidth, maxY);
+        cv::line(image, start, end, cv::Scalar(100, 0, 255), 1, CV_AA);
+    }
+}
 
 void MeasureExecutionTime(int numIterations, ORB_SLAM2::ORBextractor &extractor, cv::Mat &img, MODE mode)
 {

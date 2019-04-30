@@ -9,28 +9,14 @@
 #include <iostream>
 
 
-static bool CompareVectorSize(const ExtractorNode *n1, const ExtractorNode *n2)
-{
-    return (n1->nodeKpts.size() > n2->nodeKpts.size());
-}
-struct CompareVecSz
-{
-bool operator()(const ExtractorNode *n1, const ExtractorNode *n2) const
-{
-    return (n1->nodeKpts.size() > n2->nodeKpts.size());
-}
-};
 
-static bool ResponseComparison(const cv::KeyPoint &k1, const cv::KeyPoint &k2)
-{
-    return (k1.response > k2.response);
-}
 struct CompareResponse {
 bool operator()(const cv::KeyPoint &k1, const cv::KeyPoint &k2) const
 {
     return k1.response > k2.response;
 }
 };
+
 static void RetainBestN(std::vector<cv::KeyPoint> &kpts, int N)
 {
     std::sort(kpts.begin(), kpts.end(), CompareResponse());
@@ -61,7 +47,7 @@ DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int &minX, const int 
         }
         case DISTRIBUTION_GRID :
         {
-            DistributeKeypointsGrid(kpts, minX, maxX, minY, maxY, N, 30);
+            DistributeKeypointsGrid(kpts, minX, maxX, minY, maxY, N, 40);
             break;
         }
         case DISTRIBUTION_KEEP_ALL :
@@ -201,6 +187,14 @@ void DistributeKeypointsQuadTree(std::vector<cv::KeyPoint>& kpts, const int &min
     kpts = resKpts;
 }
 
+
+struct CompareVecSz
+{
+bool operator()(const ExtractorNode *n1, const ExtractorNode *n2) const
+{
+    return (n1->nodeKpts.size() > n2->nodeKpts.size());
+}
+};
 
 void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, const int &minX,
                                               const int &maxX, const int &minY, const int &maxY, const int &N)
@@ -475,42 +469,48 @@ void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, c
 void DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, const int &minX, const int &maxX, const int &minY,
                              const int &maxY, const int &N, const int &cellSize)
 {
-    //TODO: implement
-    const int width = maxX - minX;
-    const int height = maxY - minY;
+    //TODO: test
+    const float width = maxX - minX;
+    const float height = maxY - minY;
 
-    int c = std::min(width, height);
-    assert(cellSize < c && cellSize > 16);
+    const float ratio = height / width;
+    const int cells = N / 10;
 
-    const int npatchesInX = width / cellSize;
-    const int npatchesInY = height / cellSize;
-    const int patchWidth = std::ceil(width / npatchesInX);
-    const int patchHeight = std::ceil(height / npatchesInY);
+    const int cellCols = cells;
+    const int cellRows = cells * ratio;
+    const int cellWidth = std::ceil(width / cellCols);
+    const int cellHeight = std::ceil(height / cellRows);
 
-    std::vector<cv::KeyPoint> colKpts;
-    colKpts.reserve(npatchesInX * npatchesInY);
+    const int nCells = cellCols * cellRows;
+    std::vector<std::vector<cv::KeyPoint>> cellkpts(nCells);
+
+    for (auto &kptVec : cellkpts)
+        kptVec.reserve(kpts.size());
 
 
+    std::cout << "\n\nDims: x between " << cv::Point(minX, maxX) << ", y between " << cv::Point(minY, maxY) <<
+        "\ncellCols=" << cellCols << ", cellRows=" << cellRows
+        << ", cellWidth=" << cellWidth << ", cellHeight=" << cellHeight << "\nN per Cell = " << ceil(N / nCells) <<
+        ", nCells = " << nCells << ", N = " << N << "\n\n";
 
-    for (int py = 0; py < npatchesInY; ++py)
+
+    for (auto &kpt : kpts)
     {
-        int startY = minY + py * patchHeight;
-        int endY = startY + patchHeight + 6;
-        if (startY >= maxY)
-            continue;
-        if (endY > maxY)
-            endY = maxY;
-        for (int px = 0; px < npatchesInX; ++px)
-        {
-            int startX = minX + px * patchWidth;
-            int endX = startX + patchWidth + 6;
-            if (startX >= maxX)
-                continue;
-            if (endX > maxX)
-                endX = maxX;
+        int idx = (int)(kpt.pt.y/cellHeight) * cellCols + (int)(kpt.pt.x/cellWidth);
+        if (idx >= nCells)
+            idx = nCells-1;
+        std::cout << "cell-idx of kpt " << kpt.pt <<" would be: " << idx << "\n";
+        cellkpts[idx].emplace_back(kpt);
+    }
 
-            //TODO: sort kpts into cells, calculate N and retain N per cell
-        }
+    const int nPerCell = std::ceil((float)N / nCells);
+    kpts.clear();
+    kpts.reserve(N);
+
+    for (auto &kptVec : cellkpts)
+    {
+        RetainBestN(kptVec, nPerCell);
+        kpts.insert(kpts.end(), kptVec.begin(), kptVec.end());
     }
 }
 

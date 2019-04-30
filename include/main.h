@@ -46,6 +46,8 @@ void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &im
 void LoadImages(const std::string &strFile, std::vector<std::string> &vstrImageFilenames,
         std::vector<double> &vTimestamps);
 
+void DrawCellGrid(cv::Mat &image, int minX, int maxX, int minY, int maxY, int cellSize);
+
 void MeasureExecutionTime(int numIterations, ORB_SLAM2::ORBextractor &extractor, cv::Mat &imagem, MODE mode);
 void AddRandomKeypoints(std::vector<cv::KeyPoint> &keypoints);
 void LoadHugeImage(ORB_SLAM2::ORBextractor &extractor);
