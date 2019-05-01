@@ -87,8 +87,7 @@ int main(int argc, char **argv)
    return 0;
 }
 
-//imgPath, nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin,
-//                        color, thickness, radius, drawAngular
+
 void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels, int FASTThresholdInit,
                         int FASTThresholdMin, cv::Scalar color, int thickness, int radius, bool drawAngular)
 {
@@ -109,7 +108,12 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     std::vector<cv::KeyPoint> refkeypoints;
     cv::Mat refdescriptors;
 
+    std::vector<cv::KeyPoint> keypointsAll;
+
     ORB_SLAM2::ORBextractor extractor (nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
+
+    //DistributionComparisonSuite(extractor, image, color, thickness, radius, drawAngular, false);
+    //return;
 
     ORB_SLAM_REF::referenceORB refExtractor (nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
 
@@ -127,9 +131,12 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
 
 
     //LoadHugeImage(refExtractor);
-    extractor(image, cv::Mat(), keypoints, descriptors, DISTRIBUTION_GRID);
+    extractor(image, cv::Mat(), keypoints, descriptors, Distribution::NAIVE, true);
+    extractor(image, cv::Mat(), keypointsAll, descriptors, Distribution::KEEP_ALL, true);
 
-    refExtractor(image, cv::Mat(), refkeypoints, refdescriptors);
+    std::cout << "\nnkpts: " << keypoints.size() << "\n";
+
+    //refExtractor(image, cv::Mat(), refkeypoints, refdescriptors);
 
     /*
     vector<int> mysizes(2000, 0);
@@ -150,7 +157,6 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     }
      */
 
-
     //DistributionComparisonSuite(extractor, imgColor, color, thickness, radius, drawAngular);
 
 
@@ -164,11 +170,10 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     //MeasureExecutionTime(1, extractor, image, FAST_RUNTIME);
 
 
-
-
-    DisplayKeypoints(imgColor2, refkeypoints, color, thickness, radius, drawAngular, "reference");
+    //DisplayKeypoints(imgColor2, refkeypoints, color, thickness, radius, drawAngular, "reference");
 
     //DrawCellGrid(imgColor, 16, imgColor.cols-16, 16, imgColor.rows-16, 80);
+    DisplayKeypoints(imgColor2, keypointsAll, color, thickness, radius, drawAngular, "all");
     DisplayKeypoints(imgColor, keypoints, color, thickness, radius, drawAngular, "mine");
 
     //CompareKeypoints(keypoints, "mine", refkeypoints, "reference", -1, true);
@@ -241,7 +246,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
 
 
-        myExtractor(img, cv::Mat(), mykpts, mydescriptors, DISTRIBUTION_QUADTREE);
+        myExtractor(img, cv::Mat(), mykpts, mydescriptors, Distribution::QUADTREE);
         chrono::high_resolution_clock ::time_point t3 = chrono::high_resolution_clock::now();
 
         auto refduration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
@@ -298,13 +303,18 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         " milliseconds, which averages to ~" << refTotalDuration/nImages << " microseconds.\n";
 }
 
-static bool CompareXThenY(cv::KeyPoint &k1, cv::KeyPoint &k2)
+
+struct CompareXThenY
 {
-    return (k1.pt.x < k2.pt.x || (k1.pt.x == k2.pt.x && k1.pt.y < k2.pt.y));
-}
+    bool operator()(cv::KeyPoint &k1, cv::KeyPoint &k2) const
+    {
+        return (k1.pt.x < k2.pt.x || (k1.pt.x == k2.pt.x && k1.pt.y < k2.pt.y));
+    }
+
+};
 void SortKeypoints(vector<cv::KeyPoint> &kpts)
 {
-    sort(kpts.begin(), kpts.end(), CompareXThenY);
+    std::sort(kpts.begin(), kpts.end(), CompareXThenY());
 }
 
 
@@ -534,11 +544,13 @@ void MeasureExecutionTime(int numIterations, ORB_SLAM2::ORBextractor &extractor,
 }
 
 void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &imgColor, cv::Scalar &color,
-        int thickness, int radius, bool drawAngular)
+        int thickness, int radius, bool drawAngular, bool distributePerLevel)
 {
     cv::Mat imgGray;
     imgColor.copyTo(imgGray);
 
+
+    std::vector<cv::KeyPoint> kptsAll;
     std::vector<cv::KeyPoint> kptsNaive;
     std::vector<cv::KeyPoint> kptsQuadtree;
     std::vector<cv::KeyPoint> kptsQuadtreeORBSLAMSTYLE;
@@ -551,11 +563,42 @@ void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &im
     else if (imgGray.channels() == 4)
         cv::cvtColor(imgGray, imgGray, CV_BGRA2GRAY);
 
+    cv::Mat imgAll;
+    cv::Mat imgNaive;
+    cv::Mat imgQuadtree;
+    cv::Mat imgQuadtreeORBSLAMSTYLE;
+    cv::Mat imgGrid;
+    imgColor.copyTo(imgAll);
+    imgColor.copyTo(imgNaive);
+    imgColor.copyTo(imgQuadtree);
+    imgColor.copyTo(imgQuadtreeORBSLAMSTYLE);
+    imgColor.copyTo(imgGrid);
 
-    extractor(imgGray, cv::Mat(), kptsNaive, descriptors, DISTRIBUTION_NAIVE);
-    extractor(imgGray, cv::Mat(), kptsQuadtree, descriptors, DISTRIBUTION_QUADTREE);
-    extractor(imgGray, cv::Mat(), kptsQuadtreeORBSLAMSTYLE, descriptors, DISTRIBUTION_QUADTREE_ORBSLAMSTYLE);
-    extractor(imgGray, cv::Mat(), kptsGrid, descriptors, DISTRIBUTION_GRID);
+    if (distributePerLevel)
+    {
+        extractor(imgGray, cv::Mat(), kptsAll, descriptors, Distribution::KEEP_ALL);
+        extractor(imgGray, cv::Mat(), kptsNaive, descriptors, Distribution::NAIVE);
+        extractor(imgGray, cv::Mat(), kptsQuadtree, descriptors, Distribution::QUADTREE);
+        extractor(imgGray, cv::Mat(), kptsQuadtreeORBSLAMSTYLE, descriptors, Distribution::QUADTREE_ORBSLAMSTYLE);
+        extractor(imgGray, cv::Mat(), kptsGrid, descriptors, Distribution::GRID);
+    }
+    else
+    {
+        extractor(imgGray, cv::Mat(), kptsAll, descriptors, Distribution::KEEP_ALL, false);
+        extractor(imgGray, cv::Mat(), kptsNaive, descriptors, Distribution::NAIVE, false);
+        extractor(imgGray, cv::Mat(), kptsQuadtree, descriptors, Distribution::QUADTREE, false);
+        extractor(imgGray, cv::Mat(), kptsQuadtreeORBSLAMSTYLE, descriptors,
+                Distribution::QUADTREE_ORBSLAMSTYLE,false);
+        extractor(imgGray, cv::Mat(), kptsGrid, descriptors, Distribution::GRID, false);
+    }
+
+
+    DisplayKeypoints(imgAll, kptsAll, color, thickness, radius, drawAngular, "all");
+    DisplayKeypoints(imgNaive, kptsNaive, color, thickness, radius, drawAngular, "naive");
+    DisplayKeypoints(imgQuadtree, kptsQuadtree, color, thickness, radius, drawAngular, "quadtree");
+    DisplayKeypoints(imgQuadtreeORBSLAMSTYLE, kptsQuadtreeORBSLAMSTYLE, color, thickness, radius, drawAngular,
+            "quadtree ORBSLAM");
+    DisplayKeypoints(imgGrid, kptsGrid, color, thickness, radius, drawAngular, "Grid");
 }
 
 void AddRandomKeypoints(std::vector<cv::KeyPoint> &keypoints)

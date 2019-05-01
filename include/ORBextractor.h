@@ -33,7 +33,7 @@ public:
 
     void operator()(cv::InputArray inputImage, cv::InputArray mask,
                                   std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors,
-                                  DistributionMethod distributionMode);
+                                  Distribution::DistributionMethod distributionMode, bool distributePerLevel = true);
 
     int inline GetLevels(){
         return nlevels;}
@@ -69,7 +69,7 @@ public:
     void Tests(cv::InputArray inputImage, std::vector<cv::KeyPoint> &resKeypoints,
                cv::OutputArray outputDescriptors, bool myFAST = true, bool myDesc = true);
 
-    //---------------------------------------------------------------------------------------------------
+    ///--------------------------------------------------------------------------------------------------
 
 protected:
 
@@ -85,26 +85,24 @@ protected:
 
     static float IntensityCentroidAngle(const uchar* pointer, int step);
 
-    void ComputeScalePyramid(cv::Mat &image);
-
-    void DivideAndFAST(std::vector<std::vector<cv::KeyPoint> >& allKeypoints,
-                       DistributionMethod mode = DISTRIBUTION_NAIVE, bool divideImage = true, int cellSize = 30);
-
-    void FAST(cv::Mat image, std::vector<cv::KeyPoint> &keypoints, int &threshold, int level = 0);
-    void OptimizedFAST(cv::Mat image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
-
-    int CornerScore(const uchar *pointer, const int offset[], int &threshold);
-    int OptimizedCornerScore(const uchar *pointer, const int offset[], int &threshold);
-
     void ComputeAngles(std::vector<std::vector<cv::KeyPoint>> &allkpts);
 
     void ComputeDescriptors(std::vector<std::vector<cv::KeyPoint>> &allkpts, cv::Mat &descriptors);
 
+    void DivideAndFAST(std::vector<std::vector<cv::KeyPoint> >& allKeypoints,
+                       Distribution::DistributionMethod mode = Distribution::QUADTREE,
+                       bool divideImage = true, int cellSize = 30, bool distributePerLevel = true);
+
+    void FAST(cv::Mat image, std::vector<cv::KeyPoint> &keypoints, int &threshold, int level = 0);
+
+    int CornerScore(const uchar *pointer, const int offset[], int &threshold);
+    int OptimizedCornerScore(const uchar *pointer, const int offset[], int &threshold);
+
+    void ComputeScalePyramid(cv::Mat &image);
 
     std::vector<cv::Point> pattern;
 
     //inline float getScale(int lvl);
-
 
     uchar threshold_tab_min[512];
     uchar threshold_tab_init[512];
@@ -133,8 +131,6 @@ protected:
 
     //TODO: remove from master
 
-
-
     template<class T>
     void PrintArray(T *array, const std::string &name, int start, int end);
 
@@ -148,7 +144,7 @@ protected:
 
     static void CompareKeypointVectors(std::vector<cv::KeyPoint> &vec1, std::vector<cv::KeyPoint> &vec2);
 
-    //
+    /////////////////////
 };
 
 
