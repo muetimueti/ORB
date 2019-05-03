@@ -2,8 +2,9 @@
 #define ORBEXTRACTOR_DISTRIBUTION_H
 
 #include <vector>
-#include <opencv2/core/core.hpp>
+#include "include/Common.h"
 #include <list>
+
 
 class ExtractorNode
 {
@@ -34,32 +35,28 @@ public:
     KEEP_ALL
     };
 
-    static void DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int &minX, const int &maxX, const int &minY,
-                             const int &maxY, const int &N, DistributionMethod mode);
+    static void DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, int minX, int maxX, int minY,
+                             int maxY, int N, DistributionMethod mode);
 
 protected:
 
-    static void DistributeKeypointsNaive(std::vector<cv::KeyPoint> &kpts, const int &N);
+    static void DistributeKeypointsNaive(std::vector<cv::KeyPoint> &kpts, int N);
 
-    static void DistributeKeypointsQuadTree(std::vector<cv::KeyPoint>& kpts, const int &minX,
-                                     const int &maxX, const int &minY, const int &maxY, const int &N);
+    static void DistributeKeypointsQuadTree(std::vector<cv::KeyPoint> &kpts, int minX,
+                                     int maxX, int minY, int maxY, int N);
 
-    static void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, const int &minX,
-                                                  const int &maxX, const int &minY, const int &maxY, const int &N);
+    static void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint> &kpts, int minX,
+                                                  int maxX, int minY, int maxY, int N);
 
-    static void DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, const int &minX,
-                             const int &maxX, const int &minY, const int &maxY, const int &N);
+    static void DistributeKeypointsGrid(std::vector<cv::KeyPoint> &kpts, int minX,
+                             int maxX, int minY, int maxY, int N);
+
+    static void DistributeKeypointsKdT_ANMS(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon);
+
+    static void DistributeKeypointsRT_ANMS(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon);
+
+    static void DistributeKeypointsSSC(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon);
 
 };
-
-CV_INLINE  int myRound( float value )
-{
-#if defined HAVE_LRINT || defined CV_ICC || defined __GNUC__
-    return (int)lrint(value);
-#else
-    // not IEEE754-compliant rounding
-      return (int)(value + (value >= 0 ? 0.5f : -0.5f));
-#endif
-}
 
 #endif

@@ -1,7 +1,6 @@
 #include "include/Distribution.h"
 
 #include <vector>
-#include <opencv2/core/core.hpp>
 #include <iterator>
 #include <algorithm>
 
@@ -28,9 +27,10 @@ static void RetainBestN(std::vector<cv::KeyPoint> &kpts, int N)
 
 
 void
-Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int &minX, const int &maxX, const int &minY,
-                    const int &maxY, const int &N, DistributionMethod mode)
+Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int minX, const int maxX, const int minY,
+                    const int maxY, const int N, DistributionMethod mode)
 {
+    const float epsilon = 0.1;
     switch (mode)
     {
         case NAIVE :
@@ -57,9 +57,30 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int &mi
         {
             break;
         }
+        case ANMS_KDTREE :
+        {
+            int cols = maxX - minX;
+            int rows = maxY - minY;
+            DistributeKeypointsKdT_ANMS(kpts, rows, cols, N, epsilon);
+            break;
+        }
+        case ANMS_RT :
+        {
+            int cols = maxX - minX;
+            int rows = maxY - minY;
+            DistributeKeypointsRT_ANMS(kpts, rows, cols, N, epsilon);
+            break;
+        }
+        case SSC :
+        {
+            int cols = maxX - minX;
+            int rows = maxY - minY;
+            DistributeKeypointsSSC(kpts, rows, cols, N, epsilon);
+            break;
+        }
         default:
         {
-            DistributeKeypointsNaive(kpts, N);
+            DistributeKeypointsQuadTree(kpts, minX, maxX, minY, maxY, N);
             break;
         }
     }
@@ -68,14 +89,51 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int &mi
 
 
 
-void Distribution::DistributeKeypointsNaive(std::vector<cv::KeyPoint> &kpts, const int &N)
+void Distribution::DistributeKeypointsNaive(std::vector<cv::KeyPoint> &kpts, const int N)
 {
     RetainBestN(kpts, N);
 }
 
 
-void Distribution::DistributeKeypointsQuadTree(std::vector<cv::KeyPoint>& kpts, const int &minX,
-                                 const int &maxX, const int &minY, const int &maxY, const int &N)
+void ExtractorNode::DivideNode(ExtractorNode &n1, ExtractorNode &n2, ExtractorNode &n3, ExtractorNode &n4)
+{
+    int middleX = UL.x + (int)std::ceil((float)(UR.x - UL.x)/2.f);
+    int middleY = UL.y + (int)std::ceil((float)(LL.y - UL.y)/2.f);
+
+    cv::Point2i M (middleX, middleY);
+    cv::Point2i upperM (middleX, UL.y);
+    cv::Point2i lowerM (middleX, LL.y);
+    cv::Point2i leftM (UL.x, middleY);
+    cv::Point2i rightM (UR.x, middleY);
+
+    n1.UL = UL, n1.UR = upperM, n1.LL = leftM, n1.LR = M;
+    n2.UL = upperM, n2.UR = UR, n2.LL = M, n2.LR = rightM;
+    n3.UL = leftM, n3.UR = M, n3.LL = LL, n3.LR = lowerM;
+    n4.UL = M, n4.UR = rightM, n4.LL = lowerM, n4.LR = LR;
+
+    for (auto &kpt : nodeKpts)
+    {
+        if (kpt.pt.x < middleX)
+        {
+            if(kpt.pt.y < middleY)
+                n1.nodeKpts.emplace_back(kpt);
+            else
+                n3.nodeKpts.emplace_back(kpt);
+
+        }
+        else
+        {
+            if (kpt.pt.y < middleY)
+                n2.nodeKpts.emplace_back(kpt);
+            else
+                n4.nodeKpts.emplace_back(kpt);
+        }
+    }
+}
+
+
+void Distribution::DistributeKeypointsQuadTree(std::vector<cv::KeyPoint>& kpts, const int minX,
+                                 const int maxX, const int minY, const int maxY, const int N)
 {
     assert(!kpts.empty());
 
@@ -213,8 +271,8 @@ bool operator()(const ExtractorNode *n1, const ExtractorNode *n2) const
 }
 };
 
-void Distribution::DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, const int &minX,
-                                              const int &maxX, const int &minY, const int &maxY, const int &N)
+void Distribution::DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, const int minX,
+                                              const int maxX, const int minY, const int maxY, const int N)
 {
     //TODO: fix so results equal orbslam's results
     // (seems it literally cannot be done, as orbslams implementation is not deterministic)
@@ -488,8 +546,8 @@ bool operator()(const std::vector<cv::KeyPoint> &kpts1, const std::vector<cv::Ke
  * @param minX, maxX, minY, maxY : relevant image dimensions
  * @param N : number of keypoints to retain
  */
-void Distribution::DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, const int &minX, const int &maxX,
-        const int &minY, const int &maxY, const int &N)
+void Distribution::DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, const int minX, const int maxX,
+        const int minY, const int maxY, const int N)
 {
     //TODO: test
     const int width = maxX - minX;
@@ -545,39 +603,25 @@ void Distribution::DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, cons
 }
 
 
-
-void ExtractorNode::DivideNode(ExtractorNode &n1, ExtractorNode &n2, ExtractorNode &n3, ExtractorNode &n4)
+void
+Distribution::DistributeKeypointsKdT_ANMS(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon)
 {
-    int middleX = UL.x + (int)std::ceil((float)(UR.x - UL.x)/2.f);
-    int middleY = UL.y + (int)std::ceil((float)(LL.y - UL.y)/2.f);
+    std::cerr << "\nKdT-ANMS Distribution not yet implemented!\n";
+    //TODO: implement
 
-    cv::Point2i M (middleX, middleY);
-    cv::Point2i upperM (middleX, UL.y);
-    cv::Point2i lowerM (middleX, LL.y);
-    cv::Point2i leftM (UL.x, middleY);
-    cv::Point2i rightM (UR.x, middleY);
-
-    n1.UL = UL, n1.UR = upperM, n1.LL = leftM, n1.LR = M;
-    n2.UL = upperM, n2.UR = UR, n2.LL = M, n2.LR = rightM;
-    n3.UL = leftM, n3.UR = M, n3.LL = LL, n3.LR = lowerM;
-    n4.UL = M, n4.UR = rightM, n4.LL = lowerM, n4.LR = LR;
-
-    for (auto &kpt : nodeKpts)
-    {
-        if (kpt.pt.x < middleX)
-        {
-            if(kpt.pt.y < middleY)
-                n1.nodeKpts.emplace_back(kpt);
-            else
-                n3.nodeKpts.emplace_back(kpt);
-
-        }
-        else
-        {
-            if (kpt.pt.y < middleY)
-                n2.nodeKpts.emplace_back(kpt);
-            else
-                n4.nodeKpts.emplace_back(kpt);
-        }
-    }
 }
+
+
+void Distribution::DistributeKeypointsRT_ANMS(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon)
+{
+    std::cerr << "\nKdT-ANMS Distribution not yet implemented!\n";
+    //TODO: implement
+}
+
+
+void Distribution::DistributeKeypointsSSC(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon)
+{
+    std::cerr << "\nKdT-ANMS Distribution not yet implemented!\n";
+    //TODO: implement
+}
+
