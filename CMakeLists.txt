@@ -14,6 +14,6 @@ include_directories(.)
 
 add_executable(ORBextractor src/main.cpp include/main.h src/ORBextractor.cpp include/ORBextractor.h
         src/referenceORB.cpp include/referenceORB.h src/Distribution.cpp include/Distribution.h
-        src/CVFAST.cpp include/CVFAST.h include/ORBconstants.h include/Common.h)
+        src/CVFAST.cpp include/CVFAST.h include/ORBconstants.h)
 
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS})

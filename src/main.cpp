@@ -112,7 +112,7 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
 
     ORB_SLAM2::ORBextractor extractor (nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
 
-    DistributionComparisonSuite(extractor, image, color, thickness, radius, drawAngular, false);
+    DistributionComparisonSuite(extractor, image, color, thickness, radius, drawAngular, true);
     return;
 
     ORB_SLAM_REF::referenceORB refExtractor (nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
@@ -584,7 +584,7 @@ void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &im
 
     if (distributePerLevel)
     {
-        extractor(imgGray, cv::Mat(), kptsAll, descriptors, Distribution::KEEP_ALL);
+        //extractor(imgGray, cv::Mat(), kptsAll, descriptors, Distribution::KEEP_ALL);
         t1 = high_resolution_clock::now();
         extractor(imgGray, cv::Mat(), kptsNaive, descriptors, Distribution::NAIVE);
         t2 = high_resolution_clock::now();
@@ -596,7 +596,7 @@ void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &im
     }
     else
     {
-        extractor(imgGray, cv::Mat(), kptsAll, descriptors, Distribution::KEEP_ALL, false);
+        //extractor(imgGray, cv::Mat(), kptsAll, descriptors, Distribution::KEEP_ALL, false);
         t1 = high_resolution_clock::now();
         extractor(imgGray, cv::Mat(), kptsNaive, descriptors, Distribution::NAIVE, false);
         t2 = high_resolution_clock::now();

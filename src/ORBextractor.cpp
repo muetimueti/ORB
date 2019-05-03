@@ -4,7 +4,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include "include/ORBextractor.h"
 #include "include/ORBconstants.h"
-#include "include/Common.h"
+#include <unistd.h>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wfor-loop-analysis"
@@ -206,6 +206,8 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
         std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors,
         Distribution::DistributionMethod distributionMode, bool distributePerLevel)
 {
+    std::chrono::high_resolution_clock::time_point funcEntry = std::chrono::high_resolution_clock::now();
+
     if (inputImage.empty())
         return;
 
@@ -275,6 +277,17 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
     for (int lvl = 0; lvl < nlevels; ++lvl)
     {
         resultKeypoints.insert(resultKeypoints.end(), allkpts[lvl].begin(), allkpts[lvl].end());
+    }
+
+    //ensure feature detection always takes 50ms
+    unsigned long maxDuration = 50000;
+    std::chrono::high_resolution_clock::time_point funcExit = std::chrono::high_resolution_clock::now();
+    auto funcDuration = std::chrono::duration_cast<std::chrono::microseconds>(funcExit-funcEntry).count();
+    assert(funcDuration <= maxDuration);
+    if (funcDuration < maxDuration)
+    {
+        auto sleeptime = maxDuration - funcDuration;
+        usleep(sleeptime);
     }
 }
 

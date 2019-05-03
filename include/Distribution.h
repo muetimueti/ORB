@@ -2,8 +2,8 @@
 #define ORBEXTRACTOR_DISTRIBUTION_H
 
 #include <vector>
-#include "include/Common.h"
 #include <list>
+#include <opencv2/core/core.hpp>
 
 
 class ExtractorNode
@@ -58,5 +58,15 @@ protected:
     static void DistributeKeypointsSSC(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon);
 
 };
+
+CV_INLINE  int myRound( float value )
+{
+#if defined HAVE_LRINT || defined CV_ICC || defined __GNUC__
+    return (int)lrint(value);
+#else
+    // not IEEE754-compliant rounding
+      return (int)(value + (value >= 0 ? 0.5f : -0.5f));
+#endif
+}
 
 #endif
