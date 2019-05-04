@@ -57,17 +57,13 @@ int main(int argc, char **argv)
 
     if (mode == 0)
     {
-
         SingleImageMode(imgPath, nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin,
                         color, thickness, radius, drawAngular);
-
     }
     else if (mode == 1)
     {
-
         SequenceMode(imgPath, nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin,
                      color, thickness, radius, drawAngular);
-
     }
 
 
@@ -112,7 +108,7 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
 
     ORB_SLAM2::ORBextractor extractor (nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
 
-    DistributionComparisonSuite(extractor, image, color, thickness, radius, drawAngular, true);
+    DistributionComparisonSuite(extractor, image, color, thickness, radius, drawAngular, false);
     return;
 
     ORB_SLAM_REF::referenceORB refExtractor (nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
@@ -131,7 +127,7 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
 
 
     //LoadHugeImage(refExtractor);
-    extractor(image, cv::Mat(), keypoints, descriptors, Distribution::NAIVE, true);
+    extractor(image, cv::Mat(), keypoints, descriptors, Distribution::SSC, false);
     extractor(image, cv::Mat(), keypointsAll, descriptors, Distribution::KEEP_ALL, true);
 
     std::cout << "\nnkpts: " << keypoints.size() << "\n";
@@ -174,7 +170,7 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
 
     //DrawCellGrid(imgColor, 16, imgColor.cols-16, 16, imgColor.rows-16, 80);
     DisplayKeypoints(imgColor2, keypointsAll, color, thickness, radius, drawAngular, "all");
-    DisplayKeypoints(imgColor, keypoints, color, thickness, radius, drawAngular, "mine");
+    DisplayKeypoints(imgColor, keypoints, color, thickness, radius, drawAngular, "kdtreeANMS");
 
     //CompareKeypoints(keypoints, "mine", refkeypoints, "reference", -1, true);
     //CompareDescriptors(descriptors, "mine", refdescriptors, "reference", keypoints.size(), -1, true);
@@ -546,6 +542,7 @@ void MeasureExecutionTime(int numIterations, ORB_SLAM2::ORBextractor &extractor,
 void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &imgColor, cv::Scalar &color,
         int thickness, int radius, bool drawAngular, bool distributePerLevel)
 {
+    typedef std::chrono::high_resolution_clock clk;
     cv::Mat imgGray;
     imgColor.copyTo(imgGray);
 
@@ -555,6 +552,9 @@ void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &im
     std::vector<cv::KeyPoint> kptsQuadtree;
     std::vector<cv::KeyPoint> kptsQuadtreeORBSLAMSTYLE;
     std::vector<cv::KeyPoint> kptsGrid;
+    std::vector<cv::KeyPoint> kptsANMS_KDTree;
+    std::vector<cv::KeyPoint> kptsANMS_RT;
+    std::vector<cv::KeyPoint> kptsSSC;
 
     cv::Mat descriptors;
 
@@ -568,59 +568,86 @@ void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &im
     cv::Mat imgQuadtree;
     cv::Mat imgQuadtreeORBSLAMSTYLE;
     cv::Mat imgGrid;
+    cv::Mat imgANMS_KDTree;
+    cv::Mat imgANMS_RT;
+    cv::Mat imgSSC;
+
     imgColor.copyTo(imgAll);
     imgColor.copyTo(imgNaive);
     imgColor.copyTo(imgQuadtree);
     imgColor.copyTo(imgQuadtreeORBSLAMSTYLE);
     imgColor.copyTo(imgGrid);
+    imgColor.copyTo(imgANMS_KDTree);
+    imgColor.copyTo(imgANMS_RT);
+    imgColor.copyTo(imgSSC);
 
-    using namespace std::chrono;
-    high_resolution_clock::time_point tStart = high_resolution_clock::now();
-    high_resolution_clock::time_point t1;
-    high_resolution_clock::time_point t2;
-    high_resolution_clock::time_point t3;
-    high_resolution_clock::time_point t4;
-    high_resolution_clock::time_point tEnd;
+    clk::time_point tStart = clk::now();
+    clk::time_point t1;
+    clk::time_point t2;
+    clk::time_point t3;
+    clk::time_point t4;
+    clk::time_point t5;
+    clk::time_point t6;
+    clk::time_point t7;
+    clk::time_point tEnd;
 
     if (distributePerLevel)
     {
-        //extractor(imgGray, cv::Mat(), kptsAll, descriptors, Distribution::KEEP_ALL);
-        t1 = high_resolution_clock::now();
+        extractor(imgGray, cv::Mat(), kptsAll, descriptors, Distribution::KEEP_ALL);
+        t1 = clk::now();
         extractor(imgGray, cv::Mat(), kptsNaive, descriptors, Distribution::NAIVE);
-        t2 = high_resolution_clock::now();
+        t2 = clk::now();
         extractor(imgGray, cv::Mat(), kptsQuadtree, descriptors, Distribution::QUADTREE);
-        t3 = high_resolution_clock::now();
+        t3 = clk::now();
         extractor(imgGray, cv::Mat(), kptsQuadtreeORBSLAMSTYLE, descriptors, Distribution::QUADTREE_ORBSLAMSTYLE);
-        t4 = high_resolution_clock::now();
+        t4 = clk::now();
         extractor(imgGray, cv::Mat(), kptsGrid, descriptors, Distribution::GRID);
+        t5 = clk::now();
+        extractor(imgGray, cv::Mat(), kptsANMS_KDTree, descriptors, Distribution::ANMS_KDTREE);
+        t6 = clk::now();
+        extractor(imgGray, cv::Mat(), kptsANMS_RT, descriptors, Distribution::ANMS_RT);
+        t7 = clk::now();
+        extractor(imgGray, cv::Mat(), kptsSSC, descriptors, Distribution::SSC);
     }
     else
     {
-        //extractor(imgGray, cv::Mat(), kptsAll, descriptors, Distribution::KEEP_ALL, false);
-        t1 = high_resolution_clock::now();
+        extractor(imgGray, cv::Mat(), kptsAll, descriptors, Distribution::KEEP_ALL, false);
+        t1 = clk::now();
         extractor(imgGray, cv::Mat(), kptsNaive, descriptors, Distribution::NAIVE, false);
-        t2 = high_resolution_clock::now();
+        t2 = clk::now();
         extractor(imgGray, cv::Mat(), kptsQuadtree, descriptors, Distribution::QUADTREE, false);
-        t3 = high_resolution_clock::now();
+        t3 = clk::now();
         extractor(imgGray, cv::Mat(), kptsQuadtreeORBSLAMSTYLE, descriptors,
                 Distribution::QUADTREE_ORBSLAMSTYLE,false);
-        t4 = high_resolution_clock::now();
+        t4 = clk::now();
         extractor(imgGray, cv::Mat(), kptsGrid, descriptors, Distribution::GRID, false);
+        t5 = clk::now();
+        extractor(imgGray, cv::Mat(), kptsANMS_KDTree, descriptors, Distribution::ANMS_KDTREE, false);
+        t6 = clk::now();
+        extractor(imgGray, cv::Mat(), kptsANMS_RT, descriptors, Distribution::ANMS_RT, false);
+        t7 = clk::now();
+        extractor(imgGray, cv::Mat(), kptsSSC, descriptors, Distribution::SSC, false);
     }
-    tEnd = high_resolution_clock::now();
+    tEnd = clk::now();
 
-    auto d1 = duration_cast<microseconds>(t1-tStart).count();
-    auto d2 = duration_cast<microseconds>(t2-t1).count();
-    auto d3 = duration_cast<microseconds>(t3-t2).count();
-    auto d4 = duration_cast<microseconds>(t4-t3).count();
-    auto d5 = duration_cast<microseconds>(tEnd-t4).count();
+    auto d1 = std::chrono::duration_cast<std::chrono::microseconds>(t1-tStart).count();
+    auto d2 = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
+    auto d3 = std::chrono::duration_cast<std::chrono::microseconds>(t3-t2).count();
+    auto d4 = std::chrono::duration_cast<std::chrono::microseconds>(t4-t3).count();
+    auto d5 = std::chrono::duration_cast<std::chrono::microseconds>(t5-t4).count();
+    auto d6 = std::chrono::duration_cast<std::chrono::microseconds>(t6-t5).count();
+    auto d7 = std::chrono::duration_cast<std::chrono::microseconds>(t7-t6).count();
+    auto d8 = std::chrono::duration_cast<std::chrono::microseconds>(tEnd-t7).count();
 
     cout << "\nComplete computation time for each distribution:"
             "\nAll Keypoints kept: " << d1 << " microseconds" <<
             "\nTopN: " << d2 << " microseconds" <<
             "\nQuadtree: " << d3 << " microseconds" <<
             "\nQuadtre ORBSLAMSTYLE: " << d4 << " microseconds" <<
-            "\nBucketing: " << d5 << "microseconds\n";
+            "\nBucketing: " << d5 << " microseconds" <<
+            "\nANMS (KDTree): " << d6 << " microseconds" <<
+            "\nANMS (Range Tree): " << d7 << " microseconds" <<
+            "\nSuppression via Square Covering: " << d8 << " microseconds\n";
 
     DisplayKeypoints(imgAll, kptsAll, color, thickness, radius, drawAngular, "all");
     DisplayKeypoints(imgNaive, kptsNaive, color, thickness, radius, drawAngular, "naive");
@@ -628,6 +655,9 @@ void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &im
     DisplayKeypoints(imgQuadtreeORBSLAMSTYLE, kptsQuadtreeORBSLAMSTYLE, color, thickness, radius, drawAngular,
             "quadtree ORBSLAM");
     DisplayKeypoints(imgGrid, kptsGrid, color, thickness, radius, drawAngular, "Grid");
+    DisplayKeypoints(imgANMS_KDTree, kptsANMS_KDTree, color, thickness, radius, drawAngular, "KDTree ANMS");
+    DisplayKeypoints(imgANMS_RT, kptsANMS_RT, color, thickness, radius, drawAngular, "Range Tree ANMS");
+    DisplayKeypoints(imgSSC, kptsSSC, color, thickness, radius, drawAngular, "SSC");
 }
 
 void AddRandomKeypoints(std::vector<cv::KeyPoint> &keypoints)

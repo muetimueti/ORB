@@ -1,8 +1,11 @@
 #include "include/Distribution.h"
+#include "include/Nanoflann.h"
+#include "include/RangeTree.h"
 
 #include <vector>
 #include <iterator>
 #include <algorithm>
+#include <numeric>
 
 //TODO:remove include of iostream and chrono after debugging
 #include <iostream>
@@ -61,6 +64,14 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int min
         {
             int cols = maxX - minX;
             int rows = maxY - minY;
+
+            std::vector<int> responseVector;
+            for (unsigned int i =0 ; i<kpts.size(); i++) responseVector.push_back(kpts[i].response);
+            std::vector<int> Indx(responseVector.size()); std::iota (std::begin(Indx), std::end(Indx), 0);
+            cv::sortIdx(responseVector, Indx, CV_SORT_DESCENDING);
+            std::vector<cv::KeyPoint> keyPointsSorted;
+            for (unsigned int i = 0; i < kpts.size(); i++) keyPointsSorted.push_back(kpts[Indx[i]]);
+
             DistributeKeypointsKdT_ANMS(kpts, rows, cols, N, epsilon);
             break;
         }
@@ -68,6 +79,14 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int min
         {
             int cols = maxX - minX;
             int rows = maxY - minY;
+
+            std::vector<int> responseVector;
+            for (unsigned int i =0 ; i<kpts.size(); i++) responseVector.push_back(kpts[i].response);
+            std::vector<int> Indx(responseVector.size()); std::iota (std::begin(Indx), std::end(Indx), 0);
+            cv::sortIdx(responseVector, Indx, CV_SORT_DESCENDING);
+            std::vector<cv::KeyPoint> keyPointsSorted;
+            for (unsigned int i = 0; i < kpts.size(); i++) keyPointsSorted.push_back(kpts[Indx[i]]);
+
             DistributeKeypointsRT_ANMS(kpts, rows, cols, N, epsilon);
             break;
         }
@@ -75,6 +94,14 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int min
         {
             int cols = maxX - minX;
             int rows = maxY - minY;
+
+            std::vector<int> responseVector;
+            for (unsigned int i =0 ; i<kpts.size(); i++) responseVector.push_back(kpts[i].response);
+            std::vector<int> Indx(responseVector.size()); std::iota (std::begin(Indx), std::end(Indx), 0);
+            cv::sortIdx(responseVector, Indx, CV_SORT_DESCENDING);
+            std::vector<cv::KeyPoint> keyPointsSorted;
+            for (unsigned int i = 0; i < kpts.size(); i++) keyPointsSorted.push_back(kpts[Indx[i]]);
+
             DistributeKeypointsSSC(kpts, rows, cols, N, epsilon);
             break;
         }
@@ -602,26 +629,253 @@ void Distribution::DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, cons
     }
 }
 
+/*
+ * PointCloud and KdTree taken from BAILOOL/ANMS-Codes
+ */
 
-void
-Distribution::DistributeKeypointsKdT_ANMS(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon)
+void Distribution::DistributeKeypointsKdT_ANMS(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon)
 {
-    std::cerr << "\nKdT-ANMS Distribution not yet implemented!\n";
-    //TODO: implement
+    int numerator1 = rows + cols + 2*N;
+    long long discriminant = (long long)4*cols + (long long)4*N + (long long)4*rows*N +
+            (long long)rows*rows + (long long)cols*cols - (long long)2*cols*rows + (long long)4*cols*rows*N;
 
+    double denominator = 2*(N-1);
+
+    double sol1 = (numerator1 - sqrt(discriminant))/denominator;
+    double sol2 = (numerator1 + sqrt(discriminant))/denominator;
+
+    int high = (sol1>sol2)? sol1 : sol2; //binary search range initialization with positive solution
+    int low = floor(sqrt((double)kpts.size()/N));
+
+    PointCloud<int> cloud;
+    generatePointCloud(cloud, kpts);
+    typedef nanoflann::KDTreeSingleIndexAdaptor<nanoflann::L2_Simple_Adaptor<int, PointCloud<int>>, PointCloud<int>, 2>
+            a_kd_tree;
+    a_kd_tree tree(2, cloud, nanoflann::KDTreeSingleIndexAdaptorParams(25));
+    tree.buildIndex();
+
+    bool done = false;
+    int kMax = myRound(N + N*epsilon), kMin = myRound(N - N*epsilon);
+    std::vector<int> resultIndices;
+    int radius, prevradius = 1;
+
+    std::vector<int> tempResult;
+    tempResult.reserve(kpts.size());
+    while (!done)
+    {
+        std::vector<bool> selected(kpts.size(), true);
+        radius = low + (high-low)/2;
+        if (radius == prevradius || low > high)
+        {
+            resultIndices = tempResult;
+            break;
+        }
+        tempResult.clear();
+
+        for (int i = 0; i < kpts.size(); ++i)
+        {
+            if (selected[i])
+            {
+                selected[i] = false;
+                tempResult.emplace_back(i);
+                int searchRadius = static_cast<int>(radius*radius);
+                std::vector<std::pair<size_t, int>> retMatches;
+                nanoflann::SearchParams params;
+                int querypt[2] = {(int)kpts[i].pt.x, (int)kpts[i].pt.y};
+                size_t nMatches = tree.radiusSearch(&querypt[0], searchRadius, retMatches, params);
+
+                for (size_t idx = 0; idx < nMatches; ++idx)
+                {
+                    if(selected[retMatches[idx].first])
+                        selected[retMatches[idx].first] = false;
+                }
+            }
+        }
+        if (tempResult.size() >= kMin && tempResult.size() <= kMax)
+        {
+            resultIndices = tempResult;
+            done = true;
+        }
+        else if (tempResult.size() < kMin)
+            high = radius - 1;
+        else
+            low = radius + 1;
+
+        prevradius = radius;
+    }
+    std::vector<cv::KeyPoint> reskpts;
+    for (int i = 0; i < resultIndices.size(); ++i)
+    {
+        reskpts.emplace_back(kpts[resultIndices[i]]);
+    }
+    kpts = reskpts;
 }
 
 
 void Distribution::DistributeKeypointsRT_ANMS(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon)
 {
-    std::cerr << "\nKdT-ANMS Distribution not yet implemented!\n";
-    //TODO: implement
+    int numerator1 = rows + cols + 2*N;
+    long long discriminant = (long long)4*cols + (long long)4*N + (long long)4*rows*N +
+                             (long long)rows*rows + (long long)cols*cols - (long long)2*cols*rows + (long long)4*cols*rows*N;
+
+    double denominator = 2*(N-1);
+
+    double sol1 = (numerator1 - sqrt(discriminant))/denominator;
+    double sol2 = (numerator1 + sqrt(discriminant))/denominator;
+
+    int high = (sol1>sol2)? sol1 : sol2; //binary search range initialization with positive solution
+    int low = floor(sqrt((double)kpts.size()/N));
+
+    RangeTree<u16, u16> tree(kpts.size(), kpts.size());
+    for (int i = 0; i < kpts.size(); ++i)
+    {
+        tree.add(kpts[i].pt.x, kpts[i].pt.y, (u16 *)(intptr_t)i);
+    }
+    tree.finalize();
+
+    bool done = false;
+    int kMin = myRound(N - N*epsilon), kMax = myRound(N + N*epsilon);
+    std::vector<int> resultIndices;
+    int width, prevwidth = -1;
+
+    std::vector<int> tempResult;
+    tempResult.reserve(kpts.size());
+    while (!done)
+    {
+        std::vector<bool> selected(kpts.size(), true);
+        width = low + (high-low)/2;
+        if (width == prevwidth || low > high)
+        {
+            resultIndices = tempResult;
+            break;
+        }
+        tempResult.clear();
+
+        for (int i = 0; i < kpts.size(); ++i)
+        {
+            if (selected[i])
+            {
+                selected[i] = false;
+                tempResult.emplace_back(i);
+                int minX = static_cast<int>(kpts[i].pt.x - width);
+                int maxX = static_cast<int>(kpts[i].pt.x + width);
+                int minY = static_cast<int>(kpts[i].pt.y - width);
+                int maxY = static_cast<int>(kpts[i].pt.y + width);
+
+                if (minX < 0)
+                    minX = 0;
+                if (minY < 0)
+                    minY = 0;
+
+                std::vector<u16*> *he = tree.search(minX, maxX, minY, maxY);
+                for (int j = 0; j < he->size(); ++j)
+                {
+                    if (selected[(u64)(*he)[j]])
+                        selected[(u64)(*he)[j]] = false;
+                }
+                delete he;
+                he = nullptr;
+            }
+
+        }
+        if (tempResult.size() >= kMin && tempResult.size() <= kMax)
+        {
+            resultIndices = tempResult;
+            done = true;
+        }
+        else if (tempResult.size() < kMin)
+            high = width - 1;
+        else
+            low = width + 1;
+
+        prevwidth = width;
+    }
+
+    std::vector<cv::KeyPoint> reskpts;
+    for (int i = 0; i < resultIndices.size(); ++i)
+    {
+        reskpts.emplace_back(kpts[resultIndices[i]]);
+    }
+    kpts = reskpts;
 }
 
 
 void Distribution::DistributeKeypointsSSC(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon)
 {
-    std::cerr << "\nKdT-ANMS Distribution not yet implemented!\n";
-    //TODO: implement
+    int numerator1 = rows + cols + 2*N;
+    long long discriminant = (long long)4*cols + (long long)4*N + (long long)4*rows*N +
+                             (long long)rows*rows + (long long)cols*cols - (long long)2*cols*rows + (long long)4*cols*rows*N;
+
+    double denominator = 2*(N-1);
+
+    double sol1 = (numerator1 - sqrt(discriminant))/denominator;
+    double sol2 = (numerator1 + sqrt(discriminant))/denominator;
+
+    int high = (sol1>sol2)? sol1 : sol2;
+    int low = floor(sqrt((double)kpts.size()/N));
+
+    bool done = false;
+    int kMin = myRound(N - N*epsilon), kMax = myRound(N + N*epsilon);
+    std::vector<int> resultIndices;
+    int width, prevwidth = -1;
+
+    std::vector<int> tempResult;
+    tempResult.reserve(kpts.size());
+
+    while(!done)
+    {
+        width = low + (high-low)/2;
+        if (width == prevwidth || low > high)
+        {
+            resultIndices = tempResult;
+            break;
+        }
+        tempResult.clear();
+        double c = width/2;
+        int cellCols = (int)(cols/c);
+        int cellRows = (int)(rows/c);
+        std::vector<std::vector<bool>> covered(cellRows+1, std::vector<bool>(cellCols+1, false));
+
+        for (int i = 0; i < kpts.size(); ++i)
+        {
+            int row = (int)(kpts[i].pt.y/c);
+            int col = (int)(kpts[i].pt.x/c);
+            if (covered[row][col] == false)
+            {
+                tempResult.emplace_back(i);
+                int rowMin = row - (int)(width/c) >= 0 ? (row - (int)(width/c)) : 0;
+                int rowMax = row + (int)(width/c) <= cellRows ? (row + (int)(width/c)) : cellRows;
+                int colMin = col - (int)(width/c) >= 0 ? (col - (int)(width/c)) : 0;
+                int colMax = col + (int)(width/c) <= cellCols ? (col + (int)(width/c)) : cellCols;
+
+                for (int dy = rowMin; dy <= rowMax; ++dy)
+                {
+                    for (int dx = colMin; dx <= colMax; ++dx)
+                    {
+                        if (!covered[dy][dx])
+                            covered[dy][dx] = true;
+                    }
+                }
+            }
+        }
+        if (tempResult.size() >= kMin && tempResult.size() <= kMax)
+        {
+            resultIndices = tempResult;
+            done = true;
+        }
+        else if (tempResult.size() < kMin)
+            high = width - 1;
+        else
+            low = width + 1;
+
+        prevwidth = width;
+    }
+
+    std::vector<cv::KeyPoint> reskpts;
+    for (int i = 0; i < resultIndices.size(); ++i)
+    {
+        reskpts.emplace_back(kpts[resultIndices[i]]);
+    }
+    kpts = reskpts;
 }
 
