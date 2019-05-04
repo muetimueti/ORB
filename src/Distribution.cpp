@@ -66,7 +66,8 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int min
             int rows = maxY - minY;
 
             std::vector<int> responseVector;
-            for (unsigned int i =0 ; i<kpts.size(); i++) responseVector.push_back(kpts[i].response);
+            for (int i = 0; i < kpts.size(); i++)
+                responseVector.emplace_back(kpts[i].response);
             std::vector<int> Indx(responseVector.size()); std::iota (std::begin(Indx), std::end(Indx), 0);
             cv::sortIdx(responseVector, Indx, CV_SORT_DESCENDING);
             std::vector<cv::KeyPoint> keyPointsSorted;
@@ -81,7 +82,8 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int min
             int rows = maxY - minY;
 
             std::vector<int> responseVector;
-            for (unsigned int i =0 ; i<kpts.size(); i++) responseVector.push_back(kpts[i].response);
+            for (int i =0; i < kpts.size(); i++)
+                responseVector.emplace_back(kpts[i].response);
             std::vector<int> Indx(responseVector.size()); std::iota (std::begin(Indx), std::end(Indx), 0);
             cv::sortIdx(responseVector, Indx, CV_SORT_DESCENDING);
             std::vector<cv::KeyPoint> keyPointsSorted;
@@ -96,7 +98,8 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int min
             int rows = maxY - minY;
 
             std::vector<int> responseVector;
-            for (unsigned int i =0 ; i<kpts.size(); i++) responseVector.push_back(kpts[i].response);
+            for (int i =0; i < kpts.size(); i++)
+                responseVector.emplace_back(kpts[i].response);
             std::vector<int> Indx(responseVector.size()); std::iota (std::begin(Indx), std::end(Indx), 0);
             cv::sortIdx(responseVector, Indx, CV_SORT_DESCENDING);
             std::vector<cv::KeyPoint> keyPointsSorted;
