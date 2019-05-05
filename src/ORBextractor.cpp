@@ -132,66 +132,7 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
 void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
         std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors)
 {
-    if (inputImage.empty())
-        return;
-
-    cv::Mat image = inputImage.getMat();
-    assert(image.type() == CV_8UC1);
-
-    ComputeScalePyramid(image);
-
-
-    for (int lvl = 0; lvl < nlevels; ++lvl)
-    {
-        for (int i = 0; i < CIRCLE_SIZE; ++i)
-        {
-            pixelOffset[lvl*CIRCLE_SIZE + i] =
-                    CIRCLE_OFFSETS[i][0] + CIRCLE_OFFSETS[i][1] * (int)imagePyramid[lvl].step1();
-        }
-    }
-
-
-    std::vector<std::vector<cv::KeyPoint>> allkpts;
-    DivideAndFAST(allkpts, Distribution::QUADTREE_ORBSLAMSTYLE, true);
-
-    ComputeAngles(allkpts);
-
-    cv::Mat BRIEFdescriptors;
-    int nkpts = 0;
-    for (int lvl = 0; lvl < nlevels; ++lvl)
-    {
-        nkpts += (int)allkpts[lvl].size();
-    }
-    if (nkpts <= 0)
-    {
-        outputDescriptors.release();
-    } else
-    {
-        outputDescriptors.create(nkpts, 32, CV_8U);
-        BRIEFdescriptors = outputDescriptors.getMat();
-    }
-
-    resultKeypoints.clear();
-    resultKeypoints.reserve(nkpts);
-
-    ComputeDescriptors(allkpts, BRIEFdescriptors);
-
-    for (int lvl = 0; lvl < nlevels; ++lvl)
-    {
-        int size = PATCH_SIZE * scaleFactorVec[lvl];
-        float scale = scaleFactorVec[lvl];
-        for (auto &kpt : allkpts[lvl])
-        {
-            kpt.size = size;
-            if (lvl)
-                kpt.pt *= scale;
-        }
-    }
-
-    for (int lvl = 0; lvl < nlevels; ++lvl)
-    {
-        resultKeypoints.insert(resultKeypoints.end(), allkpts[lvl].begin(), allkpts[lvl].end());
-    }
+    this->operator()(inputImage, mask, resultKeypoints, outputDescriptors, Distribution::SSC, false);
 }
 
 /** @overload
@@ -200,6 +141,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
  * @param resultKeypoints keypoint vector in which results will be stored
  * @param outputDescriptors matrix in which descriptors will be stored
  * @param distributionMode decides the method to call for kpt-distribution, see Distribution.h
+ * @param distributePerLevel true->distribute kpts per octave, false->distribute kpts per image
  */
 
 void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
@@ -264,7 +206,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
 
     for (int lvl = 0; lvl < nlevels; ++lvl)
     {
-        int size = PATCH_SIZE * scaleFactorVec[lvl];
+        float size = PATCH_SIZE * scaleFactorVec[lvl];
         float scale = scaleFactorVec[lvl];
         for (auto &kpt : allkpts[lvl])
         {

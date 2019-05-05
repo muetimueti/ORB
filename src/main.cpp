@@ -108,8 +108,8 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
 
     ORB_SLAM2::ORBextractor extractor (nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
 
-    DistributionComparisonSuite(extractor, image, color, thickness, radius, drawAngular, false);
-    return;
+    //DistributionComparisonSuite(extractor, image, color, thickness, radius, drawAngular, false);
+    //return;
 
     ORB_SLAM_REF::referenceORB refExtractor (nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
 
@@ -127,8 +127,8 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
 
 
     //LoadHugeImage(refExtractor);
-    extractor(image, cv::Mat(), keypoints, descriptors, Distribution::SSC, false);
-    extractor(image, cv::Mat(), keypointsAll, descriptors, Distribution::KEEP_ALL, true);
+    extractor(image, cv::Mat(), keypoints, descriptors, Distribution::SSC, true);
+    extractor(image, cv::Mat(), keypointsAll, descriptors, Distribution::KEEP_ALL, false);
 
     std::cout << "\nnkpts: " << keypoints.size() << "\n";
 
@@ -236,13 +236,14 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
 
         chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
-        refExtractor(img, cv::Mat(), refkpts, refdescriptors);
+        //refExtractor(img, cv::Mat(), refkpts, refdescriptors);
 
+        std::cout << "\ncurrent img: " << string(imgPath) + vstrImageFilenames[ni];
 
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
 
 
-        myExtractor(img, cv::Mat(), mykpts, mydescriptors, Distribution::QUADTREE);
+        myExtractor(img, cv::Mat(), mykpts, mydescriptors, Distribution::SSC, true);
         chrono::high_resolution_clock ::time_point t3 = chrono::high_resolution_clock::now();
 
         auto refduration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();

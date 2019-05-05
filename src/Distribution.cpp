@@ -33,7 +33,20 @@ void
 Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int minX, const int maxX, const int minY,
                     const int maxY, const int N, DistributionMethod mode)
 {
+    if (kpts.size() <= N)
+        return;
     const float epsilon = 0.1;
+    if (mode == ANMS_RT || mode == ANMS_KDTREE || mode == SSC)
+    {
+        std::vector<int> responseVector;
+        for (int i = 0; i < kpts.size(); i++)
+            responseVector.emplace_back(kpts[i].response);
+        std::vector<int> idx(responseVector.size()); std::iota (std::begin(idx), std::end(idx), 0);
+        cv::sortIdx(responseVector, idx, CV_SORT_DESCENDING);
+        std::vector<cv::KeyPoint> keyPointsSorted;
+        for (int i = 0; i < kpts.size(); i++)
+            keyPointsSorted.emplace_back(kpts[idx[i]]);
+    }
     switch (mode)
     {
         case NAIVE :
@@ -64,15 +77,6 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int min
         {
             int cols = maxX - minX;
             int rows = maxY - minY;
-
-            std::vector<int> responseVector;
-            for (int i = 0; i < kpts.size(); i++)
-                responseVector.emplace_back(kpts[i].response);
-            std::vector<int> Indx(responseVector.size()); std::iota (std::begin(Indx), std::end(Indx), 0);
-            cv::sortIdx(responseVector, Indx, CV_SORT_DESCENDING);
-            std::vector<cv::KeyPoint> keyPointsSorted;
-            for (unsigned int i = 0; i < kpts.size(); i++) keyPointsSorted.push_back(kpts[Indx[i]]);
-
             DistributeKeypointsKdT_ANMS(kpts, rows, cols, N, epsilon);
             break;
         }
@@ -80,15 +84,6 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int min
         {
             int cols = maxX - minX;
             int rows = maxY - minY;
-
-            std::vector<int> responseVector;
-            for (int i =0; i < kpts.size(); i++)
-                responseVector.emplace_back(kpts[i].response);
-            std::vector<int> Indx(responseVector.size()); std::iota (std::begin(Indx), std::end(Indx), 0);
-            cv::sortIdx(responseVector, Indx, CV_SORT_DESCENDING);
-            std::vector<cv::KeyPoint> keyPointsSorted;
-            for (unsigned int i = 0; i < kpts.size(); i++) keyPointsSorted.push_back(kpts[Indx[i]]);
-
             DistributeKeypointsRT_ANMS(kpts, rows, cols, N, epsilon);
             break;
         }
@@ -96,15 +91,6 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int min
         {
             int cols = maxX - minX;
             int rows = maxY - minY;
-
-            std::vector<int> responseVector;
-            for (int i =0; i < kpts.size(); i++)
-                responseVector.emplace_back(kpts[i].response);
-            std::vector<int> Indx(responseVector.size()); std::iota (std::begin(Indx), std::end(Indx), 0);
-            cv::sortIdx(responseVector, Indx, CV_SORT_DESCENDING);
-            std::vector<cv::KeyPoint> keyPointsSorted;
-            for (unsigned int i = 0; i < kpts.size(); i++) keyPointsSorted.push_back(kpts[Indx[i]]);
-
             DistributeKeypointsSSC(kpts, rows, cols, N, epsilon);
             break;
         }
@@ -807,7 +793,7 @@ void Distribution::DistributeKeypointsSSC(std::vector<cv::KeyPoint> &kpts, int r
 {
     int numerator1 = rows + cols + 2*N;
     long long discriminant = (long long)4*cols + (long long)4*N + (long long)4*rows*N +
-                             (long long)rows*rows + (long long)cols*cols - (long long)2*cols*rows + (long long)4*cols*rows*N;
+            (long long)rows*rows + (long long)cols*cols - (long long)2*cols*rows + (long long)4*cols*rows*N;
 
     double denominator = 2*(N-1);
 
@@ -834,10 +820,11 @@ void Distribution::DistributeKeypointsSSC(std::vector<cv::KeyPoint> &kpts, int r
             break;
         }
         tempResult.clear();
-        double c = width/2;
-        int cellCols = (int)(cols/c);
-        int cellRows = (int)(rows/c);
+        double c = (double)width/2.0;
+        int cellCols = std::floor(cols/c);
+        int cellRows = std::floor(rows/c);
         std::vector<std::vector<bool>> covered(cellRows+1, std::vector<bool>(cellCols+1, false));
+
 
         for (int i = 0; i < kpts.size(); ++i)
         {
