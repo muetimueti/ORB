@@ -132,11 +132,126 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
 
 
 
+    Distribution::DistributionMethod mode = Distribution::KEEP_ALL;
+    bool distributePerLevel = false;
     //LoadHugeImage(refExtractor);
-    extractor(image, cv::Mat(), keypoints, descriptors, Distribution::SSC, false);
-    extractor(image, cv::Mat(), keypointsAll, descriptors, Distribution::KEEP_ALL, false);
 
-    std::cout << "\nnkpts: " << keypoints.size() << "\n";
+
+    pangolin::CreateWindowAndBind("Menu",210,440);
+
+    pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(210));
+
+    pangolin::Var<bool> menuAll("menu.All Keypoints",false,false);
+    pangolin::Var<bool> menuTopN("menu.TopN",false,false);
+    pangolin::Var<bool> menuBucketing("menu.Bucketing",true,false);
+    pangolin::Var<bool> menuQuadtree("menu.Quadtree",false,false);
+    pangolin::Var<bool> menuQuadtreeORBSLAMSTYLE("menu.Quadtree ORBSLAMSTYLE",false,false);
+    pangolin::Var<bool> menuANMS_KDT("menu.KDTree-ANMS",false,false);
+    pangolin::Var<bool> menuANMS_RT("menu.Range-Tree-ANMS",false,false);
+    pangolin::Var<bool> menuSSC("menu.SSC",false,false);
+    pangolin::Var<bool> menuDistrPerLvl("menu.Distribute Per Level", false, true);
+    pangolin::Var<int> menuNFeatures("menu.Desired Features", 800, 1, 2000);
+    pangolin::Var<int> menuActualkpts("menu.Features Actual", false, 0);
+    pangolin::Var<int> menuSetInitThreshold("menu.Init FAST Threshold", 20, 1, 40);
+    pangolin::Var<int> menuSetMinThreshold("menu.Min FAST Threshold", 6, 1, 40);
+    pangolin::Var<bool> menuExit("menu.EXIT", false, false);
+
+
+    pangolin::FinishFrame();
+
+    cv::namedWindow(string(imgPath));
+    cv::moveWindow(string(imgPath), 80, 260);
+
+
+    while (true)
+    {
+        cv::Mat imgGray;
+        imgColor.copyTo(imgGray);
+
+        if (imgGray.channels() == 3)
+            cv::cvtColor(imgGray, imgGray, CV_BGR2GRAY);
+        else if (imgGray.channels() == 4)
+            cv::cvtColor(imgGray, imgGray, CV_BGRA2GRAY);
+
+        cv::Mat displayImg;
+        imgColor.copyTo(displayImg);
+
+        extractor(imgGray, cv::Mat(), keypoints, descriptors, mode, distributePerLevel);
+
+        DisplayKeypoints(displayImg, keypoints, color, thickness, radius, drawAngular, string(imgPath));
+        cv::waitKey(33);
+
+        int n = menuNFeatures;
+        if (n != nFeatures)
+        {
+            nFeatures = n;
+            extractor.SetnFeatures(n);
+        }
+
+
+        menuActualkpts = keypoints.size();
+        keypoints.clear();
+        if (menuAll)
+        {
+            mode = Distribution::KEEP_ALL;
+            menuAll = false;
+        }
+        if (menuTopN)
+        {
+            mode = Distribution::NAIVE;
+            menuTopN = false;
+        }
+        if (menuBucketing)
+        {
+            mode = Distribution::GRID;
+            menuBucketing = false;
+        }
+        if (menuQuadtree)
+        {
+            mode = Distribution::QUADTREE;
+            menuQuadtree = false;
+        }
+        if (menuQuadtreeORBSLAMSTYLE)
+        {
+            mode = Distribution::QUADTREE_ORBSLAMSTYLE;
+            menuQuadtreeORBSLAMSTYLE = false;
+        }
+        if (menuANMS_KDT)
+        {
+            mode = Distribution::ANMS_KDTREE;
+            menuANMS_KDT = false;
+        }
+        if (menuANMS_RT)
+        {
+            mode = Distribution::ANMS_RT;
+            menuANMS_RT = false;
+        }
+        if (menuSSC)
+        {
+            mode = Distribution::SSC;
+            menuSSC = false;
+        }
+
+        if (menuDistrPerLvl && !distributePerLevel)
+            distributePerLevel = true;
+
+        else if (!menuDistrPerLvl && distributePerLevel)
+            distributePerLevel = false;
+
+        if (menuSetInitThreshold != FASTThresholdInit || menuSetMinThreshold != FASTThresholdMin)
+        {
+            FASTThresholdInit = menuSetInitThreshold;
+            if (menuSetMinThreshold > menuSetInitThreshold)
+                menuSetMinThreshold = menuSetInitThreshold;
+            FASTThresholdMin = menuSetMinThreshold;
+            extractor.SetFASTThresholds(FASTThresholdInit, FASTThresholdMin);
+        }
+        if (menuExit)
+            return;
+
+        pangolin::FinishFrame();
+    }
+
 
     //refExtractor(image, cv::Mat(), refkeypoints, refdescriptors);
 
