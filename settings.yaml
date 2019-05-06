@@ -48,7 +48,7 @@ ORBextractor.minThFAST: 7
 Viewer.KeyFrameSize: 0.05
 Viewer.KeyFrameLineWidth: 1
 Viewer.GraphLineWidth: 0.9
-Viewer.PointSize:2
+Viewer.PointSize: 2
 Viewer.CameraSize: 0.08
 Viewer.CameraLineWidth: 3
 Viewer.ViewpointX: 0
@@ -64,9 +64,9 @@ Viewer.ViewpointF: 50
 Line.thickness: 1
 
 Color.b: 0
-Color.g: 200
-Color.r: 60
+Color.g: 160
+Color.r: 160
 
-Circle.radius: 6
+Circle.radius: 7
 
 drawAngular: 1

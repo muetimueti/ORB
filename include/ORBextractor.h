@@ -2,9 +2,7 @@
 #define ORBEXTRACTOR_ORBEXTRACTOR_H
 
 #include <vector>
-#include <list>
-#include <opencv/cv.h>
-
+#include "include/Distribution.h"
 
 #ifndef NDEBUG
 #   define D(x) x
@@ -15,19 +13,6 @@
 
 namespace ORB_SLAM2
 {
-
-class ExtractorNode
-{
-public:
-    ExtractorNode():leaf(false){}
-
-    void DivideNode(ExtractorNode &n1, ExtractorNode &n2, ExtractorNode &n3, ExtractorNode &n4);
-
-    std::vector<cv::KeyPoint> nodeKpts;
-    cv::Point2i UL, UR, LL, LR;
-    //std::list<ExtractorNode>::iterator lit;
-    bool leaf;
-};
 
 class ORBextractor
 {
@@ -42,6 +27,10 @@ public:
     void operator()( cv::InputArray image, cv::InputArray mask,
                      std::vector<cv::KeyPoint>& keypoints,
                      cv::OutputArray descriptors);
+
+    void operator()(cv::InputArray inputImage, cv::InputArray mask,
+                                  std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors,
+                                  Distribution::DistributionMethod distributionMode, bool distributePerLevel = true);
 
     int inline GetLevels(){
         return nlevels;}
@@ -67,37 +56,43 @@ public:
 
     std::vector<cv::Mat> imagePyramid;
 
-    //TODO: remove from master
-    D(
-            void Tests(cv::InputArray inputImage, bool myImplementation,
-                       std::vector<cv::KeyPoint> &resKeypoints, cv::OutputArray inputDescriptors);
-    )
+
+    //TODO: remove from master--------------------------------------------------------------------------
+
+    long testingFAST(cv::Mat &img, std::vector<cv::KeyPoint> &kpts, bool myFAST, bool printTime);
+
+    void testingDescriptors(cv::Mat myDescriptors, cv::Mat compDescriptors, int nkpts, bool printdif,
+                            int start, int end, bool testTime, cv::OutputArray _descr);
+
+    void Tests(cv::InputArray inputImage, std::vector<cv::KeyPoint> &resKeypoints,
+               cv::OutputArray outputDescriptors, bool myFAST = true, bool myDesc = true);
+
+    ///--------------------------------------------------------------------------------------------------
 
 protected:
 
     static float IntensityCentroidAngle(const uchar* pointer, int step);
-    static void RetainBestN(std::vector<cv::KeyPoint> &kpts, int N);
-    static bool ResponseComparison(const cv::KeyPoint &k1, const cv::KeyPoint &k2);
 
-    void ComputeScalePyramid(cv::Mat &image);
-
-    void DivideAndFAST(std::vector<std::vector<cv::KeyPoint> >& allKeypoints,
-            bool distributeKpts = true, bool divideImage = true, int cellSize = 30);
-    void DistributeKeypoints(std::vector<cv::KeyPoint>& kpts, const int &minX,
-                                                  const int &maxX, const int &minY, const int &maxY, const int &level);
-
-    void FAST(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
-
-    int CornerScore(const uchar *pointer, const int offset[], int threshold);
 
     void ComputeAngles(std::vector<std::vector<cv::KeyPoint>> &allkpts);
 
     void ComputeDescriptors(std::vector<std::vector<cv::KeyPoint>> &allkpts, cv::Mat &descriptors);
 
 
+    void DivideAndFAST(std::vector<std::vector<cv::KeyPoint> >& allKeypoints,
+                       Distribution::DistributionMethod mode = Distribution::QUADTREE,
+                       bool divideImage = true, int cellSize = 30, bool distributePerLevel = true);
+
+    void FAST(cv::Mat image, std::vector<cv::KeyPoint> &keypoints, int &threshold, int level = 0);
+
+    int CornerScore(const uchar *pointer, const int offset[], int &threshold);
+    int OptimizedCornerScore(const uchar *pointer, const int offset[], int &threshold);
+
+    void ComputeScalePyramid(cv::Mat &image);
+
     std::vector<cv::Point> pattern;
 
-    inline float getScale(int lvl);
+    //inline float getScale(int lvl);
 
 
     uchar threshold_tab_min[512];
@@ -115,7 +110,6 @@ protected:
 
 
     std::vector<int> pixelOffset;
-    //std::vector<int> stepVec;
 
     std::vector<int> nfeaturesPerLevelVec;
 
@@ -127,21 +121,21 @@ protected:
 
 
     //TODO: remove from master
-    D(
 
-            template<class T>
-            void PrintArray(T *array, const std::string &name, int start, int end);
+    template<class T>
+    void PrintArray(T *array, const std::string &name, int start, int end);
 
-            void printInternalValues();
+    void printInternalValues();
 
-            static void PrintKeypoints(std::vector<cv::KeyPoint> &kpts);
+    static void PrintKeypoints(std::vector<cv::KeyPoint> &kpts);
 
-            static void PrintKeypoints(std::vector<cv::KeyPoint> &kpts, int start, int end);
+    static void PrintKeypoints(std::vector<cv::KeyPoint> &kpts, int start, int end);
 
-            static void PrintKeypoints(std::vector<cv::KeyPoint> &kpts, int start, int end, bool printResponse);
+    static void PrintKeypoints(std::vector<cv::KeyPoint> &kpts, int start, int end, bool printResponse);
 
-            static void CompareKeypointVectors(std::vector<cv::KeyPoint> &vec1, std::vector<cv::KeyPoint> &vec2);
-    )
+    static void CompareKeypointVectors(std::vector<cv::KeyPoint> &vec1, std::vector<cv::KeyPoint> &vec2);
+
+    /////////////////////
 
 };
 
