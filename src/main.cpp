@@ -11,6 +11,8 @@
 #  define D(x) x
 #  include <random>
 #  include <chrono>
+#include <opencv2/features2d.hpp>
+
 #else
 # define D(x)
 #endif
@@ -130,7 +132,7 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
 
 
     //LoadHugeImage(refExtractor);
-    extractor(image, cv::Mat(), keypoints, descriptors, Distribution::SSC, true);
+    extractor(image, cv::Mat(), keypoints, descriptors, Distribution::SSC, false);
     extractor(image, cv::Mat(), keypointsAll, descriptors, Distribution::KEEP_ALL, false);
 
     std::cout << "\nnkpts: " << keypoints.size() << "\n";
@@ -186,6 +188,17 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
 
+typedef struct extractorAndMode
+{
+    Distribution::DistributionMethod mode;
+    ORB_SLAM2::ORBextractor *extractor;
+} extractor_and_mode_t;
+
+void ButtonCallbackSetDistribution(int state, void* data)
+{
+    auto ptr = static_cast<extractor_and_mode_t*>(data);
+    (*(ptr->extractor)).SetDistribution(ptr->mode);
+}
 
 void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels, int FASTThresholdInit,
                     int FASTThresholdMin, cv::Scalar color, int thickness, int radius, bool drawAngular)
@@ -216,8 +229,22 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     long refTotalDuration = 0;
 
     cv::Mat img;
+
+    cv::namedWindow(string(imgPath));
+    string p = string("image nr");
+    cv::createTrackbar(p, string(imgPath), nullptr, nImages);
+
+    extractor_and_mode_t btncb_ssc = {Distribution::SSC, &myExtractor};
+    extractor_and_mode_t btncb_grid = {Distribution::GRID, &myExtractor};
+
+    //cv::createButton("SSC", ButtonCallbackSetDistribution, &btncb_ssc, CV_PUSH_BUTTON, 0);
+    //cv::createButton("Bucketing", ButtonCallbackSetDistribution, &btncb_grid, CV_PUSH_BUTTON, 0);
+
+
+
     for(int ni=0; ni<nImages; ni++)
     {
+        cv::setTrackbarPos(p, string(imgPath), ni);
         //cout << "\nNow processing image nr. " << ni << "...\n";
         // Read image from file
         img = cv::imread(string(imgPath) + "/" + vstrImageFilenames[ni], CV_LOAD_IMAGE_UNCHANGED);
@@ -231,7 +258,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             exit(EXIT_FAILURE);
         }
 
-        cv::cvtColor(img, img, CV_BGR2GRAY);
+        cv::Mat imgGray;
+        cv::cvtColor(img, imgGray, CV_BGR2GRAY);
 
         vector<cv::KeyPoint> mykpts;
         cv::Mat mydescriptors;
@@ -244,12 +272,12 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
         //refExtractor(img, cv::Mat(), refkpts, refdescriptors);
 
-        std::cout << "\ncurrent img: " << string(imgPath) + vstrImageFilenames[ni];
+        //std::cout << "\ncurrent img: " << string(imgPath) + vstrImageFilenames[ni];
 
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
 
 
-        myExtractor(img, cv::Mat(), mykpts, mydescriptors, Distribution::SSC, true);
+        myExtractor(imgGray, cv::Mat(), mykpts, mydescriptors, Distribution::SSC, false);
         chrono::high_resolution_clock ::time_point t3 = chrono::high_resolution_clock::now();
 
         auto refduration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
@@ -257,6 +285,14 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
         myTotalDuration += myduration;
         refTotalDuration += refduration;
+
+        DisplayKeypoints(img, mykpts, color, thickness, radius, drawAngular, string(imgPath));
+        cv::waitKey(34);
+
+        if (cv::getTrackbarPos(p, string(imgPath)) != ni)
+            ni = cv::getTrackbarPos(p, string(imgPath));
+
+
 
         /** compare kpts and descriptors per image:
         vector<std::pair<cv::KeyPoint, cv::KeyPoint>> kptDiffs;
@@ -296,9 +332,9 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
          */
 
     }
-    cout << "\n" << (eqkpts ? "All keypoints across all images were equal!\n" : "Not all keypoints are equal...:(\n");
-    cout << "\n" << (eqdescriptors ? "All descriptors across all images and keypoints were equal!\n" :
-                        "Not all descriptors were equal... :(\n");
+    //cout << "\n" << (eqkpts ? "All keypoints across all images were equal!\n" : "Not all keypoints are equal...:(\n");
+    //cout << "\n" << (eqdescriptors ? "All descriptors across all images and keypoints were equal!\n" :
+    //                    "Not all descriptors were equal... :(\n");
 
     cout << "\nTotal computation time using my orb: " << myTotalDuration/1000 <<
         " milliseconds, which averages to ~" << myTotalDuration/nImages << " microseconds.\n";
@@ -465,7 +501,7 @@ void DisplayKeypoints(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, cv::
        cv::circle(image, point, radius, color, 1, CV_AA);
        //cv::rectangle(image, cv::Point2f(point.x-1, point.y-1),
        //              cv::Point2f(point.x+1, point.y+1), color, thickness, CV_AA);
-       cv::circle(image, point, 2, color, 1, CV_AA);
+       //cv::circle(image, point, 2, color, 1, CV_AA);
        if (drawAngular)
        {
            int len = radius;
@@ -479,7 +515,6 @@ void DisplayKeypoints(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, cv::
        }
    }
    cv::imshow(windowname, image);
-   cv::waitKey(0);
 }
 
 void DrawCellGrid(cv::Mat &image, int minX, int maxX, int minY, int maxY, int cellSize)
@@ -657,14 +692,22 @@ void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &im
             "\nSuppression via Square Covering: " << d8 << " microseconds\n";
 
     DisplayKeypoints(imgAll, kptsAll, color, thickness, radius, drawAngular, "all");
+    cv::waitKey(0);
     DisplayKeypoints(imgNaive, kptsNaive, color, thickness, radius, drawAngular, "naive");
+    cv::waitKey(0);
     DisplayKeypoints(imgQuadtree, kptsQuadtree, color, thickness, radius, drawAngular, "quadtree");
+    cv::waitKey(0);
     DisplayKeypoints(imgQuadtreeORBSLAMSTYLE, kptsQuadtreeORBSLAMSTYLE, color, thickness, radius, drawAngular,
             "quadtree ORBSLAM");
+    cv::waitKey(0);
     DisplayKeypoints(imgGrid, kptsGrid, color, thickness, radius, drawAngular, "Grid");
+    cv::waitKey(0);
     DisplayKeypoints(imgANMS_KDTree, kptsANMS_KDTree, color, thickness, radius, drawAngular, "KDTree ANMS");
+    cv::waitKey(0);
     DisplayKeypoints(imgANMS_RT, kptsANMS_RT, color, thickness, radius, drawAngular, "Range Tree ANMS");
+    cv::waitKey(0);
     DisplayKeypoints(imgSSC, kptsSSC, color, thickness, radius, drawAngular, "SSC");
+    cv::waitKey(0);
 }
 
 void AddRandomKeypoints(std::vector<cv::KeyPoint> &keypoints)

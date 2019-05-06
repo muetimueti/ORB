@@ -55,61 +55,6 @@ float ORBextractor::IntensityCentroidAngle(const uchar* pointer, int step)
 }
 
 
-
-float ORBextractor::IntensityCentroidAngle(const uchar* pointer, int step)
-{
-    //m10 ~ x^1y^0, m01 ~ x^0y^1
-    int x, y, m01 = 0, m10 = 0;
-
-    int half_patch = PATCH_SIZE / 2;
-
-    for (x = -half_patch; x <= half_patch; ++x)
-    {
-        m10 += x * pointer[x];
-    }
-
-    for (y = 1; y <= half_patch; ++y)
-    {
-        int cols = CIRCULAR_ROWS[y];
-        int sumY = 0;
-        for (x = -cols; x <= cols; ++x)
-        {
-            int uptown = pointer[x + y*step];
-            int downtown = pointer[x - y*step];
-            sumY += uptown - downtown;
-            m10 += x * (uptown + downtown);
-        }
-        m01 += y * sumY;
-    }
-
-    return cv::fastAtan2((float)m01, (float)m10);
-}
-
-
-bool ORBextractor::ResponseComparison(const cv::KeyPoint &k1, const cv::KeyPoint &k2)
-{
-    return (k1.response > k2.response);
-}
-void ORBextractor::RetainBestN(std::vector<cv::KeyPoint> &kpts, int N)
-{
-    std::sort(kpts.begin(), kpts.end(), ResponseComparison);
-    kpts.resize(N);
-
-    //std::vector<cv::KeyPoint> tempKpts;
-    //tempKpts.reserve(N);
-
-    /*
-    for (int i = 0; i < N; ++i)
-    {
-        tempKpts.emplace_back(kpts[i]);
-    }
-     */
-    //kpts = tempKpts;
-}
-
-
-
-
 ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
                            int _iniThFAST, int _minThFAST):
         nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels),
@@ -204,8 +149,8 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
 void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
         std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors,
         Distribution::DistributionMethod distributionMode, bool distributePerLevel)
-
 {
+    kptDistribution = distributionMode;
     std::chrono::high_resolution_clock::time_point funcEntry = std::chrono::high_resolution_clock::now();
 
     if (inputImage.empty())
@@ -231,7 +176,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
     //using namespace std::chrono;
     //high_resolution_clock::time_point t1 = high_resolution_clock::now();
 
-    DivideAndFAST(allkpts, distributionMode, true, 30, distributePerLevel);
+    DivideAndFAST(allkpts, kptDistribution, true, 30, distributePerLevel);
 
 
     ComputeAngles(allkpts);
@@ -532,8 +477,8 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
         {
             nkpts += allkpts[lvl].size();
         }
-        std::vector<cv::KeyPoint> temp(nkpts);
-        for (int lvl = 0; lvl < nlevels; ++lvl)
+        auto temp = allkpts[0];
+        for (int lvl = 1; lvl < nlevels; ++lvl)
         {
             temp.insert(temp.end(), allkpts[lvl].begin(), allkpts[lvl].end());
         }

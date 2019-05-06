@@ -67,6 +67,6 @@ Color.b: 0
 Color.g: 160
 Color.r: 160
 
-Circle.radius: 7
+Circle.radius: 5
 
 drawAngular: 1

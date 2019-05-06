@@ -54,7 +54,10 @@ public:
         return invLevelSigma2Vec;
     }
 
-    std::vector<cv::Mat> imagePyramid;
+    void inline SetDistribution(Distribution::DistributionMethod mode)
+    {
+        kptDistribution = mode;
+    }
 
 
     //TODO: remove from master--------------------------------------------------------------------------
@@ -98,6 +101,9 @@ protected:
     uchar threshold_tab_min[512];
     uchar threshold_tab_init[512];
 
+    std::vector<cv::Mat> imagePyramid;
+
+    Distribution::DistributionMethod kptDistribution;
 
     int continuousPixelsRequired;
     int onePointFiveCircles;
