@@ -6,6 +6,7 @@
 #include <opencv2/imgproc/imgproc.hpp>
 
 #include "include/main.h"
+#include <pangolin/pangolin.h>
 
 #ifndef NDEBUG
 #  define D(x) x
@@ -188,18 +189,6 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
 
-typedef struct extractorAndMode
-{
-    Distribution::DistributionMethod mode;
-    ORB_SLAM2::ORBextractor *extractor;
-} extractor_and_mode_t;
-
-void ButtonCallbackSetDistribution(int state, void* data)
-{
-    auto ptr = static_cast<extractor_and_mode_t*>(data);
-    (*(ptr->extractor)).SetDistribution(ptr->mode);
-}
-
 void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels, int FASTThresholdInit,
                     int FASTThresholdMin, cv::Scalar color, int thickness, int radius, bool drawAngular)
 {
@@ -219,7 +208,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
     ORB_SLAM_REF::referenceORB refExtractor(nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
 
-    cout << "\n/////////////////////////\n"
+    cout << "\n-------------------------\n"
            << "Images in sequence: " << nImages << "\n";
 
     bool eqkpts = true;
@@ -230,21 +219,43 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
     cv::Mat img;
 
+    pangolin::CreateWindowAndBind("Menu",210,440);
+
+    pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(210));
+
+    pangolin::Var<bool> menuPause("menu. ~PAUSE~", false, true);
+    pangolin::Var<bool> menuAll("menu.All Keypoints",false,false);
+    pangolin::Var<bool> menuTopN("menu.TopN",false,false);
+    pangolin::Var<bool> menuBucketing("menu.Bucketing",true,false);
+    pangolin::Var<bool> menuQuadtree("menu.Quadtree",false,false);
+    pangolin::Var<bool> menuQuadtreeORBSLAMSTYLE("menu.Quadtree ORBSLAMSTYLE",false,false);
+    pangolin::Var<bool> menuANMS_KDT("menu.KDTree-ANMS",false,false);
+    pangolin::Var<bool> menuANMS_RT("menu.Range-Tree-ANMS",false,false);
+    pangolin::Var<bool> menuSSC("menu.SSC",false,false);
+    pangolin::Var<bool> menuDistrPerLvl("menu.Distribute Per Level", false, true);
+    pangolin::Var<int> menuNFeatures("menu.Desired Features", 800, 1, 2000);
+    pangolin::Var<int> menuActualkpts("menu.Features Actual", false, 0);
+    pangolin::Var<int> menuSetInitThreshold("menu.Init FAST Threshold", 20, 5, 40);
+    pangolin::Var<int> menuSetMinThreshold("menu.Min FAST Threshold", 6, 1, 39);
+    pangolin::Var<int> menuMeanProcessingTime("menu.Mean Processing Time", 0);
+    pangolin::Var<int> menuLastFrametime("menu.Last Frame", 0);
+
+
+    pangolin::FinishFrame();
+
     cv::namedWindow(string(imgPath));
-    string p = string("image nr");
-    cv::createTrackbar(p, string(imgPath), nullptr, nImages);
+    cv::moveWindow(string(imgPath), 210, 260);
+    string imgTrackbar = string("image nr");
+    cv::createTrackbar(imgTrackbar, string(imgPath), nullptr, nImages);
+    Distribution::DistributionMethod mode = Distribution::GRID;
 
-    extractor_and_mode_t btncb_ssc = {Distribution::SSC, &myExtractor};
-    extractor_and_mode_t btncb_grid = {Distribution::GRID, &myExtractor};
+    int count = 0;
 
-    //cv::createButton("SSC", ButtonCallbackSetDistribution, &btncb_ssc, CV_PUSH_BUTTON, 0);
-    //cv::createButton("Bucketing", ButtonCallbackSetDistribution, &btncb_grid, CV_PUSH_BUTTON, 0);
-
-
+    bool distributePerLevel = false;
 
     for(int ni=0; ni<nImages; ni++)
     {
-        cv::setTrackbarPos(p, string(imgPath), ni);
+        cv::setTrackbarPos("image nr", string(imgPath), ni);
         //cout << "\nNow processing image nr. " << ni << "...\n";
         // Read image from file
         img = cv::imread(string(imgPath) + "/" + vstrImageFilenames[ni], CV_LOAD_IMAGE_UNCHANGED);
@@ -277,20 +288,95 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
 
 
-        myExtractor(imgGray, cv::Mat(), mykpts, mydescriptors, Distribution::SSC, false);
+        myExtractor(imgGray, cv::Mat(), mykpts, mydescriptors, mode, distributePerLevel);
         chrono::high_resolution_clock ::time_point t3 = chrono::high_resolution_clock::now();
 
         auto refduration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
         auto myduration = chrono::duration_cast<chrono::microseconds>(t3 - t2).count();
 
+        ++count;
+
         myTotalDuration += myduration;
         refTotalDuration += refduration;
 
-        DisplayKeypoints(img, mykpts, color, thickness, radius, drawAngular, string(imgPath));
-        cv::waitKey(34);
+        pangolin::FinishFrame();
 
-        if (cv::getTrackbarPos(p, string(imgPath)) != ni)
-            ni = cv::getTrackbarPos(p, string(imgPath));
+        DisplayKeypoints(img, mykpts, color, thickness, radius, drawAngular, string(imgPath));
+        cv::waitKey(1000/30);
+
+        //gui stuff
+        if (cv::getTrackbarPos(imgTrackbar, string(imgPath)) != ni)
+            ni = cv::getTrackbarPos(imgTrackbar, string(imgPath));
+
+        int n = menuNFeatures;
+        if (n != nFeatures)
+        {
+            nFeatures = n;
+            myExtractor.SetnFeatures(n);
+        }
+
+        menuLastFrametime = myduration/1000;
+        menuMeanProcessingTime = myTotalDuration/1000 / count;
+
+        menuActualkpts = mykpts.size();
+
+        if (menuAll)
+        {
+            mode = Distribution::KEEP_ALL;
+            menuAll = false;
+        }
+        if (menuTopN)
+        {
+            mode = Distribution::NAIVE;
+            menuTopN = false;
+        }
+        if (menuBucketing)
+        {
+            mode = Distribution::GRID;
+            menuBucketing = false;
+        }
+        if (menuQuadtree)
+        {
+            mode = Distribution::QUADTREE;
+            menuQuadtree = false;
+        }
+        if (menuQuadtreeORBSLAMSTYLE)
+        {
+            mode = Distribution::QUADTREE_ORBSLAMSTYLE;
+            menuQuadtreeORBSLAMSTYLE = false;
+        }
+        if (menuANMS_KDT)
+        {
+            mode = Distribution::ANMS_KDTREE;
+            menuANMS_KDT = false;
+        }
+        if (menuANMS_RT)
+        {
+            mode = Distribution::ANMS_RT;
+            menuANMS_RT = false;
+        }
+        if (menuSSC)
+        {
+            mode = Distribution::SSC;
+            menuSSC = false;
+        }
+
+        if (menuDistrPerLvl && !distributePerLevel)
+            distributePerLevel = true;
+
+        else if (!menuDistrPerLvl && distributePerLevel)
+            distributePerLevel = false;
+
+        if (menuPause)
+            --ni;
+
+        if (menuSetInitThreshold != FASTThresholdInit || menuSetMinThreshold != FASTThresholdMin)
+        {
+            FASTThresholdInit = menuSetInitThreshold;
+            FASTThresholdMin = menuSetMinThreshold;
+            myExtractor.SetFASTThresholds(FASTThresholdInit, FASTThresholdMin);
+        }
+
 
 
 
@@ -335,6 +421,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     //cout << "\n" << (eqkpts ? "All keypoints across all images were equal!\n" : "Not all keypoints are equal...:(\n");
     //cout << "\n" << (eqdescriptors ? "All descriptors across all images and keypoints were equal!\n" :
     //                    "Not all descriptors were equal... :(\n");
+
+    pangolin::QuitAll();
 
     cout << "\nTotal computation time using my orb: " << myTotalDuration/1000 <<
         " milliseconds, which averages to ~" << myTotalDuration/nImages << " microseconds.\n";
@@ -544,6 +632,7 @@ void DrawCellGrid(cv::Mat &image, int minX, int maxX, int minY, int maxY, int ce
     }
 }
 
+//TODO: update execution time function to make usable again
 void MeasureExecutionTime(int numIterations, ORB_SLAM2::ORBextractor &extractor, cv::Mat &img, MODE mode)
 {
    using namespace std::chrono;
@@ -561,14 +650,14 @@ void MeasureExecutionTime(int numIterations, ORB_SLAM2::ORBextractor &extractor,
        std::chrono::high_resolution_clock::time_point tp_myfast = std::chrono::high_resolution_clock::now();
        for (int i = 0; i < N; ++i)
        {
-           extractor.testingFAST(img, kpts, true, false);
+           //extractor.testingFAST(img, kpts, true, false);
        }
 
        std::chrono::high_resolution_clock::time_point tp_midpoint = std::chrono::high_resolution_clock::now();
 
        for (int i = 0; i < N; ++i)
        {
-           extractor.testingFAST(img, kpts, false, false);
+           //extractor.testingFAST(img, kpts, false, false);
        }
        std::chrono::high_resolution_clock::time_point tp_cvfast = std::chrono::high_resolution_clock::now();
 

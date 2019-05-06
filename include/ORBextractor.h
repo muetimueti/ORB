@@ -59,18 +59,9 @@ public:
         kptDistribution = mode;
     }
 
+    void SetnFeatures(int n);
 
-    //TODO: remove from master--------------------------------------------------------------------------
-
-    long testingFAST(cv::Mat &img, std::vector<cv::KeyPoint> &kpts, bool myFAST, bool printTime);
-
-    void testingDescriptors(cv::Mat myDescriptors, cv::Mat compDescriptors, int nkpts, bool printdif,
-                            int start, int end, bool testTime, cv::OutputArray _descr);
-
-    void Tests(cv::InputArray inputImage, std::vector<cv::KeyPoint> &resKeypoints,
-               cv::OutputArray outputDescriptors, bool myFAST = true, bool myDesc = true);
-
-    ///--------------------------------------------------------------------------------------------------
+    void SetFASTThresholds(int ini, int min);
 
 protected:
 
@@ -124,24 +115,6 @@ protected:
     std::vector<float> invScaleFactorVec;
     std::vector<float> levelSigma2Vec;
     std::vector<float> invLevelSigma2Vec;
-
-
-    //TODO: remove from master
-
-    template<class T>
-    void PrintArray(T *array, const std::string &name, int start, int end);
-
-    void printInternalValues();
-
-    static void PrintKeypoints(std::vector<cv::KeyPoint> &kpts);
-
-    static void PrintKeypoints(std::vector<cv::KeyPoint> &kpts, int start, int end);
-
-    static void PrintKeypoints(std::vector<cv::KeyPoint> &kpts, int start, int end, bool printResponse);
-
-    static void CompareKeypointVectors(std::vector<cv::KeyPoint> &vec1, std::vector<cv::KeyPoint> &vec2);
-
-    /////////////////////
 
 };
 

@@ -9,6 +9,7 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
 
 find_package(OpenCV REQUIRED)
+find_package(Pangolin REQUIRED)
 
 include_directories(.)
 
@@ -16,4 +17,4 @@ add_executable(ORBextractor src/main.cpp include/main.h src/ORBextractor.cpp inc
         src/referenceORB.cpp include/referenceORB.h src/Distribution.cpp include/Distribution.h
         src/CVFAST.cpp include/CVFAST.h include/ORBconstants.h include/KdTree.h include/Nanoflann.h include/RangeTree.h)
 
-target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS} ${QT_QTCORE_LIBRARIES} ${QT_QTGUI_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS} ${Pangolin_LIBRARIES})
