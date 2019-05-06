@@ -16,6 +16,7 @@
 #   include <chrono>
 #   include "include/referenceORB.h"
 #   include "include/CVFAST.h"
+
 #else
 #   define D(x)
 #endif
@@ -52,6 +53,60 @@ float ORBextractor::IntensityCentroidAngle(const uchar* pointer, int step)
 
     return cv::fastAtan2((float)m01, (float)m10);
 }
+
+
+
+float ORBextractor::IntensityCentroidAngle(const uchar* pointer, int step)
+{
+    //m10 ~ x^1y^0, m01 ~ x^0y^1
+    int x, y, m01 = 0, m10 = 0;
+
+    int half_patch = PATCH_SIZE / 2;
+
+    for (x = -half_patch; x <= half_patch; ++x)
+    {
+        m10 += x * pointer[x];
+    }
+
+    for (y = 1; y <= half_patch; ++y)
+    {
+        int cols = CIRCULAR_ROWS[y];
+        int sumY = 0;
+        for (x = -cols; x <= cols; ++x)
+        {
+            int uptown = pointer[x + y*step];
+            int downtown = pointer[x - y*step];
+            sumY += uptown - downtown;
+            m10 += x * (uptown + downtown);
+        }
+        m01 += y * sumY;
+    }
+
+    return cv::fastAtan2((float)m01, (float)m10);
+}
+
+
+bool ORBextractor::ResponseComparison(const cv::KeyPoint &k1, const cv::KeyPoint &k2)
+{
+    return (k1.response > k2.response);
+}
+void ORBextractor::RetainBestN(std::vector<cv::KeyPoint> &kpts, int N)
+{
+    std::sort(kpts.begin(), kpts.end(), ResponseComparison);
+    kpts.resize(N);
+
+    //std::vector<cv::KeyPoint> tempKpts;
+    //tempKpts.reserve(N);
+
+    /*
+    for (int i = 0; i < N; ++i)
+    {
+        tempKpts.emplace_back(kpts[i]);
+    }
+     */
+    //kpts = tempKpts;
+}
+
 
 
 
@@ -126,6 +181,7 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
     const int nPoints = 512;
     const auto tempPattern = (const cv::Point*) bit_pattern_31_;
     std::copy(tempPattern, tempPattern+nPoints, std::back_inserter(pattern));
+
 }
 
 
@@ -133,6 +189,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
         std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors)
 {
     this->operator()(inputImage, mask, resultKeypoints, outputDescriptors, Distribution::SSC, false);
+
 }
 
 /** @overload
@@ -147,6 +204,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
 void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
         std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors,
         Distribution::DistributionMethod distributionMode, bool distributePerLevel)
+
 {
     std::chrono::high_resolution_clock::time_point funcEntry = std::chrono::high_resolution_clock::now();
 
@@ -168,7 +226,6 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
         }
     }
 
-
     std::vector<std::vector<cv::KeyPoint>> allkpts;
 
     //using namespace std::chrono;
@@ -182,6 +239,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
     //high_resolution_clock::time_point t2 = high_resolution_clock::now();
     //auto d = duration_cast<microseconds>(t2-t1).count();
     //std::cout << "\nmy comp time for FAST + distr: " << d << "\n";
+
 
     cv::Mat BRIEFdescriptors;
     int nkpts = 0;
@@ -434,7 +492,6 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
                                  patchKpts, minThFAST, true);
 
 
-
                     if(patchKpts.empty())
                         continue;
 
@@ -488,9 +545,11 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
         for (auto &kpt : temp)
         {
             allkpts[kpt.octave].emplace_back(kpt);
+
         }
     }
 }
+
 
 
 //move to separate file?
@@ -505,7 +564,6 @@ void ORBextractor::FAST(cv::Mat img, std::vector<cv::KeyPoint> &keypoints, int &
     }
 
     assert(threshold == minThFAST || threshold == iniThFAST); //only initial or min threshold should be passed
-
 
     uchar *threshold_tab;
     if (threshold == iniThFAST)
@@ -564,6 +622,7 @@ void ORBextractor::FAST(cv::Mat img, std::vector<cv::KeyPoint> &keypoints, int &
                 //TODO:remove
                 std::cout << "\ncurrent i(=y): " << i << ", current j(=x): " << j;
                 if(j == 52 && i == 178)
+
                 {
                     std::cout << "\ntest\n";
                 }
@@ -590,7 +649,6 @@ void ORBextractor::FAST(cv::Mat img, std::vector<cv::KeyPoint> &keypoints, int &
                     {
                         gotoNextCol = true;
                     }
-
                 }
                 if (gotoNextCol) // initial FAST-check failed
                     continue;
@@ -669,6 +727,7 @@ void ORBextractor::FAST(cv::Mat img, std::vector<cv::KeyPoint> &keypoints, int &
 
                 //////////////////////////////////////
 
+
             if (score > pprevRowScores[pos-1] && score > pprevRowScores[pos] && score > pprevRowScores[pos+1] &&
                 score > prevRowScores[pos+1] && score > prevRowScores[pos-1] &&
                 score > currRowScores[pos-1] && score > currRowScores[pos] && score > currRowScores[pos+1])
@@ -681,8 +740,8 @@ void ORBextractor::FAST(cv::Mat img, std::vector<cv::KeyPoint> &keypoints, int &
 }
 
 
-
 int ORBextractor::CornerScore(const uchar* pointer, const int offset[], int &threshold)
+
 {
     int val = pointer[0];
     int i;
@@ -833,6 +892,7 @@ void ORBextractor::ComputeScalePyramid(cv::Mat &image)
     {
         int width = (int)myRound(image.cols * invScaleFactorVec[lvl]); // 1.f / getScale(lvl));
         int height = (int)myRound(image.rows * invScaleFactorVec[lvl]); // 1.f / getScale(lvl));
+
         int doubleEdge = EDGE_THRESHOLD * 2;
         int borderedWidth = width + doubleEdge;
         int borderedHeight = height + doubleEdge;
@@ -872,7 +932,6 @@ float ORBextractor::getScale(int lvl)
 
 //TODO:remove from master
 //debug
-
 void ORBextractor::Tests(cv::InputArray inputImage, std::vector<cv::KeyPoint> &resKeypoints,
         cv::OutputArray outputDescriptors, bool myFAST, bool myDesc)
 {
@@ -968,7 +1027,17 @@ void ORBextractor::Tests(cv::InputArray inputImage, std::vector<cv::KeyPoint> &r
         BRIEFdescriptors = outputDescriptors.getMat();
     }
 
+            ComputeAngles(allMyKeypoints);
+            ComputeDescriptors(allMyKeypoints, BRIEFdescriptors);
 
+            for (int lvl = 1; lvl < nlevels; ++lvl)
+            {
+                float scale = scaleFactorVec[lvl];
+                for (auto &kpt : allMyKeypoints[lvl])
+                {
+                    kpt.pt *= scale;
+                }
+            }
 
     ComputeDescriptors(allMyKeypoints, BRIEFdescriptors);
 
@@ -1107,7 +1176,6 @@ void ORBextractor::testingDescriptors(cv::Mat myDescriptors, cv::Mat compDescrip
         std::cout << "differences: " << count << "\n";
     }
 }
-
 
 
         void ORBextractor::printInternalValues()

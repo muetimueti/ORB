@@ -4,7 +4,6 @@
 #include <vector>
 #include "include/Distribution.h"
 
-
 #ifndef NDEBUG
 #   define D(x) x
 #else
@@ -57,6 +56,7 @@ public:
 
     std::vector<cv::Mat> imagePyramid;
 
+
     //TODO: remove from master--------------------------------------------------------------------------
 
     long testingFAST(cv::Mat &img, std::vector<cv::KeyPoint> &kpts, bool myFAST, bool printTime);
@@ -73,9 +73,11 @@ protected:
 
     static float IntensityCentroidAngle(const uchar* pointer, int step);
 
+
     void ComputeAngles(std::vector<std::vector<cv::KeyPoint>> &allkpts);
 
     void ComputeDescriptors(std::vector<std::vector<cv::KeyPoint>> &allkpts, cv::Mat &descriptors);
+
 
     void DivideAndFAST(std::vector<std::vector<cv::KeyPoint> >& allKeypoints,
                        Distribution::DistributionMethod mode = Distribution::QUADTREE,
@@ -91,6 +93,7 @@ protected:
     std::vector<cv::Point> pattern;
 
     //inline float getScale(int lvl);
+
 
     uchar threshold_tab_min[512];
     uchar threshold_tab_init[512];
@@ -133,6 +136,7 @@ protected:
     static void CompareKeypointVectors(std::vector<cv::KeyPoint> &vec1, std::vector<cv::KeyPoint> &vec2);
 
     /////////////////////
+
 };
 
 

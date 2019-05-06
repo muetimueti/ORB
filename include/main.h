@@ -56,3 +56,4 @@ void LoadImages(const std::string &strFile, std::vector<std::string> &vstrImageF
                 std::vector<double> &vTimestamps);
 
 #endif //ORBEXTRACTOR_MAIN_H
+

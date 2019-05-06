@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -98,6 +99,7 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     }
     cout << "\nImage loaded successfully!\n" << endl;
 
+
     std::vector<cv::KeyPoint> keypoints;
     cv::Mat descriptors;
 
@@ -124,6 +126,7 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
         cv::cvtColor(imgColor, image, CV_BGRA2GRAY);
 
     ///CHANGE FUNCTION CALLS FOR TESTS HERE ///////////////////////////////////////////////////////////////////////
+
 
 
     //LoadHugeImage(refExtractor);
@@ -153,7 +156,9 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     }
      */
 
+
     //DistributionComparisonSuite(extractor, imgColor, color, thickness, radius, drawAngular);
+
 
 
     //extractor.testingDescriptors(cv::Mat(), cv::Mat(), keypoints.size(), false, 0, 0, true, cv::Mat());
@@ -219,6 +224,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         double tframe = vTimestamps[ni];
 
         if (img.empty())
+
         {
             cerr << endl << "Failed to load image at: "
             << string(imgPath) << "/" << vstrImageFilenames[ni] << endl;
