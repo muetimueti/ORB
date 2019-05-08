@@ -64,9 +64,9 @@ Viewer.ViewpointF: 50
 Line.thickness: 1
 
 Color.b: 0
-Color.g: 160
+Color.g: 180
 Color.r: 160
 
-Circle.radius: 5
+Circle.radius: 4
 
 drawAngular: 1

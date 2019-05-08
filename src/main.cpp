@@ -361,8 +361,15 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     cv::namedWindow(string(imgPath));
     cv::moveWindow(string(imgPath), 210, 260);
     string imgTrackbar = string("image nr");
-    cv::createTrackbar(imgTrackbar, string(imgPath), nullptr, nImages);
+    int nn = 0;
+    cv::createTrackbar(imgTrackbar, string(imgPath), &nn, nImages);
+
+    /** Trackback call if opencv was compiled without Qt support:
+    //cv::createTrackbar(imgTrackbar, string(imgPath), nullptr, nImages);
+     */
+
     Distribution::DistributionMethod mode = Distribution::GRID;
+    cv::createButton("btn", nullptr, nullptr, cv::QT_PUSH_BUTTON, false);
 
     int count = 0;
 

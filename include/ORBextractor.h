@@ -59,6 +59,11 @@ public:
         kptDistribution = mode;
     }
 
+    Distribution::DistributionMethod inline GetDistribution()
+    {
+        return kptDistribution;
+    }
+
     void SetnFeatures(int n);
 
     void SetFASTThresholds(int ini, int min);
@@ -104,7 +109,6 @@ protected:
     int nlevels;
     int iniThFAST;
     int minThFAST;
-
 
     std::vector<int> pixelOffset;
 

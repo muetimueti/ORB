@@ -153,7 +153,6 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
         std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors)
 {
     this->operator()(inputImage, mask, resultKeypoints, outputDescriptors, Distribution::SSC, false);
-
 }
 
 /** @overload

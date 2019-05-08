@@ -36,6 +36,7 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int min
     if (kpts.size() <= N)
         return;
     const float epsilon = 0.1;
+
     if (mode == ANMS_RT || mode == ANMS_KDTREE || mode == SSC)
     {
         std::vector<int> responseVector;
@@ -43,9 +44,10 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int min
             responseVector.emplace_back(kpts[i].response);
         std::vector<int> idx(responseVector.size()); std::iota (std::begin(idx), std::end(idx), 0);
         cv::sortIdx(responseVector, idx, CV_SORT_DESCENDING);
-        std::vector<cv::KeyPoint> keyPointsSorted;
+        std::vector<cv::KeyPoint> kptsSorted;
         for (int i = 0; i < kpts.size(); i++)
-            keyPointsSorted.emplace_back(kpts[idx[i]]);
+            kptsSorted.emplace_back(kpts[idx[i]]);
+        kpts = kptsSorted;
     }
     switch (mode)
     {
@@ -791,6 +793,9 @@ void Distribution::DistributeKeypointsRT_ANMS(std::vector<cv::KeyPoint> &kpts, i
 
 void Distribution::DistributeKeypointsSSC(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon)
 {
+    //for (auto &kpt : kpts)
+    //    std::cout << "\nkpt.response=" << kpt.response;
+    //return;
     int numerator1 = rows + cols + 2*N;
     long long discriminant = (long long)4*cols + (long long)4*N + (long long)4*rows*N +
             (long long)rows*rows + (long long)cols*cols - (long long)2*cols*rows + (long long)4*cols*rows*N;
