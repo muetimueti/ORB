@@ -194,7 +194,7 @@ void FAST_cv(InputArray _img, std::vector <KeyPoint> &keypoints, int threshold, 
 
     AutoBuffer <uchar> _buf((img.cols + 16) * 3 * (sizeof(int) + sizeof(uchar)) + 128);
     uchar *buf[3];
-    buf[0] = _buf.data();
+    //buf[0] = _buf.data();
     buf[1] = buf[0] + img.cols;
     buf[2] = buf[1] + img.cols;
     int *cpbuf[3];
