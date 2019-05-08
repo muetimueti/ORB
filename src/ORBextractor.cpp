@@ -80,6 +80,9 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
     for (int i = 1; i < nlevels; ++i) {
         scaleFactorVec[i] = scaleFactor * scaleFactorVec[i - 1];
         invScaleFactorVec[i] = 1 / scaleFactorVec[i];
+
+        levelSigma2Vec[i] = scaleFactorVec[i] * scaleFactorVec[i];
+        invLevelSigma2Vec[i] = 1.f / levelSigma2Vec[i];
     }
 
     SetnFeatures(nfeatures);
