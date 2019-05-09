@@ -55,23 +55,22 @@ float ORBextractor::IntensityCentroidAngle(const uchar* pointer, int step)
 }
 
 
-ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
-                           int _iniThFAST, int _minThFAST):
-        nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels),
-        iniThFAST(_iniThFAST), minThFAST(_minThFAST), threshold_tab_min{}, threshold_tab_init{}, pixelOffset{}
-
+ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels, int _iniThFAST, int _minThFAST):
+    nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels), iniThFAST(0), minThFAST(0),
+    kptDistribution(Distribution::DistributionMethod::SSC), threshold_tab_min{}, threshold_tab_init{}, pixelOffset{}
 {
-
     scaleFactorVec.resize(nlevels);
     invScaleFactorVec.resize(nlevels);
     imagePyramid.resize(nlevels);
     nfeaturesPerLevelVec.resize(nlevels);
+    levelSigma2Vec.resize(nlevels);
+    invLevelSigma2Vec.resize(nlevels);
     pixelOffset.resize(nlevels * CIRCLE_SIZE);
 
     continuousPixelsRequired = CIRCLE_SIZE / 2;
     onePointFiveCircles = CIRCLE_SIZE + continuousPixelsRequired + 1;
 
-    SetFASTThresholds(iniThFAST, minThFAST);
+    SetFASTThresholds(_iniThFAST, _minThFAST);
 
     scaleFactorVec[0] = 1.f;
     invScaleFactorVec[0] = 1.f;
@@ -171,7 +170,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
         std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors,
         Distribution::DistributionMethod distributionMode, bool distributePerLevel)
 {
-    kptDistribution = distributionMode;
+    //kptDistribution = distributionMode;
     std::chrono::high_resolution_clock::time_point funcEntry = std::chrono::high_resolution_clock::now();
 
     if (inputImage.empty())

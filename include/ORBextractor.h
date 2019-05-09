@@ -99,8 +99,6 @@ protected:
 
     std::vector<cv::Mat> imagePyramid;
 
-    Distribution::DistributionMethod kptDistribution;
-
     int continuousPixelsRequired;
     int onePointFiveCircles;
 
@@ -109,6 +107,8 @@ protected:
     int nlevels;
     int iniThFAST;
     int minThFAST;
+
+    Distribution::DistributionMethod kptDistribution;
 
     std::vector<int> pixelOffset;
 

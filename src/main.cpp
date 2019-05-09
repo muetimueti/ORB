@@ -81,6 +81,7 @@ int main(int argc, char **argv)
        cerr << "\nFailed to open log file...\n";
    log << "Program duration (mine): " << program_duration << " microseconds.\n";
     */
+   pangolin::QuitAll();
    std::cout << "\nProgram duration: " << program_duration << " microseconds.\n" <<
    "(equals ~" <<  (float)program_duration / 1000000.f << " seconds)\n";
 
@@ -116,7 +117,7 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     //DistributionComparisonSuite(extractor, image, color, thickness, radius, drawAngular, false);
     //return;
 
-    ORB_SLAM_REF::referenceORB refExtractor (nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
+    //ORB_SLAM_REF::referenceORB refExtractor (nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
 
     cv::Mat imgColor;
     cv::Mat imgColor2;
@@ -128,14 +129,9 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     else if (image.channels() == 4)
         cv::cvtColor(imgColor, image, CV_BGRA2GRAY);
 
-    ///CHANGE FUNCTION CALLS FOR TESTS HERE ///////////////////////////////////////////////////////////////////////
-
-
 
     Distribution::DistributionMethod mode = Distribution::KEEP_ALL;
     bool distributePerLevel = false;
-    //LoadHugeImage(refExtractor);
-
 
     pangolin::CreateWindowAndBind("Menu",210,440);
 
@@ -251,57 +247,6 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
 
         pangolin::FinishFrame();
     }
-
-
-    //refExtractor(image, cv::Mat(), refkeypoints, refdescriptors);
-
-    /*
-    vector<int> mysizes(2000, 0);
-    vector<int> refsizes(2000, 0);
-    for (int i = 0; i < 1000; ++i)
-    {
-        keypoints.clear();
-        refkeypoints.clear();
-        extractor(image, cv::Mat(), keypoints, descriptors, DISTRIBUTION_QUADTREE_ORBSLAMSTYLE);
-        refExtractor(image, cv::Mat(), refkeypoints, refdescriptors);
-        ++mysizes[keypoints.size()];
-        ++refsizes[refkeypoints.size()];
-    }
-    for (int i = 900; i < 1100; ++i)
-    {
-        std::cout << "Number of times my keypoint vec was size " << i << ": " << mysizes[i] << "\n";
-        std::cout << "Number of times ref keypoint vec was size " << i << ": " << refsizes[i] << "\n";
-    }
-     */
-
-
-    //DistributionComparisonSuite(extractor, imgColor, color, thickness, radius, drawAngular);
-
-
-
-    //extractor.testingDescriptors(cv::Mat(), cv::Mat(), keypoints.size(), false, 0, 0, true, cv::Mat());
-
-    //extractor.Tests(image, keypoints, descriptors, true, true);
-
-    //extractor.testingFAST(image, keypoints, false, true);
-    //extractor.testingFAST(image, keypoints, true, true);
-
-    //MeasureExecutionTime(1, extractor, image, FAST_RUNTIME);
-
-
-    //DisplayKeypoints(imgColor2, refkeypoints, color, thickness, radius, drawAngular, "reference");
-
-    //DrawCellGrid(imgColor, 16, imgColor.cols-16, 16, imgColor.rows-16, 80);
-    DisplayKeypoints(imgColor2, keypointsAll, color, thickness, radius, drawAngular, "all");
-    DisplayKeypoints(imgColor, keypoints, color, thickness, radius, drawAngular, "kdtreeANMS");
-
-    //CompareKeypoints(keypoints, "mine", refkeypoints, "reference", -1, true);
-    //CompareDescriptors(descriptors, "mine", refdescriptors, "reference", keypoints.size(), -1, true);
-
-
-    //LoadHugeImage(extractor);
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 }
 
 void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels, int FASTThresholdInit,
@@ -544,12 +489,10 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     //cout << "\n" << (eqdescriptors ? "All descriptors across all images and keypoints were equal!\n" :
     //                    "Not all descriptors were equal... :(\n");
 
-    pangolin::QuitAll();
-
-    cout << "\nTotal computation time using my orb: " << myTotalDuration/1000 <<
+    cout << "\nTotal computation time: " << myTotalDuration/1000 <<
         " milliseconds, which averages to ~" << myTotalDuration/nImages << " microseconds.\n";
-    cout << "\nTotal computation time using ref orb: " << refTotalDuration/1000 <<
-        " milliseconds, which averages to ~" << refTotalDuration/nImages << " microseconds.\n";
+    //cout << "\nTotal computation time using ref orb: " << refTotalDuration/1000 <<
+    //    " milliseconds, which averages to ~" << refTotalDuration/nImages << " microseconds.\n";
 }
 
 
