@@ -15,7 +15,6 @@
 #   include <opencv2/features2d/features2d.hpp>
 #   include <chrono>
 #   include "include/referenceORB.h"
-#   include "include/CVFAST.h"
 
 #else
 #   define D(x)
@@ -154,7 +153,7 @@ void ORBextractor::SetFASTThresholds(int ini, int min)
 void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
         std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors)
 {
-    this->operator()(inputImage, mask, resultKeypoints, outputDescriptors, Distribution::SSC, false);
+    this->operator()(inputImage, mask, resultKeypoints, outputDescriptors, false);
 }
 
 /** @overload
@@ -162,15 +161,12 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
  * @param mask ignored
  * @param resultKeypoints keypoint vector in which results will be stored
  * @param outputDescriptors matrix in which descriptors will be stored
- * @param distributionMode decides the method to call for kpt-distribution, see Distribution.h
  * @param distributePerLevel true->distribute kpts per octave, false->distribute kpts per image
  */
 
 void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
-        std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors,
-        Distribution::DistributionMethod distributionMode, bool distributePerLevel)
+        std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors, bool distributePerLevel)
 {
-    //kptDistribution = distributionMode;
     std::chrono::high_resolution_clock::time_point funcEntry = std::chrono::high_resolution_clock::now();
 
     if (inputImage.empty())

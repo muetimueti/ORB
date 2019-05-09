@@ -15,6 +15,6 @@ include_directories(.)
 
 add_executable(ORBextractor src/main.cpp include/main.h src/ORBextractor.cpp include/ORBextractor.h
         src/referenceORB.cpp include/referenceORB.h src/Distribution.cpp include/Distribution.h
-        src/CVFAST.cpp include/CVFAST.h include/ORBconstants.h include/KdTree.h include/Nanoflann.h include/RangeTree.h)
+        include/ORBconstants.h include/KdTree.h include/Nanoflann.h include/RangeTree.h)
 
 target_link_libraries(${PROJECT_NAME} ${OpenCV_LIBS} ${Pangolin_LIBRARIES})

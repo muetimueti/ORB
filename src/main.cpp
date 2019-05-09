@@ -130,7 +130,6 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
         cv::cvtColor(imgColor, image, CV_BGRA2GRAY);
 
 
-    Distribution::DistributionMethod mode = Distribution::KEEP_ALL;
     bool distributePerLevel = false;
 
     pangolin::CreateWindowAndBind("Menu",210,440);
@@ -172,7 +171,7 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
         cv::Mat displayImg;
         imgColor.copyTo(displayImg);
 
-        extractor(imgGray, cv::Mat(), keypoints, descriptors, mode, distributePerLevel);
+        extractor(imgGray, cv::Mat(), keypoints, descriptors, distributePerLevel);
 
         DisplayKeypoints(displayImg, keypoints, color, thickness, radius, drawAngular, string(imgPath));
         cv::waitKey(33);
@@ -189,42 +188,42 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
         keypoints.clear();
         if (menuAll)
         {
-            mode = Distribution::KEEP_ALL;
+            extractor.SetDistribution(Distribution::KEEP_ALL);
             menuAll = false;
         }
         if (menuTopN)
         {
-            mode = Distribution::NAIVE;
+            extractor.SetDistribution(Distribution::NAIVE);
             menuTopN = false;
         }
         if (menuBucketing)
         {
-            mode = Distribution::GRID;
+            extractor.SetDistribution(Distribution::GRID);
             menuBucketing = false;
         }
         if (menuQuadtree)
         {
-            mode = Distribution::QUADTREE;
+            extractor.SetDistribution(Distribution::QUADTREE);
             menuQuadtree = false;
         }
         if (menuQuadtreeORBSLAMSTYLE)
         {
-            mode = Distribution::QUADTREE_ORBSLAMSTYLE;
+            extractor.SetDistribution(Distribution::QUADTREE_ORBSLAMSTYLE);
             menuQuadtreeORBSLAMSTYLE = false;
         }
         if (menuANMS_KDT)
         {
-            mode = Distribution::ANMS_KDTREE;
+            extractor.SetDistribution(Distribution::ANMS_KDTREE);
             menuANMS_KDT = false;
         }
         if (menuANMS_RT)
         {
-            mode = Distribution::ANMS_RT;
+            extractor.SetDistribution(Distribution::ANMS_RT);
             menuANMS_RT = false;
         }
         if (menuSSC)
         {
-            mode = Distribution::SSC;
+            extractor.SetDistribution(Distribution::SSC);
             menuSSC = false;
         }
 
@@ -306,14 +305,13 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     cv::namedWindow(string(imgPath));
     cv::moveWindow(string(imgPath), 210, 260);
     string imgTrackbar = string("image nr");
+
     int nn = 0;
     cv::createTrackbar(imgTrackbar, string(imgPath), &nn, nImages);
-
-    /** Trackback call if opencv was compiled without Qt support:
+    /** Trackbar call if opencv was compiled without Qt support:
     //cv::createTrackbar(imgTrackbar, string(imgPath), nullptr, nImages);
      */
 
-    Distribution::DistributionMethod mode = Distribution::GRID;
     cv::createButton("btn", nullptr, nullptr, cv::QT_PUSH_BUTTON, false);
 
     int count = 0;
@@ -355,7 +353,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
 
 
-        myExtractor(imgGray, cv::Mat(), mykpts, mydescriptors, mode, distributePerLevel);
+        myExtractor(imgGray, cv::Mat(), mykpts, mydescriptors, distributePerLevel);
         chrono::high_resolution_clock ::time_point t3 = chrono::high_resolution_clock::now();
 
         auto refduration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
@@ -389,42 +387,42 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
         if (menuAll)
         {
-            mode = Distribution::KEEP_ALL;
+            myExtractor.SetDistribution(Distribution::KEEP_ALL);
             menuAll = false;
         }
         if (menuTopN)
         {
-            mode = Distribution::NAIVE;
+            myExtractor.SetDistribution(Distribution::NAIVE);
             menuTopN = false;
         }
         if (menuBucketing)
         {
-            mode = Distribution::GRID;
+            myExtractor.SetDistribution(Distribution::GRID);
             menuBucketing = false;
         }
         if (menuQuadtree)
         {
-            mode = Distribution::QUADTREE;
+            myExtractor.SetDistribution(Distribution::QUADTREE);
             menuQuadtree = false;
         }
         if (menuQuadtreeORBSLAMSTYLE)
         {
-            mode = Distribution::QUADTREE_ORBSLAMSTYLE;
+            myExtractor.SetDistribution(Distribution::QUADTREE_ORBSLAMSTYLE);
             menuQuadtreeORBSLAMSTYLE = false;
         }
         if (menuANMS_KDT)
         {
-            mode = Distribution::ANMS_KDTREE;
+            myExtractor.SetDistribution(Distribution::ANMS_KDTREE);
             menuANMS_KDT = false;
         }
         if (menuANMS_RT)
         {
-            mode = Distribution::ANMS_RT;
+            myExtractor.SetDistribution(Distribution::ANMS_RT);
             menuANMS_RT = false;
         }
         if (menuSSC)
         {
-            mode = Distribution::SSC;
+            myExtractor.SetDistribution(Distribution::SSC);
             menuSSC = false;
         }
 
@@ -594,53 +592,6 @@ vector<Descriptor_Pair> CompareDescriptors (cv::Mat &desc1, string name1, cv::Ma
     return differences;
 }
 
-void LoadHugeImage(ORB_SLAM2::ORBextractor &extractor)
-{
-   string path = string("/home/ralph/Downloads/world.topo.bathy.200407.3x21600x10800.png");
-   cv::Mat img;
-   img = cv::imread(path, cv::IMREAD_UNCHANGED);
-   if (img.empty())
-   {
-       cerr << "Failed to load image at" << path << "!" << endl;
-       exit(EXIT_FAILURE);
-   }
-   cout << "\nImage loaded successfully!\n" << endl;
-   cout << "Running cv::FAST repeatedly with " << img.cols << "x" << img.rows << " image...\n";
-   vector<cv::KeyPoint> kpts;
-
-    if (img.channels() == 3)
-        cv::cvtColor(img, img, CV_BGR2GRAY);
-    else if (img.channels() == 4)
-        cv::cvtColor(img, img, CV_BGRA2GRAY);
-
-   extractor(img, cv::Mat(), kpts, cv::Mat());
-}
-
-/**
- * @overload
- */
-void LoadHugeImage(ORB_SLAM_REF::referenceORB &extractor)
-{
-    string path = string("/home/ralph/Downloads/world.topo.bathy.200407.3x21600x10800.png");
-    cv::Mat img;
-    img = cv::imread(path, cv::IMREAD_UNCHANGED);
-    if (img.empty())
-    {
-        cerr << "Failed to load image at" << path << "!" << endl;
-        exit(EXIT_FAILURE);
-    }
-    cout << "\nImage loaded successfully!\n" << endl;
-    vector<cv::KeyPoint> kpts;
-
-    if (img.channels() == 3)
-        cv::cvtColor(img, img, CV_BGR2GRAY);
-    else if (img.channels() == 4)
-        cv::cvtColor(img, img, CV_BGRA2GRAY);
-
-
-    extractor(img, cv::Mat(), kpts, cv::Mat());
-}
-
 void DisplayKeypoints(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, cv::Scalar &color,
                      int thickness, int radius, int drawAngular, string windowname)
 {
@@ -789,40 +740,55 @@ void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &im
 
     if (distributePerLevel)
     {
-        extractor(imgGray, cv::Mat(), kptsAll, descriptors, Distribution::KEEP_ALL);
+        extractor.SetDistribution(Distribution::KEEP_ALL);
+        extractor(imgGray, cv::Mat(), kptsAll, descriptors, true);
         t1 = clk::now();
-        extractor(imgGray, cv::Mat(), kptsNaive, descriptors, Distribution::NAIVE);
+        extractor.SetDistribution(Distribution::NAIVE);
+        extractor(imgGray, cv::Mat(), kptsNaive, descriptors, true);
         t2 = clk::now();
-        extractor(imgGray, cv::Mat(), kptsQuadtree, descriptors, Distribution::QUADTREE);
+        extractor.SetDistribution(Distribution::QUADTREE);
+        extractor(imgGray, cv::Mat(), kptsQuadtree, descriptors, true);
         t3 = clk::now();
-        extractor(imgGray, cv::Mat(), kptsQuadtreeORBSLAMSTYLE, descriptors, Distribution::QUADTREE_ORBSLAMSTYLE);
+        extractor.SetDistribution(Distribution::QUADTREE_ORBSLAMSTYLE);
+        extractor(imgGray, cv::Mat(), kptsQuadtreeORBSLAMSTYLE, descriptors, true);
         t4 = clk::now();
-        extractor(imgGray, cv::Mat(), kptsGrid, descriptors, Distribution::GRID);
+        extractor.SetDistribution(Distribution::GRID);
+        extractor(imgGray, cv::Mat(), kptsGrid, descriptors, true);
         t5 = clk::now();
-        extractor(imgGray, cv::Mat(), kptsANMS_KDTree, descriptors, Distribution::ANMS_KDTREE);
+        extractor.SetDistribution(Distribution::ANMS_KDTREE);
+        extractor(imgGray, cv::Mat(), kptsANMS_KDTree, descriptors, true);
         t6 = clk::now();
-        extractor(imgGray, cv::Mat(), kptsANMS_RT, descriptors, Distribution::ANMS_RT);
+        extractor.SetDistribution(Distribution::ANMS_RT);
+        extractor(imgGray, cv::Mat(), kptsANMS_RT, descriptors, true);
         t7 = clk::now();
-        extractor(imgGray, cv::Mat(), kptsSSC, descriptors, Distribution::SSC);
+        extractor.SetDistribution(Distribution::SSC);
+        extractor(imgGray, cv::Mat(), kptsSSC, descriptors, true);
     }
     else
     {
-        extractor(imgGray, cv::Mat(), kptsAll, descriptors, Distribution::KEEP_ALL, false);
+        extractor.SetDistribution(Distribution::KEEP_ALL);
+        extractor(imgGray, cv::Mat(), kptsAll, descriptors, false);
         t1 = clk::now();
-        extractor(imgGray, cv::Mat(), kptsNaive, descriptors, Distribution::NAIVE, false);
+        extractor.SetDistribution(Distribution::NAIVE);
+        extractor(imgGray, cv::Mat(), kptsNaive, descriptors, false);
         t2 = clk::now();
-        extractor(imgGray, cv::Mat(), kptsQuadtree, descriptors, Distribution::QUADTREE, false);
+        extractor.SetDistribution(Distribution::QUADTREE);
+        extractor(imgGray, cv::Mat(), kptsQuadtree, descriptors, false);
         t3 = clk::now();
-        extractor(imgGray, cv::Mat(), kptsQuadtreeORBSLAMSTYLE, descriptors,
-                Distribution::QUADTREE_ORBSLAMSTYLE,false);
+        extractor.SetDistribution(Distribution::QUADTREE_ORBSLAMSTYLE);
+        extractor(imgGray, cv::Mat(), kptsQuadtreeORBSLAMSTYLE, descriptors, false);
         t4 = clk::now();
-        extractor(imgGray, cv::Mat(), kptsGrid, descriptors, Distribution::GRID, false);
+        extractor.SetDistribution(Distribution::GRID);
+        extractor(imgGray, cv::Mat(), kptsGrid, descriptors, false);
         t5 = clk::now();
-        extractor(imgGray, cv::Mat(), kptsANMS_KDTree, descriptors, Distribution::ANMS_KDTREE, false);
+        extractor.SetDistribution(Distribution::ANMS_KDTREE);
+        extractor(imgGray, cv::Mat(), kptsANMS_KDTree, descriptors, false);
         t6 = clk::now();
-        extractor(imgGray, cv::Mat(), kptsANMS_RT, descriptors, Distribution::ANMS_RT, false);
+        extractor.SetDistribution(Distribution::ANMS_RT);
+        extractor(imgGray, cv::Mat(), kptsANMS_RT, descriptors, false);
         t7 = clk::now();
-        extractor(imgGray, cv::Mat(), kptsSSC, descriptors, Distribution::SSC, false);
+        extractor.SetDistribution(Distribution::SSC);
+        extractor(imgGray, cv::Mat(), kptsSSC, descriptors, false);
     }
     tEnd = clk::now();
 

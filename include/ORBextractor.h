@@ -30,7 +30,7 @@ public:
 
     void operator()(cv::InputArray inputImage, cv::InputArray mask,
                                   std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors,
-                                  Distribution::DistributionMethod distributionMode, bool distributePerLevel = true);
+                                  bool distributePerLevel = true);
 
     int inline GetLevels(){
         return nlevels;}

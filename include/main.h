@@ -37,9 +37,6 @@ std::vector<std::pair<cv::KeyPoint, cv::KeyPoint>> CompareKeypoints(std::vector<
 std::vector<Descriptor_Pair> CompareDescriptors (cv::Mat &desc1, std::string name1, cv::Mat &desc2, std::string name2,
                                                  int nkpts, int imgNr, bool print = false);
 
-void LoadHugeImage(ORB_SLAM2::ORBextractor &extractor);
-void LoadHugeImage(ORB_SLAM_REF::referenceORB &extractor);
-
 void DisplayKeypoints(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, cv::Scalar &color,
                       int thickness = 1, int radius = 8, int drawAngular = 0, std::string windowname = "test");
 
