@@ -6,15 +6,16 @@ The focus is on distributing the keypoints, 8 different distributions are implem
 *see: http://www.willowgarage.com/sites/default/files/orb_final.pdf
 
 
-To analyze any single image pass: <path to settings file> <path to image> 0 (the 0 is for single image mode), eg:
+To analyze any single image pass: path_to_settings_file path_to_image 0 (the 0 is for single image mode), eg:
 ```bash
 ORBextractor ORBextractor/settings.yaml /home/myname/Downloads/pics/mypic.jpg 0
 ```
 <a href="https://user-images.githubusercontent.com/27887425/57463641-76221600-727b-11e9-8af3-2334534ac622.png" target="_blank"><img src="https://user-images.githubusercontent.com/27887425/57463641-76221600-727b-11e9-8af3-2334534ac622.png" alt="ORBextractor" height="240" border="5" /></a>
   
 Since this was meant for testing purposes with TUM datasets the sequence mode expects the images to be in /rgb within the folder passed via argument:
+
 ```bash
-ORBextractor ORBextractor/settings.yaml /home/myname/Downloads/pics/mypic.jpg 0
+ORBextractor ORBextractor/settings.yaml /home/myname/SLAM/mysequence/ 1
 ```
 
 
