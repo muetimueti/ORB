@@ -64,6 +64,11 @@ public:
         return kptDistribution;
     }
 
+    void inline SetHarris(bool tf)
+    {
+        harris = tf;
+    }
+
     void SetnFeatures(int n);
 
     void SetFASTThresholds(int ini, int min);
@@ -82,10 +87,14 @@ protected:
                        Distribution::DistributionMethod mode = Distribution::QUADTREE,
                        bool divideImage = true, int cellSize = 30, bool distributePerLevel = true);
 
-    void FAST(cv::Mat image, std::vector<cv::KeyPoint> &keypoints, int &threshold, int level = 0);
+    void FAST(cv::Mat image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
 
-    int CornerScore(const uchar *pointer, const int offset[], int &threshold);
-    int OptimizedCornerScore(const uchar *pointer, const int offset[], int &threshold);
+    float CornerScore_Harris(const uchar* ptr, int lvl);
+    int CornerScore(const uchar *pointer, const int offset[], int threshold);
+    int OptimizedCornerScore(const uchar *pointer, const int offset[], int threshold);
+
+    template <typename T>
+    void FAST_Harris(cv::Mat img, std::vector<cv::KeyPoint> &keypoints, int threshold, int level);
 
     void ComputeScalePyramid(cv::Mat &image);
 
@@ -107,6 +116,8 @@ protected:
     int nlevels;
     int iniThFAST;
     int minThFAST;
+
+    bool harris;
 
     Distribution::DistributionMethod kptDistribution;
 

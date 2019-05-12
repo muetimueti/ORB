@@ -296,9 +296,9 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     pangolin::Var<int> menuActualkpts("menu.Features Actual", false, 0);
     pangolin::Var<int> menuSetInitThreshold("menu.Init FAST Threshold", 20, 5, 40);
     pangolin::Var<int> menuSetMinThreshold("menu.Min FAST Threshold", 6, 1, 39);
+    pangolin::Var<bool> menuHarris("menu.Harris-Score", false, true);
     pangolin::Var<int> menuMeanProcessingTime("menu.Mean Processing Time", 0);
     pangolin::Var<int> menuLastFrametime("menu.Last Frame", 0);
-
 
     pangolin::FinishFrame();
 
@@ -317,6 +317,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     int count = 0;
 
     bool distributePerLevel = false;
+    bool harris = false;
 
     for(int ni=0; ni<nImages; ni++)
     {
@@ -432,6 +433,17 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         else if (!menuDistrPerLvl && distributePerLevel)
             distributePerLevel = false;
 
+        if (menuHarris && !harris)
+        {
+            harris = true;
+            myExtractor.SetHarris(true);
+        }
+        else if (!menuHarris && harris)
+        {
+            harris = false;
+            myExtractor.SetHarris(false);
+        }
+
         if (menuPause)
             --ni;
 
@@ -487,8 +499,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     //cout << "\n" << (eqdescriptors ? "All descriptors across all images and keypoints were equal!\n" :
     //                    "Not all descriptors were equal... :(\n");
 
-    cout << "\nTotal computation time: " << myTotalDuration/1000 <<
-        " milliseconds, which averages to ~" << myTotalDuration/nImages << " microseconds.\n";
+    cout << "\nTotal computation time: " << myTotalDuration/1000 << " milliseconds\n";
     //cout << "\nTotal computation time using ref orb: " << refTotalDuration/1000 <<
     //    " milliseconds, which averages to ~" << refTotalDuration/nImages << " microseconds.\n";
 }
