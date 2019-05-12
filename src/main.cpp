@@ -278,7 +278,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
     cv::Mat img;
 
-    pangolin::CreateWindowAndBind("Menu",210,440);
+    pangolin::CreateWindowAndBind("Menu",210,470);
 
     pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(210));
 

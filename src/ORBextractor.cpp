@@ -454,14 +454,14 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
                         if (!harris)
                         {
                             this->FAST_Harris<uchar>(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
-                                       patchKpts, iniThFAST, lvl);
+                                       patchKpts, minThFAST, lvl);
                             //cv::FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
                             //        patchKpts, iniThFAST, true);
                         }
                         else
                         {
                             this->FAST_Harris<float>(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
-                                              patchKpts, iniThFAST, lvl);
+                                              patchKpts, minThFAST, lvl);
                         }
                     }
 
