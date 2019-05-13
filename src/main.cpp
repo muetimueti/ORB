@@ -148,8 +148,8 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     pangolin::Var<int> menuNFeatures("menu.Desired Features", 800, 1, 2000);
     pangolin::Var<int> menuActualkpts("menu.Features Actual", false, 0);
     pangolin::Var<bool> menuHarris("menu.Experimental Score", false, true);
-    pangolin::Var<int> menuSetInitThreshold("menu.Init FAST Threshold", 20, 1, 40);
-    pangolin::Var<int> menuSetMinThreshold("menu.Min FAST Threshold", 6, 1, 40);
+    pangolin::Var<int> menuSetInitThreshold("menu.Init FAST Threshold", FASTThresholdInit, 1, 40);
+    pangolin::Var<int> menuSetMinThreshold("menu.Min FAST Threshold", FASTThresholdMin, 1, 40);
     pangolin::Var<bool> menuExit("menu.EXIT", false, false);
 
 
@@ -245,15 +245,9 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
             extractor.SetFASTThresholds(FASTThresholdInit, FASTThresholdMin);
         }
 
-        if (menuHarris && !harris)
+        if (extractor.GetDistribution() == Distribution::GRID)
         {
-            harris = true;
-            extractor.SetHarris(true);
-        }
-        else if (!menuHarris && harris)
-        {
-            harris = false;
-            extractor.SetHarris(false);
+            DrawCellGrid(displayImg, 0, displayImg.cols, 0, displayImg.rows, 30);
         }
 
         if (menuExit)
@@ -309,8 +303,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     pangolin::Var<bool> menuDistrPerLvl("menu.Distribute Per Level", false, true);
     pangolin::Var<int> menuNFeatures("menu.Desired Features", 800, 1, 2000);
     pangolin::Var<int> menuActualkpts("menu.Features Actual", false, 0);
-    pangolin::Var<int> menuSetInitThreshold("menu.Init FAST Threshold", 20, 5, 40);
-    pangolin::Var<int> menuSetMinThreshold("menu.Min FAST Threshold", 6, 1, 39);
+    pangolin::Var<int> menuSetInitThreshold("menu.Init FAST Threshold", FASTThresholdInit, 5, 40);
+    pangolin::Var<int> menuSetMinThreshold("menu.Min FAST Threshold", FASTThresholdMin, 1, 39);
     pangolin::Var<bool> menuHarris("menu.Experimental Score", false, true);
     pangolin::Var<int> menuMeanProcessingTime("menu.Mean Processing Time", 0);
     pangolin::Var<int> menuLastFrametime("menu.Last Frame", 0);
@@ -447,17 +441,6 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
         else if (!menuDistrPerLvl && distributePerLevel)
             distributePerLevel = false;
-
-        if (menuHarris && !harris)
-        {
-            harris = true;
-            myExtractor.SetHarris(true);
-        }
-        else if (!menuHarris && harris)
-        {
-            harris = false;
-            myExtractor.SetHarris(false);
-        }
 
         if (menuPause)
             --ni;

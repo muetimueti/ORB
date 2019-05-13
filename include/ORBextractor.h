@@ -3,6 +3,7 @@
 
 #include <vector>
 #include "include/Distribution.h"
+#include "include/FAST.h"
 
 #ifndef NDEBUG
 #   define D(x) x
@@ -64,10 +65,6 @@ public:
         return kptDistribution;
     }
 
-    void inline SetHarris(bool tf)
-    {
-        harris = tf;
-    }
 
     void SetnFeatures(int n);
 
@@ -87,34 +84,17 @@ protected:
                        Distribution::DistributionMethod mode = Distribution::QUADTREE,
                        bool divideImage = true, int cellSize = 30, bool distributePerLevel = true);
 
-    template <typename T>
-    void FAST(cv::Mat image, std::vector<cv::KeyPoint> &keypoints, int threshold, int level = 0);
-
-    float CornerScore_Harris(const uchar* ptr, int lvl);
-    int CornerScore(const uchar *pointer, const int offset[], int threshold);
-
     void ComputeScalePyramid(cv::Mat &image);
 
     std::vector<cv::Point> pattern;
 
-    //inline float getScale(int lvl);
-
-
-    uchar threshold_tab_min[512];
-    uchar threshold_tab_init[512];
-
     std::vector<cv::Mat> imagePyramid;
-
-    int continuousPixelsRequired;
-    int onePointFiveCircles;
 
     int nfeatures;
     double scaleFactor;
     int nlevels;
     int iniThFAST;
     int minThFAST;
-
-    bool harris;
 
     Distribution::DistributionMethod kptDistribution;
 
@@ -128,6 +108,7 @@ protected:
     std::vector<float> levelSigma2Vec;
     std::vector<float> invLevelSigma2Vec;
 
+    FASTdetector fast;
 };
 
 

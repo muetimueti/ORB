@@ -567,23 +567,60 @@ bool operator()(const std::vector<cv::KeyPoint> &kpts1, const std::vector<cv::Ke
 void Distribution::DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, const int minX, const int maxX,
         const int minY, const int maxY, const int N)
 {
+    int cellSize = 30;
+    const float width = maxX - minX;
+    const float height = maxY - minY;
+
+    const int npatchesInX = width / cellSize;
+    const int npatchesInY = height / cellSize;
+    const int patchWidth = ceil(width / npatchesInX);
+    const int patchHeight = ceil(height / npatchesInY);
+
+    int nCells = npatchesInX * npatchesInY;
+    std::vector<std::vector<cv::KeyPoint>> cellkpts(nCells);
+    int nPerCell = std::ceil((float)N / nCells);
+
+    for (auto &kpt : kpts)
+    {
+        int idx = (int)(kpt.pt.y/patchHeight) * npatchesInX + (int)(kpt.pt.x/patchWidth);
+        if (idx >= nCells)
+            idx = nCells-1;
+        //std::cout << "cell-idx of kpt " << kpt.pt <<" would be: " << idx << "\n";
+        cellkpts[idx].emplace_back(kpt);
+    }
+
+    kpts.clear();
+    kpts.reserve(N);
+
+    for (auto &kptVec : cellkpts)
+    {
+        RetainBestN(kptVec, nPerCell);
+        kpts.insert(kpts.end(), kptVec.begin(), kptVec.end());
+    }
+
+
+#if 0
     //TODO: test
     const int width = maxX - minX;
     const int height = maxY - minY;
 
-    int cellCols = 6;
-    int cellRows = 6;
+    int cellCols = 20;
+    int cellRows = 20;
     if (width > height)
         cellCols *= (int)((float)width / (float)height);
     else
         cellRows *= (int)((float)height / (float)width);
+
+
     const int cellWidth = std::ceil(width / cellCols);
     const int cellHeight = std::ceil(height / cellRows);
 
 
 
+
+
     const int nCells = cellCols * cellRows;
-    int nPerCell = (int)((float)N / nCells);
+    int nPerCell = ceil((float)N / nCells);
 
     std::vector<std::vector<cv::KeyPoint>> cellkpts(nCells);
 
@@ -618,6 +655,7 @@ void Distribution::DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, cons
         RetainBestN(kptVec, nPerCell);
         kpts.insert(kpts.end(), kptVec.begin(), kptVec.end());
     }
+#endif
 }
 
 /*

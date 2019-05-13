@@ -7,14 +7,8 @@ const int PATCH_SIZE = 31;
 
 const int EDGE_THRESHOLD = 19;
 
+//TODO:remove once fast is separated
 const int CIRCLE_SIZE = 16;
-
-const int CIRCLE_OFFSETS[16][2] =
-        {{0,  3}, { 1,  3}, { 2,  2}, { 3,  1}, { 3, 0}, { 3, -1}, { 2, -2}, { 1, -3},
-         {0, -3}, {-1, -3}, {-2, -2}, {-3, -1}, {-3, 0}, {-3,  1}, {-2,  2}, {-1,  3}};
-
-const int PIXELS_TO_CHECK[16] =
-        {0, 8, 2, 10, 4, 12, 6, 14, 1, 9, 3, 11, 5, 13, 7, 15};
 
 const int CIRCULAR_ROWS[16] = {15, 15, 15, 15, 14, 14, 14, 13, 13, 12, 11, 10, 9, 8, 6, 3};
 
