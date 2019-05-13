@@ -747,7 +747,7 @@ float ORBextractor::CornerScore_Harris(const uchar* ptr, int lvl)
      */
 
     //float r = dxx*dyy - dxy*dxy - k*(dxx+dyy)*(dxx+dyy);
-    return abs(k*(dxx+dyy));
+    return k*(dxx+dyy);
 }
 
 
