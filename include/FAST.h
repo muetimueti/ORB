@@ -38,6 +38,11 @@ public:
         scoreType = t;
     }
 
+    ScoreType inline GetScoreType()
+    {
+        return scoreType;
+    }
+
 protected:
 
     int iniThreshold;

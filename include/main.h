@@ -29,6 +29,9 @@ void SingleImageMode(std::string &imgPath, int nFeatures, float scaleFactor, int
 void SequenceMode(std::string &imgPath, int nFeatures, float scaleFactor, int nLevels, int FASTThresholdInit,
                     int FASTThresholdMin, cv::Scalar color, int thickness, int radius, bool drawAngular);
 
+void PerformanceMode(std::string &imgPath, int nFeatures, float scaleFactor, int nLevels, int FASTThresholdInit,
+                     int FASTThresholdMin);
+
 void SortKeypoints(std::vector<cv::KeyPoint> &kpts);
 
 std::vector<std::pair<cv::KeyPoint, cv::KeyPoint>> CompareKeypoints(std::vector<cv::KeyPoint> &kpts1, std::string name1,

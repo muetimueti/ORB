@@ -65,6 +65,16 @@ public:
         return kptDistribution;
     }
 
+    void inline SetScoreType(FASTdetector::ScoreType s)
+    {
+        fast.SetScoreType(s);
+    }
+
+    FASTdetector::ScoreType inline GetScoreType()
+    {
+        return fast.GetScoreType();
+    }
+
 
     void SetnFeatures(int n);
 

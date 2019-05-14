@@ -437,7 +437,6 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
             "\nwidth = " << width << ", height = " << height << ", npatchesinX = " << npatchesInX << ", npatchesinY = "
             << npatchesInY << ", patchWidth = " << patchWidth << ", patchHeight = " << patchHeight << "\n";
              */
-
             for (int py = 0; py < npatchesInY; ++py)
             {
                 float startY = minimumY + py * patchHeight;

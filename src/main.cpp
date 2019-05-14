@@ -69,6 +69,10 @@ int main(int argc, char **argv)
         SequenceMode(imgPath, nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin,
                      color, thickness, radius, drawAngular);
     }
+    else
+    {
+        PerformanceMode(imgPath, nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
+    }
 
 
    std::chrono::high_resolution_clock::time_point program_end = std::chrono::high_resolution_clock::now();
@@ -132,7 +136,7 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
 
     bool distributePerLevel = false;
 
-    pangolin::CreateWindowAndBind("Menu",210,440);
+    pangolin::CreateWindowAndBind("Menu",210,520);
 
     pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(210));
 
@@ -150,6 +154,11 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     pangolin::Var<bool> menuHarris("menu.Experimental Score", false, true);
     pangolin::Var<int> menuSetInitThreshold("menu.Init FAST Threshold", FASTThresholdInit, 1, 40);
     pangolin::Var<int> menuSetMinThreshold("menu.Min FAST Threshold", FASTThresholdMin, 1, 40);
+    pangolin::Var<std::string> menuText("menu.----- FAST-SCORE: -----");
+    pangolin::Var<bool> menuScoreOpenCV("menu.OpenCV", true, false);
+    pangolin::Var<bool> menuScoreHarris("menu.Harris", false, false);
+    pangolin::Var<bool> menuScoreSum("menu.Sum", false, false);
+    pangolin::Var<bool> menuScoreExp("menu.Experimental", false, false);
     pangolin::Var<bool> menuExit("menu.EXIT", false, false);
 
 
@@ -248,6 +257,28 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
             extractor.SetFASTThresholds(FASTThresholdInit, FASTThresholdMin);
         }
 
+        if (menuScoreExp)
+        {
+            extractor.SetScoreType(FASTdetector::EXPERIMENTAL);
+            menuScoreExp = false;
+        }
+        if (menuScoreHarris)
+        {
+            extractor.SetScoreType(FASTdetector::HARRIS);
+            menuScoreHarris = false;
+        }
+        if (menuScoreOpenCV)
+        {
+            extractor.SetScoreType(FASTdetector::OPENCV);
+            menuScoreOpenCV = false;
+        }
+        if (menuScoreSum)
+        {
+            extractor.SetScoreType(FASTdetector::SUM);
+            menuScoreSum = false;
+        }
+
+
         if (menuExit)
             return;
 
@@ -285,7 +316,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
     cv::Mat img;
 
-    pangolin::CreateWindowAndBind("Menu",210,470);
+    pangolin::CreateWindowAndBind("Menu",210,570);
 
     pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(210));
 
@@ -303,7 +334,11 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     pangolin::Var<int> menuActualkpts("menu.Features Actual", false, 0);
     pangolin::Var<int> menuSetInitThreshold("menu.Init FAST Threshold", FASTThresholdInit, 5, 40);
     pangolin::Var<int> menuSetMinThreshold("menu.Min FAST Threshold", FASTThresholdMin, 1, 39);
-    pangolin::Var<bool> menuHarris("menu.Experimental Score", false, true);
+    pangolin::Var<std::string> menuText("menu.----- FAST-SCORE: -----");
+    pangolin::Var<bool> menuScoreOpenCV("menu.OpenCV", true, false);
+    pangolin::Var<bool> menuScoreHarris("menu.Harris", false, false);
+    pangolin::Var<bool> menuScoreSum("menu.Sum", false, false);
+    pangolin::Var<bool> menuScoreExp("menu.Experimental", false, false);
     pangolin::Var<int> menuMeanProcessingTime("menu.Mean Processing Time", 0);
     pangolin::Var<int> menuLastFrametime("menu.Last Frame", 0);
 
@@ -322,9 +357,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     cv::createButton("btn", nullptr, nullptr, cv::QT_PUSH_BUTTON, false);
 
     int count = 0;
-
     bool distributePerLevel = false;
-    bool harris = false;
 
     for(int ni=0; ni<nImages; ni++)
     {
@@ -450,6 +483,28 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             myExtractor.SetFASTThresholds(FASTThresholdInit, FASTThresholdMin);
         }
 
+        if (menuScoreExp)
+        {
+            myExtractor.SetScoreType(FASTdetector::EXPERIMENTAL);
+            menuScoreExp = false;
+        }
+        if (menuScoreHarris)
+        {
+            myExtractor.SetScoreType(FASTdetector::HARRIS);
+            menuScoreHarris = false;
+        }
+        if (menuScoreOpenCV)
+        {
+            myExtractor.SetScoreType(FASTdetector::OPENCV);
+            menuScoreOpenCV = false;
+        }
+        if (menuScoreSum)
+        {
+            myExtractor.SetScoreType(FASTdetector::SUM);
+            menuScoreSum = false;
+        }
+
+
 
 
 
@@ -501,17 +556,62 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 }
 
 
-struct CompareXThenY
+void PerformanceMode(std::string &imgPath, int nFeatures, float scaleFactor, int nLevels, int FASTThresholdInit,
+                     int FASTThresholdMin)
 {
-    bool operator()(cv::KeyPoint &k1, cv::KeyPoint &k2) const
-    {
-        return (k1.pt.x < k2.pt.x || (k1.pt.x == k2.pt.x && k1.pt.y < k2.pt.y));
-    }
+    cout << "\nStarting in Performance Mode...\n";
+    vector<string> vstrImageFilenames;
+    vector<double> vTimestamps;
+    string strFile = string(imgPath)+"/rgb.txt";
+    LoadImages(strFile, vstrImageFilenames, vTimestamps);
 
-};
+    int nImages = vstrImageFilenames.size();
+
+    vector<long> vTimesTrack;
+    vTimesTrack.resize(nImages);
+
+    ORB_SLAM2::ORBextractor extractor(nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
+
+    cout << "\n-------------------------\n"
+         << "Images in sequence: " << nImages << "\n";
+
+    cout << "\nsetting up...\n";
+
+    long totalDuration = 0;
+
+    cv::Mat img;
+
+    using clk = std::chrono::high_resolution_clock;
+
+    clk::time_point t0 = clk::now();
+    for (int ni = 0; ni < nImages; ++ni)
+    {
+        img = cv::imread(string(imgPath) + "/" + vstrImageFilenames[ni], CV_LOAD_IMAGE_UNCHANGED);
+
+        cv::Mat imgGray;
+        cv::cvtColor(img, imgGray, CV_BGR2GRAY);
+
+        vector<cv::KeyPoint> kpts;
+        cv::Mat descriptors;
+
+        clk::time_point t1 = clk::now();
+        extractor(imgGray, cv::Mat(), kpts, descriptors, true);
+        clk::time_point t2 = clk::now();
+        long d = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
+        totalDuration += d;
+        vTimesTrack[ni] = d;
+        if (ni%100 == 0)
+            cout << "\nNow at image " << ni;
+    }
+    cout << "\nTotal time: " << (double)totalDuration/1000000.0 << " seconds"
+        "\nmean: " << (double)totalDuration/nImages/1000.0 << " milliseconds"
+        "\nmedian: " << (double)vTimesTrack[nImages/2]/1000.0 << " milliseconds";
+}
+
 void SortKeypoints(vector<cv::KeyPoint> &kpts)
 {
-    std::sort(kpts.begin(), kpts.end(), CompareXThenY());
+    std::sort(kpts.begin(), kpts.end(), [](const cv::KeyPoint &k1, const cv::KeyPoint &k2)
+        {return (k1.pt.x < k2.pt.x || (k1.pt.x == k2.pt.x && k1.pt.y < k2.pt.y));});
 }
 
 
