@@ -19,11 +19,11 @@ public:
 
     ~FASTdetector() = default;
 
-    void FAST(cv::Mat img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl);
-
     void SetStepVector(std::vector<int> &_steps);
 
     void SetFASTThresholds(int ini, int min);
+
+    void FAST(cv::Mat img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl);
 
     enum ScoreType
     {
@@ -53,8 +53,11 @@ protected:
     std::vector<int> pixelOffset;
     std::vector<int> steps;
 
-    uchar threshold_tab_min[512];
     uchar threshold_tab_init[512];
+    uchar threshold_tab_min[512];
+
+    template <typename scoretype>
+    void FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl);
 
     float CornerScore_Harris(const uchar* ptr, int lvl);
 

@@ -20,6 +20,8 @@
 #   define D(x)
 #endif
 
+#define MYFAST 1
+
 
 namespace ORB_SLAM2
 {
@@ -173,13 +175,48 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
 
     DivideAndFAST(allkpts, kptDistribution, true, 30, distributePerLevel);
 
+    if (!distributePerLevel)
+    {
+        ComputeAngles(allkpts);
+        int lvl;
+        int nkpts = 0;
+        for (lvl = 0; lvl < nlevels; ++lvl)
+        {
+            nkpts += allkpts[lvl].size();
 
-    ComputeAngles(allkpts);
+            float size = PATCH_SIZE * scaleFactorVec[lvl];
+            float scale = scaleFactorVec[lvl];
+            for (auto &kpt : allkpts[lvl])
+            {
+                kpt.size = size;
+                if (lvl)
+                    kpt.pt *= scale;
+            }
+        }
+
+        auto temp = allkpts[0];
+        for (lvl = 1; lvl < nlevels; ++lvl)
+        {
+            temp.insert(temp.end(), allkpts[lvl].begin(), allkpts[lvl].end());
+        }
+        Distribution::DistributeKeypoints(temp, 0, imagePyramid[0].cols, 0, imagePyramid[0].rows,
+                nfeatures, kptDistribution);
+
+        for (lvl = 0; lvl < nlevels; ++lvl)
+            allkpts[lvl].clear();
+
+        for (auto &kpt : temp)
+        {
+            allkpts[kpt.octave].emplace_back(kpt);
+        }
+    }
+
+    if (distributePerLevel)
+        ComputeAngles(allkpts);
 
     //high_resolution_clock::time_point t2 = high_resolution_clock::now();
     //auto d = duration_cast<microseconds>(t2-t1).count();
     //std::cout << "\nmy comp time for FAST + distr: " << d << "\n";
-
 
     cv::Mat BRIEFdescriptors;
     int nkpts = 0;
@@ -202,15 +239,18 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
 
     ComputeDescriptors(allkpts, BRIEFdescriptors);
 
-    for (int lvl = 0; lvl < nlevels; ++lvl)
+    if (distributePerLevel)
     {
-        float size = PATCH_SIZE * scaleFactorVec[lvl];
-        float scale = scaleFactorVec[lvl];
-        for (auto &kpt : allkpts[lvl])
+        for (int lvl = 0; lvl < nlevels; ++lvl)
         {
-            kpt.size = size;
-            if (lvl)
-                kpt.pt *= scale;
+            float size = PATCH_SIZE * scaleFactorVec[lvl];
+            float scale = scaleFactorVec[lvl];
+            for (auto &kpt : allkpts[lvl])
+            {
+                kpt.size = size;
+                if (lvl)
+                    kpt.pt *= scale;
+            }
         }
     }
 
@@ -326,7 +366,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
             //cv::Range rowSelect(minimumY, maximumY);
             //cv::Mat levelMat = imagePyramid[lvl](rowSelect, colSelect);
 
-
+#if MYFAST
             fast.FAST(imagePyramid[lvl].rowRange(minimumY, minimumY).colRange(minimumX, maximumX),
                       levelKpts, iniThFAST, lvl);
 
@@ -335,7 +375,15 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
                 fast.FAST(imagePyramid[lvl].rowRange(minimumY, minimumY).colRange(minimumX, maximumX),
                           levelKpts, minThFAST, lvl);
             }
-
+#else
+            cv::FAST(imagePyramid[lvl].rowRange(minimumY, minimumY).colRange(minimumX, maximumX),
+                            levelKpts, iniThFAST, true);
+            if (levelKpts.empty())
+            {
+                cv::FAST(imagePyramid[lvl].rowRange(minimumY, minimumY).colRange(minimumX, maximumX),
+                         levelKpts, minThFAST, true);
+            }
+#endif
 
 
             if(levelKpts.empty())
@@ -364,6 +412,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
     {
         int c = std::min(imagePyramid[nlevels-1].rows, imagePyramid[nlevels-1].cols);
         assert(cellSize < c && cellSize > 16);
+//#pragma omp parallel for
         for (int lvl = 0; lvl < nlevels; ++lvl)
         {
             std::vector<cv::KeyPoint> levelKpts;
@@ -418,26 +467,23 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
                     std::chrono::high_resolution_clock::time_point FASTEntry =
                             std::chrono::high_resolution_clock::now();
 
-
-                    //this->FAST<uchar>(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
-                    //           patchKpts, iniThFAST, lvl);
-                    //cv::FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
-                    //        patchKpts, iniThFAST, true);
-
-                   fast.FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
-                           patchKpts, iniThFAST, lvl);
-
-
+#if MYFAST
+                    fast.FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
+                              patchKpts, iniThFAST, lvl);
                     if (patchKpts.empty())
                     {
                         fast.FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
                                   patchKpts, minThFAST, lvl);
-                        //this->FAST<uchar>(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
-                        //        patchKpts, minThFAST, lvl);
-                        //cv::FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
-                        //        patchKpts, iniThFAST, true);
-
                     }
+#else
+                    cv::FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
+                            patchKpts, iniThFAST, true);
+                    if (patchKpts.empty())
+                    {
+                        cv::FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
+                            patchKpts, minThFAST, true);
+                    }
+#endif
 
 
                     if(patchKpts.empty())
@@ -471,29 +517,6 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
                 //kpt.angle = IntensityCentroidAngle(&imagePyramid[lvl].at<uchar>(
                 //        myRound(kpt.pt.x), myRound(kpt.pt.y)), imagePyramid[lvl].step1());
             }
-        }
-    }
-    if (!distributePerLevel)
-    {
-        int nkpts = 0;
-        for (int lvl = 0; lvl < nlevels; ++lvl)
-        {
-            nkpts += allkpts[lvl].size();
-        }
-        auto temp = allkpts[0];
-        for (int lvl = 1; lvl < nlevels; ++lvl)
-        {
-            temp.insert(temp.end(), allkpts[lvl].begin(), allkpts[lvl].end());
-        }
-        Distribution::DistributeKeypoints(temp, 0, imagePyramid[0].cols, 0, imagePyramid[0].rows, nfeatures, mode);
-
-        for (int lvl = 0; lvl < nlevels; ++lvl)
-            allkpts[lvl].clear();
-
-        for (auto &kpt : temp)
-        {
-            allkpts[kpt.octave].emplace_back(kpt);
-
         }
     }
 }

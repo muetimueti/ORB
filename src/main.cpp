@@ -155,8 +155,6 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
 
     pangolin::FinishFrame();
 
-    bool harris = false;
-
     cv::namedWindow(string(imgPath));
     cv::moveWindow(string(imgPath), 80, 260);
 
@@ -176,7 +174,12 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
 
         extractor(imgGray, cv::Mat(), keypoints, descriptors, distributePerLevel);
 
+        if (extractor.GetDistribution() == Distribution::GRID && !distributePerLevel)
+        {
+            DrawCellGrid(displayImg, 0, displayImg.cols, 0, displayImg.rows, 50);
+        }
         DisplayKeypoints(displayImg, keypoints, color, thickness, radius, drawAngular, string(imgPath));
+
         cv::waitKey(33);
 
         int n = menuNFeatures;
@@ -243,11 +246,6 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
                 menuSetMinThreshold = menuSetInitThreshold;
             FASTThresholdMin = menuSetMinThreshold;
             extractor.SetFASTThresholds(FASTThresholdInit, FASTThresholdMin);
-        }
-
-        if (extractor.GetDistribution() == Distribution::GRID)
-        {
-            DrawCellGrid(displayImg, 0, displayImg.cols, 0, displayImg.rows, 30);
         }
 
         if (menuExit)
@@ -647,13 +645,13 @@ void DrawCellGrid(cv::Mat &image, int minX, int maxX, int minY, int maxY, int ce
     {
         cv::Point2f start(minX, minY + y*cellHeight);
         cv::Point2f end(maxX, minY + y*cellHeight);
-        cv::line(image, start, end, cv::Scalar(100, 0, 255), 1, CV_AA);
+        cv::line(image, start, end, cv::Scalar(0, 0, 255), 1, CV_AA);
     }
     for (int x = 0; x <= cellCols; ++x)
     {
         cv::Point2f start(minX + x*cellWidth, minY);
         cv::Point2f end(minX + x*cellWidth, maxY);
-        cv::line(image, start, end, cv::Scalar(100, 0, 255), 1, CV_AA);
+        cv::line(image, start, end, cv::Scalar(0, 0, 255), 1, CV_AA);
     }
 }
 

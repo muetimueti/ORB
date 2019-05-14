@@ -64,6 +64,40 @@ void FASTdetector::SetStepVector(std::vector<int> &_steps)
 
 void FASTdetector::FAST(cv::Mat img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl)
 {
+    switch (scoreType)
+    {
+        case (OPENCV):
+        {
+            this->FAST<uchar>(img, keypoints, threshold, lvl);
+            break;
+        }
+        case (SUM):
+        {
+            this->FAST<int>(img, keypoints, threshold, lvl);
+            break;
+        }
+        case (HARRIS):
+        {
+            this->FAST<float>(img, keypoints, threshold, lvl);
+            break;
+        }
+        case (EXPERIMENTAL):
+        {
+            this->FAST<float>(img, keypoints, threshold, lvl);
+            break;
+        }
+        default:
+        {
+            this->FAST<uchar>(img, keypoints, threshold, lvl);
+            break;
+        }
+    }
+}
+
+
+template <typename scoretype>
+void FASTdetector::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl)
+{
     keypoints.clear();
 
     assert(!steps.empty());
@@ -83,15 +117,15 @@ void FASTdetector::FAST(cv::Mat img, std::vector<cv::KeyPoint> &keypoints, int t
         threshold_tab = threshold_tab_min;
 
 
-    float cornerScores[img.cols*3];
+    scoretype cornerScores[img.cols*3];
     int cornerPos[img.cols*3];
 
     memset(cornerScores, 0, img.cols*3);
     memset(cornerPos, 0, img.cols*3);
 
-    float* currRowScores = &cornerScores[0];
-    float* prevRowScores = &cornerScores[img.cols];
-    float* pprevRowScores = &cornerScores[img.cols*2];
+    scoretype* currRowScores = &cornerScores[0];
+    scoretype* prevRowScores = &cornerScores[img.cols];
+    scoretype* pprevRowScores = &cornerScores[img.cols*2];
 
     int* currRowPos = &cornerPos[0];
     int* prevRowPos = &cornerPos[img.cols];
@@ -108,7 +142,7 @@ void FASTdetector::FAST(cv::Mat img, std::vector<cv::KeyPoint> &keypoints, int t
         ncandidates = 0;
 
         int* tempPos = pprevRowPos;
-        float* tempScores = pprevRowScores;
+        scoretype* tempScores = pprevRowScores;
 
         pprevRowPos = prevRowPos;
         pprevRowScores = prevRowScores;
