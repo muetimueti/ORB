@@ -1,3 +1,4 @@
+#include <thread>
 #include "include/FAST.h"
 
 
@@ -64,39 +65,74 @@ void FASTdetector::SetStepVector(std::vector<int> &_steps)
 
 void FASTdetector::FAST(cv::Mat img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl)
 {
-    switch (scoreType)
+    if (enableMultithreading)
     {
-        case (OPENCV):
+        switch (scoreType)
         {
-            this->FAST<uchar>(img, keypoints, threshold, lvl);
-            break;
-        }
-        case (SUM):
-        {
-            this->FAST<int>(img, keypoints, threshold, lvl);
-            break;
-        }
-        case (HARRIS):
-        {
-            this->FAST<float>(img, keypoints, threshold, lvl);
-            break;
-        }
-        case (EXPERIMENTAL):
-        {
-            this->FAST<float>(img, keypoints, threshold, lvl);
-            break;
-        }
-        default:
-        {
-            this->FAST<uchar>(img, keypoints, threshold, lvl);
-            break;
+            case (OPENCV):
+            {
+                multithreaded_FAST<uchar>(img, keypoints, threshold, lvl);
+                break;
+            }
+            case (SUM):
+            {
+                multithreaded_FAST<int>(img, keypoints, threshold, lvl);
+                break;
+            }
+            case (HARRIS):
+            {
+                multithreaded_FAST<float>(img, keypoints, threshold, lvl);
+                break;
+            }
+            case (EXPERIMENTAL):
+            {
+                multithreaded_FAST<float>(img, keypoints, threshold, lvl);
+                break;
+            }
+            default:
+            {
+                multithreaded_FAST<uchar>(img, keypoints, threshold, lvl);
+                break;
+            }
         }
     }
+    else
+    {
+        switch (scoreType)
+        {
+            case (OPENCV):
+            {
+                this->FAST_t<uchar>(img, keypoints, threshold, lvl);
+                break;
+            }
+            case (SUM):
+            {
+                this->FAST_t<int>(img, keypoints, threshold, lvl);
+                break;
+            }
+            case (HARRIS):
+            {
+                this->FAST_t<float>(img, keypoints, threshold, lvl);
+                break;
+            }
+            case (EXPERIMENTAL):
+            {
+                this->FAST_t<float>(img, keypoints, threshold, lvl);
+                break;
+            }
+            default:
+            {
+                this->FAST_t<uchar>(img, keypoints, threshold, lvl);
+                break;
+            }
+        }
+    }
+
 }
 
 
 template <typename scoretype>
-void FASTdetector::FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl)
+void FASTdetector::FAST_t(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl)
 {
     keypoints.clear();
 
@@ -332,7 +368,7 @@ float FASTdetector::CornerScore_Sum(const uchar* ptr, const int offset[])
     int diff = 0;
     for (int i = 0; i < CIRCLE_SIZE; ++i)
     {
-        diff += abs(v - ptr[offset[i]]);
+        diff += v - ptr[offset[i]];
     }
     return (float)diff;
 }
@@ -432,4 +468,46 @@ float FASTdetector::CornerScore(const uchar* pointer, const int offset[], int th
             b0 = b;
     }
     return -b0 - 1;
+}
+
+template <typename scoretype>
+void FASTdetector::multithreaded_FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl)
+{
+/*
+    int nThreads = std::thread::hardware_concurrency();
+    std::vector<std::thread> threads(nThreads);
+    std::vector<cv::KeyPoint> threadkpts(nThreads);
+
+    int minY = 0;
+    int maxY = img.rows;
+    int threadStep = std::ceil((float)maxY/nThreads);
+
+    //void *x = &FASTdetector::FAST;
+    //FASTdetector::auto x = &FASTdetector::FAST;
+
+
+    auto (FASTdetector::*a) (const uchar*, const int*, int) = &FASTdetector::CornerScore;
+
+    auto (FASTdetector::*fF) (cv::Mat&, std::vector<cv::KeyPoint>&, int, int) = &FASTdetector::FAST_t<scoretype>;
+
+
+    for (int i = 0; i < nThreads; ++i)
+    {
+        int startY = minY + i * threadStep;
+        int endY = startY + threadStep;
+
+
+        cv::Mat threadRows = img.rowRange(minY, minY);
+        threads[i] = std::thread(&FASTdetector::FAST_t<scoretype>, std::ref(threadRows),
+                std::ref(keypoints), threshold, lvl);
+
+    }
+
+*/
+}
+
+
+void FASTdetector::Run()
+{
+
 }

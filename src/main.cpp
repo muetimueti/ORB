@@ -316,7 +316,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
     cv::Mat img;
 
-    pangolin::CreateWindowAndBind("Menu",210,570);
+    pangolin::CreateWindowAndBind("Menu",210,600);
 
     pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(210));
 
@@ -339,6 +339,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     pangolin::Var<bool> menuScoreHarris("menu.Harris", false, false);
     pangolin::Var<bool> menuScoreSum("menu.Sum", false, false);
     pangolin::Var<bool> menuScoreExp("menu.Experimental", false, false);
+    //pangolin::Var<bool> menuMultithreading("menu.Enable Multithreading", false, true);
     pangolin::Var<int> menuMeanProcessingTime("menu.Mean Processing Time", 0);
     pangolin::Var<int> menuLastFrametime("menu.Last Frame", 0);
 
@@ -358,6 +359,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
     int count = 0;
     bool distributePerLevel = false;
+    bool multithreading = false;
 
     for(int ni=0; ni<nImages; ni++)
     {
@@ -503,6 +505,18 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             myExtractor.SetScoreType(FASTdetector::SUM);
             menuScoreSum = false;
         }
+        /*
+        if (menuMultithreading && !multithreading)
+        {
+            myExtractor.SetMultithreading(true);
+            multithreading = true;
+        }
+        else if (!menuMultithreading && multithreading)
+        {
+            myExtractor.SetMultithreading(false);
+            multithreading = false;
+        }
+         */
 
 
 

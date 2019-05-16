@@ -67,12 +67,17 @@ public:
 
     void inline SetScoreType(FASTdetector::ScoreType s)
     {
-        fast.SetScoreType(s);
+        fast.SetScoreType(std::forward<FASTdetector::ScoreType >(s));
     }
 
     FASTdetector::ScoreType inline GetScoreType()
     {
         return fast.GetScoreType();
+    }
+
+    void inline SetMultithreading(bool b)
+    {
+        fast.SetMultithreading(std::forward<bool>(b));
     }
 
 

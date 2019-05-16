@@ -57,9 +57,9 @@ float ORBextractor::IntensityCentroidAngle(const uchar* pointer, int step)
 
 
 ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels, int _iniThFAST, int _minThFAST):
-    nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels), iniThFAST(_iniThFAST), minThFAST(_minThFAST),
-    kptDistribution(Distribution::DistributionMethod::SSC), pixelOffset{},
-    fast(_iniThFAST, _minThFAST, _nlevels)
+        nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels), iniThFAST(_iniThFAST), minThFAST(_minThFAST),
+        kptDistribution(Distribution::DistributionMethod::SSC), pixelOffset{},
+        fast(_iniThFAST, _minThFAST, _nlevels)
 {
     scaleFactorVec.resize(nlevels);
     invScaleFactorVec.resize(nlevels);
@@ -125,7 +125,7 @@ void ORBextractor::SetFASTThresholds(int ini, int min)
 
 
 void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
-        std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors)
+                              std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors)
 {
     this->operator()(inputImage, mask, resultKeypoints, outputDescriptors, true);
 }
@@ -139,7 +139,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
  */
 
 void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
-        std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors, bool distributePerLevel)
+                              std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors, bool distributePerLevel)
 {
     std::chrono::high_resolution_clock::time_point funcEntry = std::chrono::high_resolution_clock::now();
 
@@ -200,7 +200,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
             temp.insert(temp.end(), allkpts[lvl].begin(), allkpts[lvl].end());
         }
         Distribution::DistributeKeypoints(temp, 0, imagePyramid[0].cols, 0, imagePyramid[0].rows,
-                nfeatures, kptDistribution);
+                                          nfeatures, kptDistribution);
 
         for (lvl = 0; lvl < nlevels; ++lvl)
             allkpts[lvl].clear();
@@ -342,7 +342,7 @@ void ORBextractor::ComputeDescriptors(std::vector<std::vector<cv::KeyPoint>> &al
  * @param cellSize must be greater than 16 and lesser than min(rows, cols) of smallest image in pyramid
  */
 void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts,
-        Distribution::DistributionMethod mode, bool divideImage, int cellSize, bool distributePerLevel)
+                                 Distribution::DistributionMethod mode, bool divideImage, int cellSize, bool distributePerLevel)
 {
     allkpts.resize(nlevels);
 
@@ -350,42 +350,33 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
 
     if (!divideImage)
     {
+#pragma omp parallel for
         for (int lvl = 0; lvl < nlevels; ++lvl)
         {
             std::vector<cv::KeyPoint> levelKpts;
             levelKpts.clear();
-            levelKpts.reserve(nfeatures*10);
+            levelKpts.reserve(nfeatures * 10);
 
             const int maximumX = imagePyramid[lvl].cols - EDGE_THRESHOLD + 3;
             const int maximumY = imagePyramid[lvl].rows - EDGE_THRESHOLD + 3;
-
-            //std::cout << "lvl " << lvl << ": minX=" << minimumX << ", maxX=" << maximumX <<
-            //   ", minY=" << minimumY << ", maxY=" << maximumY << "\n";
-
-            //cv::Range colSelect(minimumX, maximumX);
-            //cv::Range rowSelect(minimumY, maximumY);
-            //cv::Mat levelMat = imagePyramid[lvl](rowSelect, colSelect);
-
 #if MYFAST
-            fast.FAST(imagePyramid[lvl].rowRange(minimumY, minimumY).colRange(minimumX, maximumX),
+            fast.FAST(imagePyramid[lvl].rowRange(minimumY, maximumY).colRange(minimumX, maximumX),
                       levelKpts, iniThFAST, lvl);
 
             if (levelKpts.empty())
             {
-                fast.FAST(imagePyramid[lvl].rowRange(minimumY, minimumY).colRange(minimumX, maximumX),
+                fast.FAST(imagePyramid[lvl].rowRange(minimumY, maximumY).colRange(minimumX, maximumX),
                           levelKpts, minThFAST, lvl);
             }
 #else
-            cv::FAST(imagePyramid[lvl].rowRange(minimumY, minimumY).colRange(minimumX, maximumX),
+            cv::FAST(imagePyramid[lvl].rowRange(minimumY, maximumY).colRange(minimumX, maximumX),
                             levelKpts, iniThFAST, true);
             if (levelKpts.empty())
             {
-                cv::FAST(imagePyramid[lvl].rowRange(minimumY, minimumY).colRange(minimumX, maximumX),
+                cv::FAST(imagePyramid[lvl].rowRange(minimumY, maximumY).colRange(minimumX, maximumX),
                          levelKpts, minThFAST, true);
             }
 #endif
-
-
             if(levelKpts.empty())
                 continue;
 
@@ -393,7 +384,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
 
             if (distributePerLevel)
                 Distribution::DistributeKeypoints(levelKpts, minimumX, maximumX, minimumY, maximumY,
-                        nfeaturesPerLevelVec[lvl], mode);
+                                                  nfeaturesPerLevelVec[lvl], mode);
 
 
             allkpts[lvl] = levelKpts;
@@ -412,7 +403,6 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
     {
         int c = std::min(imagePyramid[nlevels-1].rows, imagePyramid[nlevels-1].cols);
         assert(cellSize < c && cellSize > 16);
-//#pragma omp parallel for
         for (int lvl = 0; lvl < nlevels; ++lvl)
         {
             std::vector<cv::KeyPoint> levelKpts;
@@ -429,14 +419,6 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
             const int patchWidth = ceil(width / npatchesInX);
             const int patchHeight = ceil(height / npatchesInY);
 
-            /*
-            //Todo: remove
-            std::cout << "pyramid[" << lvl << "]: cols = " << imagePyramid[lvl].cols <<
-            ", rows = " << imagePyramid[lvl].rows << "\nmaximumX = " << maximumX << ", maximumY = " << maximumY <<
-            ", minimumX = " << minimumX << ", minimumY = " << minimumY <<
-            "\nwidth = " << width << ", height = " << height << ", npatchesinX = " << npatchesInX << ", npatchesinY = "
-            << npatchesInY << ", patchWidth = " << patchWidth << ", patchHeight = " << patchHeight << "\n";
-             */
             for (int py = 0; py < npatchesInY; ++py)
             {
                 float startY = minimumY + py * patchHeight;
@@ -447,8 +429,6 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
 
                 if (endY > maximumY)
                     endY = maximumY;
-
-
                 for (int px = 0; px < npatchesInX; ++px)
                 {
                     float startX = minimumX + px * patchWidth;
@@ -484,7 +464,6 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
                     }
 #endif
 
-
                     if(patchKpts.empty())
                         continue;
 
@@ -501,7 +480,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
 
             if (distributePerLevel)
                 Distribution::DistributeKeypoints(levelKpts, minimumX, maximumX, minimumY, maximumY,
-                        nfeaturesPerLevelVec[lvl], mode);
+                                                  nfeaturesPerLevelVec[lvl], mode);
 
 
             allkpts[lvl] = levelKpts;
@@ -559,5 +538,3 @@ void ORBextractor::ComputeScalePyramid(cv::Mat &image)
 }
 
 #pragma clang diagnostic pop
-
-

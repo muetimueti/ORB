@@ -2,6 +2,7 @@
 #define ORBEXTRACTOR_FAST_H
 
 #include <opencv2/core/core.hpp>
+#include <thread>
 
 const int CIRCLE_SIZE = 16;
 
@@ -43,6 +44,11 @@ public:
         return scoreType;
     }
 
+    void inline SetMultithreading(bool b)
+    {
+        enableMultithreading = b;
+    }
+
 protected:
 
     int iniThreshold;
@@ -61,8 +67,10 @@ protected:
     uchar threshold_tab_init[512];
     uchar threshold_tab_min[512];
 
+    bool enableMultithreading;
+
     template <typename scoretype>
-    void FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl);
+    void FAST_t(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl);
 
     float CornerScore_Harris(const uchar* ptr, int lvl);
 
@@ -71,6 +79,13 @@ protected:
     float CornerScore_Sum(const uchar* ptr, const int offset[]);
 
     float CornerScore(const uchar* pointer, const int offset[], int threshold);
+
+    template <typename scoretype>
+    void multithreaded_FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl);
+
+public:
+    void Run();
 };
+
 
 #endif //ORBEXTRACTOR_FAST_H
