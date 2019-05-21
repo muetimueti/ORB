@@ -20,7 +20,7 @@
 #endif
 
 #define MYFAST 1
-#define TESTFAST 0
+#define TESTFAST 1
 
 namespace ORB_SLAM2
 {

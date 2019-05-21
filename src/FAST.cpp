@@ -353,10 +353,9 @@ float FASTdetector::CornerScore_Harris(const uchar* pointer, int step)
 
 float FASTdetector::CornerScore_Experimental(const uchar* ptr, int step)
 {
-    float a = ptr[-1] - ptr[1] + ptr[-2] - ptr[2];
-    float b = ptr[-step] - ptr[step] + ptr[-2*step] - ptr[2*step];
-    float c = ptr[-step-1] - ptr[step+1] + ptr[-step+1] - ptr[step-1];
-
+    //float a = ptr[-1] - ptr[1] + ptr[-2] - ptr[2];
+    //float b = ptr[-step] - ptr[step] + ptr[-2*step] - ptr[2*step];
+    //float c = ptr[-step-1] - ptr[step+1] + ptr[-step+1] - ptr[step-1];
     //return a * b;
     return (ptr[-step] - ptr[step] + ptr[-1] - ptr[1]);
 }

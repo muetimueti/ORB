@@ -409,6 +409,10 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
         pangolin::FinishFrame();
 
+        if (myExtractor.GetDistribution() == Distribution::GRID && !distributePerLevel)
+        {
+            DrawCellGrid(img, 0, img.cols, 0, img.rows, 50);
+        }
         DisplayKeypoints(img, mykpts, color, thickness, radius, drawAngular, string(imgPath));
         cv::waitKey(1000/30);
 

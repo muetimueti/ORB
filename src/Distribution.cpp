@@ -561,7 +561,7 @@ void Distribution::DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, cons
 
     int nCells = npatchesInX * npatchesInY;
     std::vector<std::vector<cv::KeyPoint>> cellkpts(nCells);
-    int nPerCell = std::floor((float)N / nCells);
+    int nPerCell = std::ceil((float)N / nCells);
 
 
     for (auto &kpt : kpts)
