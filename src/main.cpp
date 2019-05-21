@@ -431,41 +431,57 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuAll)
         {
             myExtractor.SetDistribution(Distribution::KEEP_ALL);
+            myTotalDuration = 0;
+            count = 0;
             menuAll = false;
         }
         if (menuTopN)
         {
             myExtractor.SetDistribution(Distribution::NAIVE);
+            myTotalDuration = 0;
+            count = 0;
             menuTopN = false;
         }
         if (menuBucketing)
         {
             myExtractor.SetDistribution(Distribution::GRID);
+            myTotalDuration = 0;
+            count = 0;
             menuBucketing = false;
         }
         if (menuQuadtree)
         {
             myExtractor.SetDistribution(Distribution::QUADTREE);
+            myTotalDuration = 0;
+            count = 0;
             menuQuadtree = false;
         }
         if (menuQuadtreeORBSLAMSTYLE)
         {
             myExtractor.SetDistribution(Distribution::QUADTREE_ORBSLAMSTYLE);
+            myTotalDuration = 0;
+            count = 0;
             menuQuadtreeORBSLAMSTYLE = false;
         }
         if (menuANMS_KDT)
         {
             myExtractor.SetDistribution(Distribution::ANMS_KDTREE);
+            myTotalDuration = 0;
+            count = 0;
             menuANMS_KDT = false;
         }
         if (menuANMS_RT)
         {
             myExtractor.SetDistribution(Distribution::ANMS_RT);
+            myTotalDuration = 0;
+            count = 0;
             menuANMS_RT = false;
         }
         if (menuSSC)
         {
             myExtractor.SetDistribution(Distribution::SSC);
+            myTotalDuration = 0;
+            count = 0;
             menuSSC = false;
         }
 

@@ -4,7 +4,7 @@
 
 FASTdetector::FASTdetector(int _iniThreshold, int _minThreshold, int _nlevels) :
     iniThreshold(0), minThreshold(0), nlevels(_nlevels), scoreType(OPENCV), pixelOffset{},
-    threshold_tab_init{}, threshold_tab_min{}
+    threshold_tab_init{}, threshold_tab_min{}, enableMultithreading(false)
 {
     pixelOffset.resize(nlevels * CIRCLE_SIZE);
     SetFASTThresholds(_iniThreshold, _minThreshold);
@@ -326,7 +326,7 @@ void FASTdetector::FAST_t(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, in
 float FASTdetector::CornerScore_Harris(const uchar* pointer, int step)
 {
     float k = 0.04f;
-    int sz = 2;
+    int sz = 7;
     int sz2 = sz*sz;
     int offset[sz2];
     for (int i = 0; i < sz; ++i)
@@ -473,41 +473,118 @@ float FASTdetector::CornerScore(const uchar* pointer, const int offset[], int th
 template <typename scoretype>
 void FASTdetector::multithreaded_FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl)
 {
-/*
-    int nThreads = std::thread::hardware_concurrency();
-    std::vector<std::thread> threads(nThreads);
-    std::vector<cv::KeyPoint> threadkpts(nThreads);
+    keypoints.clear();
 
-    int minY = 0;
-    int maxY = img.rows;
-    int threadStep = std::ceil((float)maxY/nThreads);
+    assert(!steps.empty());
 
-    //void *x = &FASTdetector::FAST;
-    //FASTdetector::auto x = &FASTdetector::FAST;
-
-
-    auto (FASTdetector::*a) (const uchar*, const int*, int) = &FASTdetector::CornerScore;
-
-    auto (FASTdetector::*fF) (cv::Mat&, std::vector<cv::KeyPoint>&, int, int) = &FASTdetector::FAST_t<scoretype>;
-
-
-    for (int i = 0; i < nThreads; ++i)
+    int offset[CIRCLE_SIZE];
+    for (int i = 0; i < CIRCLE_SIZE; ++i)
     {
-        int startY = minY + i * threadStep;
-        int endY = startY + threadStep;
-
-
-        cv::Mat threadRows = img.rowRange(minY, minY);
-        threads[i] = std::thread(&FASTdetector::FAST_t<scoretype>, std::ref(threadRows),
-                std::ref(keypoints), threshold, lvl);
-
+        offset[i] = pixelOffset[lvl*CIRCLE_SIZE + i];
     }
 
-*/
+    assert(threshold == minThreshold || threshold == iniThreshold); //only initial or min threshold should be passed
+
+    uchar *threshold_tab;
+    if (threshold == iniThreshold)
+        threshold_tab = threshold_tab_init;
+    else
+        threshold_tab = threshold_tab_min;
+
+    typedef cv::Point3_<uint8_t> Pixel;
+
+    cv::Mat W(img.rows, img.cols, CV_32F);
+    img.copyTo(W);
+
+    W.forEach<uchar>([&](uchar pix, const int* position) {checkSinglePixel(&pix, offset, threshold, lvl);});
 }
 
 
-void FASTdetector::Run()
+void FASTdetector::checkSinglePixel(uchar* pointer, const int offset[], int threshold, int lvl)
 {
+    int val = pointer[0];                           //value of central pixel
+    const uchar *tab = &threshold_tab_init[255] - val;       //shift threshold tab by val
 
+
+    int discard = tab[pointer[offset[PIXELS_TO_CHECK[0]]]]
+                  | tab[pointer[offset[PIXELS_TO_CHECK[1]]]];
+
+    if (discard == 0)
+        return;
+
+    int k;
+    bool gotoNextCol = false;
+    for (k = 2; k < 16; k+=2)
+    {
+        discard &= tab[pointer[offset[PIXELS_TO_CHECK[k]]]]
+                   | tab[pointer[offset[PIXELS_TO_CHECK[k+1]]]];
+        if (k == 6 && discard == 0)
+        {
+            gotoNextCol = true;
+            break;
+        }
+        if (k == 14 && discard == 0)
+        {
+            gotoNextCol = true;
+        }
+    }
+    if (gotoNextCol) // initial FAST-check failed
+        return;
+
+
+    if (discard & 1) // check for continuous circle of pixels darker than threshold
+    {
+        int compare = val - threshold;
+        int contPixels = 0;
+
+        for (k = 0; k < onePointFiveCircles; ++k)
+        {
+            int a = pointer[offset[k%CIRCLE_SIZE]];
+            if (a < compare)
+            {
+                ++contPixels;
+                if (contPixels > continuousPixelsRequired)
+                {
+                    if (scoreType == OPENCV)
+                        *pointer = CornerScore(pointer, offset, threshold);
+                    else if (scoreType == HARRIS)
+                        *pointer = CornerScore_Harris(pointer, steps[lvl]);
+                    else if (scoreType == SUM)
+                        *pointer = CornerScore_Sum(pointer, offset);
+                    else if (scoreType == EXPERIMENTAL)
+                        *pointer = CornerScore_Experimental(pointer, steps[lvl]);
+                    break;
+                }
+            } else
+                contPixels = 0;
+        }
+    }
+
+    if (discard & 2) // check for continuous circle of pixels brighter than threshold
+    {
+        int compare = val + threshold;
+        int contPixels = 0;
+
+        for (k = 0; k < onePointFiveCircles; ++k)
+        {
+            int a = pointer[offset[k%CIRCLE_SIZE]];
+            if (a > compare)
+            {
+                ++contPixels;
+                if (contPixels > continuousPixelsRequired)
+                {
+                    if (scoreType == OPENCV)
+                        *pointer = CornerScore(pointer, offset, threshold);
+                    else if (scoreType == HARRIS)
+                        *pointer = CornerScore_Harris(pointer, steps[lvl]);
+                    else if (scoreType == SUM)
+                        *pointer = CornerScore_Sum(pointer, offset);
+                    else if (scoreType == EXPERIMENTAL)
+                        *pointer = CornerScore_Experimental(pointer, steps[lvl]);
+                    break;
+                }
+            } else
+                contPixels = 0;
+        }
+    }
 }

@@ -49,6 +49,8 @@ public:
         enableMultithreading = b;
     }
 
+    static float CornerScore_Experimental(const uchar* ptr, int lvl);
+
 protected:
 
     int iniThreshold;
@@ -74,7 +76,7 @@ protected:
 
     float CornerScore_Harris(const uchar* ptr, int lvl);
 
-    float CornerScore_Experimental(const uchar* ptr, int lvl);
+
 
     float CornerScore_Sum(const uchar* ptr, const int offset[]);
 
@@ -84,7 +86,7 @@ protected:
     void multithreaded_FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl);
 
 public:
-    void Run();
+    void checkSinglePixel(uchar* pointer, const int offset[], int threshold, int lvl);
 };
 
 

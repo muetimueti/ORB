@@ -5,14 +5,13 @@
 #include "include/ORBextractor.h"
 #include "include/ORBconstants.h"
 #include <unistd.h>
-
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wfor-loop-analysis"
+#include "include/avx.h"
+#include <opencv2/features2d/features2d.hpp>
 
 #ifndef NDEBUG
 #   define D(x) x
 #   include <opencv2/highgui/highgui.hpp>
-#   include <opencv2/features2d/features2d.hpp>
+
 #   include <chrono>
 #   include "include/referenceORB.h"
 
@@ -21,7 +20,7 @@
 #endif
 
 #define MYFAST 1
-
+#define TESTFAST 0
 
 namespace ORB_SLAM2
 {
@@ -275,6 +274,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
 
 void ORBextractor::ComputeAngles(std::vector<std::vector<cv::KeyPoint>> &allkpts)
 {
+#pragma omp parallel for
     for (int lvl = 0; lvl < nlevels; ++lvl)
     {
         for (auto &kpt : allkpts[lvl])
@@ -350,7 +350,6 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
 
     if (!divideImage)
     {
-#pragma omp parallel for
         for (int lvl = 0; lvl < nlevels; ++lvl)
         {
             std::vector<cv::KeyPoint> levelKpts;
@@ -403,6 +402,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
     {
         int c = std::min(imagePyramid[nlevels-1].rows, imagePyramid[nlevels-1].cols);
         assert(cellSize < c && cellSize > 16);
+#pragma omp parallel for
         for (int lvl = 0; lvl < nlevels; ++lvl)
         {
             std::vector<cv::KeyPoint> levelKpts;
@@ -429,6 +429,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
 
                 if (endY > maximumY)
                     endY = maximumY;
+
                 for (int px = 0; px < npatchesInX; ++px)
                 {
                     float startX = minimumX + px * patchWidth;
@@ -454,6 +455,14 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
                         fast.FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
                                   patchKpts, minThFAST, lvl);
                     }
+
+#elif TESTFAST
+                    blorp::FAST_t<16>(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
+                                      patchKpts, iniThFAST, true);
+                    if (patchKpts.empty())
+                        blorp::FAST_t<16>(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
+                                          patchKpts, minThFAST, true);
+
 #else
                     cv::FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
                             patchKpts, iniThFAST, true);
@@ -536,5 +545,3 @@ void ORBextractor::ComputeScalePyramid(cv::Mat &image)
     }
 }
 }
-
-#pragma clang diagnostic pop
