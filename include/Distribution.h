@@ -5,6 +5,8 @@
 #include <list>
 #include <opencv2/core/core.hpp>
 
+#define BUCKETING_GRID_SIZE 80
+
 
 class ExtractorNode
 {

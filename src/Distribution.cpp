@@ -278,9 +278,6 @@ void Distribution::DistributeKeypointsQuadTree(std::vector<cv::KeyPoint>& kpts, 
 void Distribution::DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, const int minX,
                                               const int maxX, const int minY, const int maxY, const int N)
 {
-    //TODO: fix so results equal orbslam's results
-    // (seems it literally cannot be done, as orbslams implementation is not deterministic)
-
     assert(!kpts.empty());
 
     const int nroots = round(static_cast<float>(maxX-minX)/(maxY-minY));
@@ -349,21 +346,6 @@ void Distribution::DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyP
 
         while (current != nodesList.end())
         {
-
-            /*
-            //TODO:remove
-            if (current->nodeKpts[0].pt.x > 0 && current->nodeKpts[0].pt.y > 50 &&
-                current->nodeKpts[0].pt.x < 40 && current->nodeKpts[0].pt.y < 90)
-            {
-                std::cout << "kpt vec of node:\n";
-                for (auto &kpt : current->nodeKpts)
-                {
-                    std::cout << kpt.pt << "\n";
-                }
-            }
-            */
-            //////////////
-
             if (current->leaf)
             {
                 ++current;
@@ -550,7 +532,7 @@ void Distribution::DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, cons
     //std::sort(kpts.begin(), kpts.end(), [](const cv::KeyPoint &a, const cv::KeyPoint &b){return (a.pt.x < b.pt.x ||
     //        (a.pt.x == b.pt.x && a.pt.y < b.pt.y));});
 
-    int cellSize = 50;
+    int cellSize = BUCKETING_GRID_SIZE;
     const float width = maxX - minX;
     const float height = maxY - minY;
 
@@ -586,7 +568,6 @@ void Distribution::DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, cons
 
 
 #if 0
-    //TODO: test
     const int width = maxX - minX;
     const int height = maxY - minY;
 
@@ -755,6 +736,7 @@ void Distribution::DistributeKeypointsRT_ANMS(std::vector<cv::KeyPoint> &kpts, i
 
     std::vector<int> tempResult;
     tempResult.reserve(kpts.size());
+
     while (!done)
     {
         std::vector<bool> selected(kpts.size(), true);
@@ -781,6 +763,7 @@ void Distribution::DistributeKeypointsRT_ANMS(std::vector<cv::KeyPoint> &kpts, i
                     minX = 0;
                 if (minY < 0)
                     minY = 0;
+
 
                 std::vector<u16*> *he = tree.search(minX, maxX, minY, maxY);
                 for (int j = 0; j < he->size(); ++j)
@@ -854,11 +837,11 @@ void Distribution::DistributeKeypointsSSC(std::vector<cv::KeyPoint> &kpts, int r
         int cellRows = std::floor(rows/c);
         std::vector<std::vector<bool>> covered(cellRows+1, std::vector<bool>(cellCols+1, false));
 
-
         for (int i = 0; i < kpts.size(); ++i)
         {
             int row = (int)(kpts[i].pt.y/c);
             int col = (int)(kpts[i].pt.x/c);
+
             if (covered[row][col] == false)
             {
                 tempResult.emplace_back(i);

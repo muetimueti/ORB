@@ -151,7 +151,6 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     pangolin::Var<bool> menuDistrPerLvl("menu.Distribute Per Level", false, true);
     pangolin::Var<int> menuNFeatures("menu.Desired Features", 800, 1, 2000);
     pangolin::Var<int> menuActualkpts("menu.Features Actual", false, 0);
-    pangolin::Var<bool> menuHarris("menu.Experimental Score", false, true);
     pangolin::Var<int> menuSetInitThreshold("menu.Init FAST Threshold", FASTThresholdInit, 1, 40);
     pangolin::Var<int> menuSetMinThreshold("menu.Min FAST Threshold", FASTThresholdMin, 1, 40);
     pangolin::Var<std::string> menuText("menu.----- FAST-SCORE: -----");
@@ -185,7 +184,7 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
 
         if (extractor.GetDistribution() == Distribution::GRID && !distributePerLevel)
         {
-            DrawCellGrid(displayImg, 0, displayImg.cols, 0, displayImg.rows, 50);
+            DrawCellGrid(displayImg, 0, displayImg.cols, 0, displayImg.rows, BUCKETING_GRID_SIZE);
         }
         DisplayKeypoints(displayImg, keypoints, color, thickness, radius, drawAngular, string(imgPath));
 
@@ -411,7 +410,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
         if (myExtractor.GetDistribution() == Distribution::GRID && !distributePerLevel)
         {
-            DrawCellGrid(img, 0, img.cols, 0, img.rows, 50);
+            DrawCellGrid(img, 0, img.cols, 0, img.rows, BUCKETING_GRID_SIZE);
         }
         DisplayKeypoints(img, mykpts, color, thickness, radius, drawAngular, string(imgPath));
         cv::waitKey(1000/30);
