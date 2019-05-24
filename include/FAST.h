@@ -3,15 +3,8 @@
 
 #include <opencv2/core/core.hpp>
 #include <thread>
+#include "include/FASTworker.h"
 
-const int CIRCLE_SIZE = 16;
-
-const int CIRCLE_OFFSETS[16][2] =
-        {{0,  3}, { 1,  3}, { 2,  2}, { 3,  1}, { 3, 0}, { 3, -1}, { 2, -2}, { 1, -3},
-         {0, -3}, {-1, -3}, {-2, -2}, {-3, -1}, {-3, 0}, {-3,  1}, {-2,  2}, {-1,  3}};
-
-const int PIXELS_TO_CHECK[16] =
-        {0, 8, 2, 10, 4, 12, 6, 14, 1, 9, 3, 11, 5, 13, 7, 15};
 
 class FASTdetector
 {
@@ -44,11 +37,6 @@ public:
         return scoreType;
     }
 
-    void inline SetMultithreading(bool b)
-    {
-        enableMultithreading = b;
-    }
-
     static float CornerScore_Experimental(const uchar* ptr, int lvl);
 
 protected:
@@ -69,24 +57,21 @@ protected:
     uchar threshold_tab_init[512];
     uchar threshold_tab_min[512];
 
-    bool enableMultithreading;
+    FASTworker workerPool;
+
 
     template <typename scoretype>
     void FAST_t(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl);
 
     float CornerScore_Harris(const uchar* ptr, int lvl);
 
-
-
     float CornerScore_Sum(const uchar* ptr, const int offset[]);
 
     float CornerScore(const uchar* pointer, const int offset[], int threshold);
 
-    template <typename scoretype>
-    void multithreaded_FAST(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl);
 
 public:
-    void checkSinglePixel(uchar* pointer, const int offset[], int threshold, int lvl);
+    void FAST_mt(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl);
 };
 
 

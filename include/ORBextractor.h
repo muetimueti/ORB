@@ -75,11 +75,6 @@ public:
         return fast.GetScoreType();
     }
 
-    void inline SetMultithreading(bool b)
-    {
-        fast.SetMultithreading(std::forward<bool>(b));
-    }
-
 
     void SetnFeatures(int n);
 

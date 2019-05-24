@@ -5,5 +5,5 @@ Thumbs.db
 *.user
 *~
 .*
-ComparisonLog.txt
+Log.txt
 FASTtests.cpp
