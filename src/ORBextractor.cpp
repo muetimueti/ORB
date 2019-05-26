@@ -22,7 +22,7 @@
 #define MYFAST 1
 #define TESTFAST 0
 
-#define THREADEDPATCHES 1
+#define THREADEDPATCHES 0
 
 namespace ORB_SLAM2
 {
@@ -404,7 +404,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
     {
         int c = std::min(imagePyramid[nlevels-1].rows, imagePyramid[nlevels-1].cols);
         assert(cellSize < c && cellSize > 16);
-//#pragma omp parallel for
+#pragma omp parallel for
         for (int lvl = 0; lvl < nlevels; ++lvl)
         {
             std::vector<cv::KeyPoint> levelKpts;
@@ -430,6 +430,8 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
             }
             std::vector<std::promise<bool>> promises(nCells);
             int curCell = 0;
+
+            std::vector<std::vector<cv::KeyPoint>> cellkptvecs;
 #endif
 
             for (int py = 0; py < npatchesInY; ++py)
@@ -454,18 +456,17 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
                     if (endX > maximumX)
                         endX = maximumX;
 
-                    std::vector<cv::KeyPoint> patchKpts;
-
-
-                    std::chrono::high_resolution_clock::time_point FASTEntry =
-                            std::chrono::high_resolution_clock::now();
+                    //std::chrono::high_resolution_clock::time_point FASTEntry =
+                    //        std::chrono::high_resolution_clock::now();
 
 #if MYFAST
 #if THREADEDPATCHES
                     fast.workerPool.PushImg(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
-                            patchKpts, offset, iniThFAST, lvl, &promises[curCell++]);
+                            cellkptvecs[curCell], offset, iniThFAST, lvl, &promises[curCell]);
+                    ++curCell;
 
 #else
+                    std::vector<cv::KeyPoint> patchKpts;
                     fast.FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
                               patchKpts, iniThFAST, lvl);
                     if (patchKpts.empty())
@@ -490,6 +491,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
                             patchKpts, minThFAST, true);
                     }
 #endif
+#if !THREADEDPATCHES
                     if(patchKpts.empty())
                         continue;
 
@@ -499,8 +501,21 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
                         kpt.pt.x += px * patchWidth;
                         levelKpts.emplace_back(kpt);
                     }
+#endif
                 }
             }
+#if THREADEDPATCHES
+            for (int i = 0; i < nCells; ++i)
+            {
+                promises[i].get_future().wait();
+                for (auto &kpt : cellkptvecs[i])
+                {
+                    kpt.pt.x += ((i%npatchesInX) * patchWidth);
+                    kpt.pt.y += ((int)(i/npatchesInX) * patchHeight);
+                    levelKpts.emplace_back(kpt);
+                }
+            }
+#endif
 
             allkpts[lvl].reserve(nfeatures);
 

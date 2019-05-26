@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 14)
 SET(CMAKE_BUILD_TYPE Debug)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -march=native -fopenmp -msse2 -mavx2")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Ofast -march=native -fopenmp -msse2 -mavx2")
 
 find_package(OpenCV REQUIRED)
 find_package(Pangolin REQUIRED)
