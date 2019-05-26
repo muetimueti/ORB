@@ -38,7 +38,8 @@ class FASTworker
         int* offset;
         int threshold;
         int cols;
-        std::promise<LineResult>* res;
+        std::promise<bool>* pr;
+        LineResult* res;
     };
 
 
@@ -95,10 +96,10 @@ public:
         }
     }
 
-    void PushLine(uchar* ptr, int offset[], int threshold, int cols, std::promise<LineResult>* res)
+    void PushLine(uchar* ptr, int offset[], int threshold, int cols, std::promise<bool>* p, LineResult* res)
     {
         std::unique_lock<std::mutex> l(queuelock);
-        FASTargs a{ptr, offset, threshold, cols, res};
+        FASTargs a{ptr, offset, threshold, cols, p, res};
         lineQueue.push(a);
         l.unlock();
         cond.notify_all();
@@ -127,7 +128,7 @@ private:
                 lineQueue.pop();
 
                 lock.unlock();
-                processLine(line.ptr, line.offset, line.threshold, line.cols, line.res);
+                processLine(line.ptr, line.offset, line.threshold, line.cols, line.pr, line.res);
                 lock.lock();
             }
         }
@@ -151,13 +152,24 @@ private:
 
     bool quit;
 
-    void processLine(uchar* ptr, int offset[], int threshold, int cols, std::promise<LineResult>* res)
+    void processLine(uchar* ptr, int offset[], int threshold, int cols, std::promise<bool>* pr, LineResult* res)
     {
         uchar sc[cols];
         int ps[cols];
-        LineResult _r{sc, ps, 0};
-        memset(_r.scores, 0, cols);
-        memset(_r.pos, 0, cols);
+        memset(sc, 0, cols);
+        memset(ps, 0, cols);
+
+        res->scores = sc;
+        res->pos = ps;
+        res->ncandidates = 10;
+
+        for (int i = 0; i < res->ncandidates; ++i)
+        {
+            std::cout << "in thread: pos[" <<i << "] = " << res->pos[i] << "\n";
+        }
+
+        pr->set_value(true);
+        return;
 
         uchar *threshold_tab;
         if (threshold == th_ini)
@@ -210,8 +222,8 @@ private:
                         ++contPixels;
                         if (contPixels > contP)
                         {
-                            _r.pos[_r.ncandidates++] = x;
-                            _r.scores[x] = CornerScore(ptr, offset, threshold);
+                            res->pos[res->ncandidates++] = x;
+                            res->scores[x] = CornerScore(ptr, offset, threshold);
                             break;
                         }
                     } else
@@ -232,8 +244,8 @@ private:
                         ++contPixels;
                         if (contPixels > contP)
                         {
-                            _r.pos[_r.ncandidates++] = x;
-                            _r.scores[x] = CornerScore(ptr, offset, threshold);
+                            res->pos[res->ncandidates++] = x;
+                            res->scores[x] = CornerScore(ptr, offset, threshold);
                             break;
                         }
                     } else
@@ -241,7 +253,7 @@ private:
                 }
             }
         }
-        res->set_value(_r);
+        pr->set_value(true);
     }
 
     int CornerScore(const uchar* ptr, const int offset[], int threshold)

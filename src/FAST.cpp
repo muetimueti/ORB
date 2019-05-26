@@ -4,7 +4,7 @@
 FASTdetector::FASTdetector(int _iniThreshold, int _minThreshold, int _nlevels) :
     iniThreshold(0), minThreshold(0), nlevels(_nlevels), scoreType(OPENCV), pixelOffset{},
     threshold_tab_init{}, threshold_tab_min{},
-    workerPool(std::thread::hardware_concurrency()-1, _iniThreshold, _minThreshold)
+    workerPool(/*TODO: adjust*/ 1, _iniThreshold, _minThreshold)
 {
     pixelOffset.resize(nlevels * CIRCLE_SIZE);
     SetFASTThresholds(_iniThreshold, _minThreshold);
@@ -263,23 +263,6 @@ void FASTdetector::FAST_t(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, in
             int pos = prevRowPos[k];
             float score = prevRowScores[pos];
 
-            //TODO: remove after debugging FAST
-            /*
-            if (i == 35 && score == 42)
-            {
-                std::cout <<"scores of row with y = 35 (any patch), x = " << pos << "\n"
-                            "pprevrow[x-1]: "<<(int)pprevRowScores[pos-1]<<
-                ", pprevrow[x]: " << (int)pprevRowScores[pos] << ", pprevrow[x+1]: " << (int)pprevRowScores[pos+1] <<
-                "\nprevrow[x-1]: " << (int)prevRowScores[pos-1] << ", candodate: " << score << ", prevrow[x+1]: " <<
-                (int)prevRowScores[pos+1] << "\ncurrow[x-1]: " << (int)currRowScores[pos-1] << ", currow[x]: " <<
-                (int)currRowScores[pos] << ", currow[x+1]: " << (int)currRowScores[pos+1] << "\n\n";
-            }
-             */
-
-
-            //////////////////////////////////////
-
-
             if (score > pprevRowScores[pos-1] && score > pprevRowScores[pos] && score > pprevRowScores[pos+1] &&
                 score > prevRowScores[pos+1] && score > prevRowScores[pos-1] &&
                 score > currRowScores[pos-1] && score > currRowScores[pos] && score > currRowScores[pos+1])
@@ -454,13 +437,13 @@ void FASTdetector::FAST_mt(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, i
 
     int i, k;
 
-    std::vector<std::promise<LineResult>> promises(img.rows);
-    std::vector<std::future<LineResult>> futures(img.rows);
+    std::vector<std::promise<bool>> promises(img.rows);
+    std::vector<std::future<bool>> futures(img.rows);
     for (i = 0; i < promises.size(); ++i)
     {
         futures[i] = promises[i].get_future();
     }
-    std::vector<LineResult> results(img.rows, {nullptr, nullptr, 0});
+    std::vector<LineResult> results(img.rows);
 
 
 
@@ -474,32 +457,39 @@ void FASTdetector::FAST_mt(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, i
 
         if (i < img.rows - 3)
         {
-            workerPool.PushLine(pointer, offset, threshold, img.cols, &promises[i]);
+            workerPool.PushLine(pointer, offset, threshold, img.cols, &promises[i], &results[i]);
         }
     }
 
     for (i = 3; i < img.rows - 3; ++i)
     {
-        results[i] = futures[i].get();
+        futures[i].wait();
+
+        std::cout << "\n after wait for " << i << ": res[" << i << "].ncandidates = " << results[i].ncandidates << "\n";
+        for (int m = 0; m < results[i].ncandidates; ++m)
+            std::cout << "res[" << i << "].pos[" << m << "] = " << results[i].pos[m] << "\n";
+
+        for (int m = 0; m < results[i].ncandidates; ++m)
+            std::cout << "res[" << i << "].scores[" << m << "] = " << (int)results[i].scores[m] << "\n";
+
 
         if (i == 3 || i == 4) continue;
 
-        int n = futures[i].get().ncandidates;
+        int n = results[i-1].ncandidates;
         for (k = 0; k < n; ++k)
         {
-            int pos = futures[i].get().pos[k];
-            float score = futures[i].get().scores[pos];
-#define SC(Y,X) results[Y].scores[X]
+            //std::cout << "\nres[" << i <<"], n = " << n << ", k = " << k;
+            int pos = results[i-1].pos[k];
+            float score = results[i-1].scores[pos];
 
-            if (score > SC(i-2, pos-1) && score > SC(i-2, pos) && score > SC(i-2, pos+1) &&
-            score > SC(i-1, pos-1) && score > SC(i-1, pos+1) &&
-            score > SC(i, pos-1) && score > SC(i, pos) && score > SC(i, pos+1))
+            if (score > results[i-2].scores[pos-1] && score > results[i-2].scores[pos] &&
+            score > results[i-2].scores[pos+1] &&
+            score > results[i-1].scores[pos-1] && score > results[i-1].scores[pos+1] &&
+            score > results[i].scores[pos-1] && score > results[i].scores[pos] && score > results[i].scores[pos+1])
             {
                 keypoints.emplace_back(cv::KeyPoint((float)pos, (float)(i-1), 7.f, -1, (float)score, lvl));
             }
-#undef SC
         }
-
     }
 }
 

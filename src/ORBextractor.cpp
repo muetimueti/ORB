@@ -402,7 +402,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
     {
         int c = std::min(imagePyramid[nlevels-1].rows, imagePyramid[nlevels-1].cols);
         assert(cellSize < c && cellSize > 16);
-#pragma omp parallel for
+//#pragma omp parallel for
         for (int lvl = 0; lvl < nlevels; ++lvl)
         {
             std::vector<cv::KeyPoint> levelKpts;
