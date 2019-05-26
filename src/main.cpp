@@ -345,7 +345,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     pangolin::FinishFrame();
 
     cv::namedWindow(string(imgPath));
-    cv::moveWindow(string(imgPath), 210, 260);
+    cv::moveWindow(string(imgPath), 240, 260);
     string imgTrackbar = string("image nr");
 
     int nn = 0;

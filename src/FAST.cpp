@@ -4,7 +4,7 @@
 FASTdetector::FASTdetector(int _iniThreshold, int _minThreshold, int _nlevels) :
     iniThreshold(0), minThreshold(0), nlevels(_nlevels), scoreType(OPENCV), pixelOffset{},
     threshold_tab_init{}, threshold_tab_min{},
-    workerPool(/*TODO: adjust*/ 1, _iniThreshold, _minThreshold)
+    workerPool(/*TODO: adjust*/ 2, _iniThreshold, _minThreshold)
 {
     pixelOffset.resize(nlevels * CIRCLE_SIZE);
     SetFASTThresholds(_iniThreshold, _minThreshold);
@@ -464,14 +464,14 @@ void FASTdetector::FAST_mt(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, i
     for (i = 3; i < img.rows - 3; ++i)
     {
         futures[i].wait();
-
+        /*
         std::cout << "\n after wait for " << i << ": res[" << i << "].ncandidates = " << results[i].ncandidates << "\n";
         for (int m = 0; m < results[i].ncandidates; ++m)
             std::cout << "res[" << i << "].pos[" << m << "] = " << results[i].pos[m] << "\n";
 
         for (int m = 0; m < results[i].ncandidates; ++m)
             std::cout << "res[" << i << "].scores[" << m << "] = " << (int)results[i].scores[m] << "\n";
-
+        */
 
         if (i == 3 || i == 4) continue;
 

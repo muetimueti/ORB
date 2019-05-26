@@ -25,8 +25,10 @@ const int PIXELS_TO_CHECK[16] =
 
 typedef struct LineResult
 {
-uchar* scores;
-int* pos;
+std::vector<uchar> scores;
+//uchar* scores;
+std::vector<int> pos;
+//int* pos;
 int ncandidates;
 } LineResult;
 
@@ -154,22 +156,16 @@ private:
 
     void processLine(uchar* ptr, int offset[], int threshold, int cols, std::promise<bool>* pr, LineResult* res)
     {
+        /*
         uchar sc[cols];
         int ps[cols];
         memset(sc, 0, cols);
         memset(ps, 0, cols);
+        */
+        res->scores.resize(cols);
+        res->pos.resize(cols);
+        res->ncandidates = 0;
 
-        res->scores = sc;
-        res->pos = ps;
-        res->ncandidates = 10;
-
-        for (int i = 0; i < res->ncandidates; ++i)
-        {
-            std::cout << "in thread: pos[" <<i << "] = " << res->pos[i] << "\n";
-        }
-
-        pr->set_value(true);
-        return;
 
         uchar *threshold_tab;
         if (threshold == th_ini)
