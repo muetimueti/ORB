@@ -70,8 +70,8 @@ void FASTdetector::FAST(cv::Mat img, std::vector<cv::KeyPoint> &keypoints, int t
         {
             case (OPENCV):
             {
-                this->FAST_mt(img, keypoints, threshold, lvl);
-                //this->FAST_t<uchar>(img, keypoints, threshold, lvl);
+                //this->FAST_mt(img, keypoints, threshold, lvl);
+                this->FAST_t<uchar>(img, keypoints, threshold, lvl);
                 break;
             }
             case (SUM):

@@ -32,6 +32,7 @@ std::vector<int> pos;
 int ncandidates;
 } LineResult;
 
+
 class FASTworker
 {
     struct FASTargs
@@ -44,11 +45,22 @@ class FASTworker
         LineResult* res;
     };
 
+    struct FASTargs_img
+    {
+        cv::Mat* img;
+        std::vector<cv::KeyPoint>* kpts;
+        int* offset;
+        int threshold;
+        int lvl;
+        std::promise<bool>* pr;
+
+    };
+
 
 public:
     FASTworker(size_t nThreads, size_t _th_ini, size_t _th_min) : threads(nThreads), th_tab_init{}, th_tab_min{},
         th_ini(_th_ini), th_min(_th_min), contP(CIRCLE_SIZE/2), onePointFiveCircles(contP + CIRCLE_SIZE + 1),
-        quit(false)
+        quit(false), is_img_queue(true)
     {
         for (size_t i = 0; i < nThreads; ++i)
         {
@@ -100,11 +112,21 @@ public:
 
     void PushLine(uchar* ptr, int offset[], int threshold, int cols, std::promise<bool>* p, LineResult* res)
     {
+        assert(!is_img_queue);
+
         std::unique_lock<std::mutex> l(queuelock);
         FASTargs a{ptr, offset, threshold, cols, p, res};
-        lineQueue.push(a);
+        //queue.push(a);
         l.unlock();
         cond.notify_all();
+    }
+
+    void PushImg(cv::Mat img, std::vector<cv::KeyPoint> kpts, int offset[], int threshold, int lvl,
+            std::promise<bool>* p)
+    {
+        std::unique_lock<std::mutex> l(queuelock);
+        FASTargs_img a{&img, &kpts, offset, threshold, lvl, };
+
     }
 
     void Reset()
@@ -122,21 +144,24 @@ private:
 
         while (!quit)
         {
-            cond.wait(lock, [this]{return (!lineQueue.empty() || quit);});
+            cond.wait(lock, [this]{return (!queue.empty() || quit);});
 
-            if (!lineQueue.empty())
+            if (!queue.empty())
             {
-                auto line = lineQueue.front();
-                lineQueue.pop();
+                //auto line = queue.front();
+                auto args = queue.front();
+                queue.pop();
 
                 lock.unlock();
-                processLine(line.ptr, line.offset, line.threshold, line.cols, line.pr, line.res);
+                //processLine(line.ptr, line.offset, line.threshold, line.cols, line.pr, line.res);
+                processImg(*args.img, *args.kpts, args.offset, args.threshold, args.lvl, *args.pr);
+
                 lock.lock();
             }
         }
     }
 
-    std::queue<FASTargs> lineQueue;
+    std::queue<FASTargs_img> queue;
 
     std::vector<std::thread> threads;
 
@@ -151,6 +176,8 @@ private:
 
     size_t contP;
     size_t onePointFiveCircles;
+
+    bool is_img_queue;
 
     bool quit;
 
@@ -250,6 +277,158 @@ private:
             }
         }
         pr->set_value(true);
+    }
+
+    void processImg(cv::Mat& img, std::vector<cv::KeyPoint>& kpts, int* offset, int threshold, int lvl,
+            std::promise<bool>& p)
+    {
+        kpts.clear();
+
+        assert(threshold == th_ini || threshold == th_min);
+
+        uchar *threshold_tab;
+        if (threshold == th_ini)
+            threshold_tab = th_tab_init;
+        else
+            threshold_tab = th_tab_min;
+
+
+        uchar cornerScores[img.cols*3];
+        int cornerPos[img.cols*3];
+
+        memset(cornerScores, 0, img.cols*3);
+        memset(cornerPos, 0, img.cols*3);
+
+        uchar* currRowScores = &cornerScores[0];
+        uchar* prevRowScores = &cornerScores[img.cols];
+        uchar* pprevRowScores = &cornerScores[img.cols*2];
+
+        int* currRowPos = &cornerPos[0];
+        int* prevRowPos = &cornerPos[img.cols];
+        int* pprevRowPos = &cornerPos[img.cols*2];
+
+
+        int i, j, k, ncandidates = 0, ncandidatesprev = 0;
+
+        for (i = 3; i < img.rows - 2; ++i)
+        {
+            const uchar* pointer = img.ptr<uchar>(i) + 3;
+
+            ncandidatesprev = ncandidates;
+            ncandidates = 0;
+
+            int* tempPos = pprevRowPos;
+            uchar* tempScores = pprevRowScores;
+
+            pprevRowPos = prevRowPos;
+            pprevRowScores = prevRowScores;
+            prevRowPos = currRowPos;
+            prevRowScores = currRowScores;
+
+            currRowPos = tempPos;
+            currRowScores = tempScores;
+
+            memset(currRowPos, 0, img.cols);
+            memset(currRowScores, 0, img.cols);
+
+            if (i < img.rows - 3) // skip last row
+            {
+                for (j = 3; j < img.cols-3; ++j, ++pointer)
+                {
+                    int val = pointer[0];                           //value of central pixel
+                    const uchar *tab = &threshold_tab[255] - val;       //shift threshold tab by val
+
+
+                    int discard = tab[pointer[offset[PIXELS_TO_CHECK[0]]]]
+                                  | tab[pointer[offset[PIXELS_TO_CHECK[1]]]];
+
+                    if (discard == 0)
+                        continue;
+
+                    bool gotoNextCol = false;
+                    for (k = 2; k < 16; k+=2)
+                    {
+                        discard &= tab[pointer[offset[PIXELS_TO_CHECK[k]]]]
+                                   | tab[pointer[offset[PIXELS_TO_CHECK[k+1]]]];
+                        if (k == 6 && discard == 0)
+                        {
+                            gotoNextCol = true;
+                            break;
+                        }
+                        if (k == 14 && discard == 0)
+                        {
+                            gotoNextCol = true;
+                        }
+                    }
+                    if (gotoNextCol) // initial FAST-check failed
+                        continue;
+
+
+                    if (discard & 1) // check for continuous circle of pixels darker than threshold
+                    {
+                        int compare = val - threshold;
+                        int contPixels = 0;
+
+                        for (k = 0; k < onePointFiveCircles; ++k)
+                        {
+                            int a = pointer[offset[k%CIRCLE_SIZE]];
+                            if (a < compare)
+                            {
+                                ++contPixels;
+                                if (contPixels > contP)
+                                {
+                                    currRowPos[ncandidates++] = j;
+                                    currRowScores[j] = CornerScore(pointer, offset, threshold);
+
+                                    break;
+                                }
+                            } else
+                                contPixels = 0;
+                        }
+                    }
+
+                    if (discard & 2) // check for continuous circle of pixels brighter than threshold
+                    {
+                        int compare = val + threshold;
+                        int contPixels = 0;
+
+                        for (k = 0; k < onePointFiveCircles; ++k)
+                        {
+                            int a = pointer[offset[k%CIRCLE_SIZE]];
+                            if (a > compare)
+                            {
+                                ++contPixels;
+                                if (contPixels > contP)
+                                {
+                                    currRowPos[ncandidates++] = j;
+                                    currRowScores[j] = CornerScore(pointer, offset, threshold);
+
+                                    break;
+                                }
+                            } else
+                                contPixels = 0;
+                        }
+                    }
+                }
+            }
+
+
+            if (i == 3)
+                continue;
+
+            for (k = 0; k < ncandidatesprev; ++k)
+            {
+                int pos = prevRowPos[k];
+                float score = prevRowScores[pos];
+
+                if (score > pprevRowScores[pos-1] && score > pprevRowScores[pos] && score > pprevRowScores[pos+1] &&
+                    score > prevRowScores[pos+1] && score > prevRowScores[pos-1] &&
+                    score > currRowScores[pos-1] && score > currRowScores[pos] && score > currRowScores[pos+1])
+                {
+                    kpts.emplace_back(cv::KeyPoint((float)pos, (float)(i-1), 7.f, -1, (float)score, lvl));
+                }
+            }
+        }
     }
 
     int CornerScore(const uchar* ptr, const int offset[], int threshold)

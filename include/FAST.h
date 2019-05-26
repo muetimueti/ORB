@@ -39,6 +39,8 @@ public:
 
     static float CornerScore_Experimental(const uchar* ptr, int lvl);
 
+    FASTworker workerPool;
+
 protected:
 
     int iniThreshold;
@@ -56,8 +58,6 @@ protected:
 
     uchar threshold_tab_init[512];
     uchar threshold_tab_min[512];
-
-    FASTworker workerPool;
 
 
     template <typename scoretype>

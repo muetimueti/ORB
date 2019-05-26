@@ -20,7 +20,9 @@
 #endif
 
 #define MYFAST 1
-#define TESTFAST 1
+#define TESTFAST 0
+
+#define THREADEDPATCHES 1
 
 namespace ORB_SLAM2
 {
@@ -419,6 +421,17 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
             const int patchWidth = ceil(width / npatchesInX);
             const int patchHeight = ceil(height / npatchesInY);
 
+#if THREADEDPATCHES
+            int nCells = npatchesInX * npatchesInY;
+            int offset[CIRCLE_SIZE];
+            for (int i = 0; i < CIRCLE_SIZE; ++i)
+            {
+                offset[i] = pixelOffset[lvl*CIRCLE_SIZE + i];
+            }
+            std::vector<std::promise<bool>> promises(nCells);
+            int curCell = 0;
+#endif
+
             for (int py = 0; py < npatchesInY; ++py)
             {
                 float startY = minimumY + py * patchHeight;
@@ -448,6 +461,11 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
                             std::chrono::high_resolution_clock::now();
 
 #if MYFAST
+#if THREADEDPATCHES
+                    fast.workerPool.PushImg(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
+                            patchKpts, offset, iniThFAST, lvl, &promises[curCell++]);
+
+#else
                     fast.FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
                               patchKpts, iniThFAST, lvl);
                     if (patchKpts.empty())
@@ -455,7 +473,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
                         fast.FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
                                   patchKpts, minThFAST, lvl);
                     }
-
+#endif
 #elif TESTFAST
                     blorp::FAST_t<16>(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
                                       patchKpts, iniThFAST, true);
@@ -472,7 +490,6 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
                             patchKpts, minThFAST, true);
                     }
 #endif
-
                     if(patchKpts.empty())
                         continue;
 
