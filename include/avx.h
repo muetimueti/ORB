@@ -1,3 +1,6 @@
+#ifndef ORBEXTRACTOR_AVX_H
+#define ORBEXTRACTOR_AVX_H
+
 #include "opencv2/core/utility.hpp"
 #include <algorithm>
 #include <immintrin.h>
@@ -867,3 +870,4 @@ void FAST_t(cv::InputArray _img, std::vector<cv::KeyPoint>& keypoints, int thres
 
 }
 
+#endif

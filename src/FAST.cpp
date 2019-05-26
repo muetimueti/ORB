@@ -70,7 +70,8 @@ void FASTdetector::FAST(cv::Mat img, std::vector<cv::KeyPoint> &keypoints, int t
         {
             case (OPENCV):
             {
-                this->FAST_t<uchar>(img, keypoints, threshold, lvl);
+                this->FAST_mt(img, keypoints, threshold, lvl);
+                //this->FAST_t<uchar>(img, keypoints, threshold, lvl);
                 break;
             }
             case (SUM):
@@ -451,17 +452,18 @@ void FASTdetector::FAST_mt(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, i
 
     assert(threshold == minThreshold || threshold == iniThreshold); //only initial or min threshold should be passed
 
-    uchar *threshold_tab;
-    if (threshold == iniThreshold)
-        threshold_tab = threshold_tab_init;
-    else
-        threshold_tab = threshold_tab_min;
+    int i, k;
 
-    std::vector<std::future<LineResult>> futures;
+    std::vector<std::promise<LineResult>> promises(img.rows);
+    std::vector<std::future<LineResult>> futures(img.rows);
+    for (i = 0; i < promises.size(); ++i)
+    {
+        futures[i] = promises[i].get_future();
+    }
     std::vector<LineResult> results(img.rows, {nullptr, nullptr, 0});
 
 
-    int i, j, k, ncandidates = 0, ncandidatesprev = 0;
+
 
     for (i = 3; i < img.rows - 2; ++i)
     {
@@ -470,32 +472,32 @@ void FASTdetector::FAST_mt(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, i
         std::future<LineResult> f = p.get_future();
 
 
-        if (i < img.rows - 3) // skip last row
+        if (i < img.rows - 3)
         {
-            //TODO: implement future/promise!!!!!!!!!
-            workerPool.PushLine(pointer, offset, threshold, img.cols, &results[i]);
+            workerPool.PushLine(pointer, offset, threshold, img.cols, &promises[i]);
         }
     }
+
     for (i = 3; i < img.rows - 3; ++i)
     {
-        futures[i].wait();
-        LineResult r = futures[i].get();
+        results[i] = futures[i].get();
 
         if (i == 3 || i == 4) continue;
 
-        int n = results[i-1].ncandidates;
+        int n = futures[i].get().ncandidates;
         for (k = 0; k < n; ++k)
         {
-            int pos = results[i-1].pos[k];
-            float score = results[i-1].scores[pos];
-            using results[i-2].scores = pprev;
+            int pos = futures[i].get().pos[k];
+            float score = futures[i].get().scores[pos];
+#define SC(Y,X) results[Y].scores[X]
 
-            if (score > results[i-2].scores[pos-1] && score > results[i-2].scores[pos] && score > results[i-21].scores[pos+1] &&
-            score > results[i-1].scores[pos+1] && score > results[i-1].scores[pos-1] &&
-            score > results[i].scores[pos-1] && score > results[i].scores[pos] && score > results[i].scores[pos+1])
+            if (score > SC(i-2, pos-1) && score > SC(i-2, pos) && score > SC(i-2, pos+1) &&
+            score > SC(i-1, pos-1) && score > SC(i-1, pos+1) &&
+            score > SC(i, pos-1) && score > SC(i, pos) && score > SC(i, pos+1))
             {
                 keypoints.emplace_back(cv::KeyPoint((float)pos, (float)(i-1), 7.f, -1, (float)score, lvl));
             }
+#undef SC
         }
 
     }
