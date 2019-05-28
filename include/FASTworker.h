@@ -10,8 +10,6 @@
 #include <future>
 //#include "include/avx.h"
 
-//TODO: remove include
-#include <iostream>
 #include "FAST.h"
 
 const int CIRCLE_SIZE = 16;

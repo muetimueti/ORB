@@ -19,7 +19,7 @@
 #   define D(x)
 #endif
 
-#define MYFAST 1
+#define MYFAST 0
 #define TESTFAST 0
 
 #define THREADEDPATCHES 0
@@ -476,6 +476,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
                     }
 #endif
 #elif TESTFAST
+                    std::vector<cv::KeyPoint> patchKpts;
                     blorp::FAST_t<16>(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
                                       patchKpts, iniThFAST, true);
                     if (patchKpts.empty())
@@ -483,12 +484,13 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
                                           patchKpts, minThFAST, true);
 
 #else
+                    std::vector<cv::KeyPoint> patchKpts;
                     cv::FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
-                            patchKpts, iniThFAST, true);
+                            patchKpts, iniThFAST, true, cv::FastFeatureDetector::TYPE_9_16);
                     if (patchKpts.empty())
                     {
                         cv::FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
-                            patchKpts, minThFAST, true);
+                            patchKpts, minThFAST, true, cv::FastFeatureDetector::TYPE_9_16);
                     }
 #endif
 #if !THREADEDPATCHES
