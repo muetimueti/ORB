@@ -75,10 +75,18 @@ public:
         return fast.GetScoreType();
     }
 
+    void inline SetLevelToDisplay(int lvl)
+    {
+        levelToDisplay = std::min(lvl, nlevels-1);
+    }
 
     void SetnFeatures(int n);
 
     void SetFASTThresholds(int ini, int min);
+
+    void SetnLevels(int n);
+
+    void SetScaleFactor(float s);
 
 protected:
 
@@ -105,6 +113,8 @@ protected:
     int nlevels;
     int iniThFAST;
     int minThFAST;
+
+    int levelToDisplay;
 
     Distribution::DistributionMethod kptDistribution;
 

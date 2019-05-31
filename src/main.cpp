@@ -315,7 +315,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
     cv::Mat img;
 
-    pangolin::CreateWindowAndBind("Menu",210,600);
+    pangolin::CreateWindowAndBind("Menu",210,680);
 
     pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(210));
 
@@ -323,8 +323,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     pangolin::Var<bool> menuAll("menu.All Keypoints",false,false);
     pangolin::Var<bool> menuTopN("menu.TopN",false,false);
     pangolin::Var<bool> menuBucketing("menu.Bucketing",true,false);
-    pangolin::Var<bool> menuQuadtree("menu.Quadtree",false,false);
-    pangolin::Var<bool> menuQuadtreeORBSLAMSTYLE("menu.Quadtree ORBSLAMSTYLE",false,false);
+    pangolin::Var<bool> menuQuadtreeORBSLAMSTYLE("menu.Quadtree",false,false);
     pangolin::Var<bool> menuANMS_KDT("menu.KDTree-ANMS",false,false);
     pangolin::Var<bool> menuANMS_RT("menu.Range-Tree-ANMS",false,false);
     pangolin::Var<bool> menuSSC("menu.SSC",false,false);
@@ -338,7 +337,10 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     pangolin::Var<bool> menuScoreHarris("menu.Harris", false, false);
     pangolin::Var<bool> menuScoreSum("menu.Sum", false, false);
     pangolin::Var<bool> menuScoreExp("menu.Experimental", false, false);
-    //pangolin::Var<bool> menuMultithreading("menu.Enable Multithreading", false, true);
+    pangolin::Var<float> menuScaleFactor("menu.Scale Factor", scaleFactor, 1.001, 1.2);
+    pangolin::Var<int> menuNLevels("menu.nLevels", nLevels, 2, 8);
+    pangolin::Var<bool> menuSingleLvlOnly("menu.Dispay Keypoints of single level:", false, true);
+    pangolin::Var<int> menuChosenLvl("menu.Limit to Level", 0, 0, myExtractor.GetLevels()-1);
     pangolin::Var<int> menuMeanProcessingTime("menu.Mean Processing Time", 0);
     pangolin::Var<int> menuLastFrametime("menu.Last Frame", 0);
 
@@ -347,18 +349,17 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     cv::namedWindow(string(imgPath));
     cv::moveWindow(string(imgPath), 240, 260);
     string imgTrackbar = string("image nr");
-
     int nn = 0;
     cv::createTrackbar(imgTrackbar, string(imgPath), &nn, nImages);
     /** Trackbar call if opencv was compiled without Qt support:
     //cv::createTrackbar(imgTrackbar, string(imgPath), nullptr, nImages);
      */
 
-    cv::createButton("btn", nullptr, nullptr, cv::QT_PUSH_BUTTON, false);
+    //cv::createButton("btn", nullptr, nullptr, cv::QT_PUSH_BUTTON, false);
 
     int count = 0;
     bool distributePerLevel = false;
-    bool multithreading = false;
+    int soloLvl = -1;
 
     for(int ni=0; ni<nImages; ni++)
     {
@@ -426,6 +427,18 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             myExtractor.SetnFeatures(n);
         }
 
+        float scaleF = menuScaleFactor;
+        if (scaleF != myExtractor.GetScaleFactor())
+        {
+            myExtractor.SetScaleFactor(scaleF);
+        }
+
+        int nlvl = menuNLevels;
+        if (nlvl != myExtractor.GetLevels())
+        {
+            myExtractor.SetnLevels(nlvl);
+        }
+
         menuLastFrametime = myduration/1000;
         menuMeanProcessingTime = myTotalDuration/1000 / count;
 
@@ -451,13 +464,6 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             myTotalDuration = 0;
             count = 0;
             menuBucketing = false;
-        }
-        if (menuQuadtree)
-        {
-            myExtractor.SetDistribution(Distribution::QUADTREE);
-            myTotalDuration = 0;
-            count = 0;
-            menuQuadtree = false;
         }
         if (menuQuadtreeORBSLAMSTYLE)
         {
@@ -486,6 +492,18 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             myTotalDuration = 0;
             count = 0;
             menuSSC = false;
+        }
+
+        if (menuSingleLvlOnly && (soloLvl != menuChosenLvl))
+        {
+            soloLvl = menuChosenLvl;
+            menuDistrPerLvl = true;
+            myExtractor.SetLevelToDisplay(soloLvl);
+        }
+        if (!menuSingleLvlOnly)
+        {
+            soloLvl = -1;
+            myExtractor.SetLevelToDisplay(-1);
         }
 
         if (menuDistrPerLvl && !distributePerLevel)

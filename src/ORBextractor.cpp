@@ -59,30 +59,12 @@ float ORBextractor::IntensityCentroidAngle(const uchar* pointer, int step)
 
 ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels, int _iniThFAST, int _minThFAST):
         nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels), iniThFAST(_iniThFAST), minThFAST(_minThFAST),
-        kptDistribution(Distribution::DistributionMethod::SSC), pixelOffset{},
+        levelToDisplay(-1), kptDistribution(Distribution::DistributionMethod::SSC), pixelOffset{},
         fast(_iniThFAST, _minThFAST, _nlevels)
 {
-    scaleFactorVec.resize(nlevels);
-    invScaleFactorVec.resize(nlevels);
-    imagePyramid.resize(nlevels);
-    nfeaturesPerLevelVec.resize(nlevels);
-    levelSigma2Vec.resize(nlevels);
-    invLevelSigma2Vec.resize(nlevels);
-    pixelOffset.resize(nlevels * CIRCLE_SIZE);
+    SetnLevels(_nlevels);
 
     SetFASTThresholds(_iniThFAST, _minThFAST);
-
-    scaleFactorVec[0] = 1.f;
-    invScaleFactorVec[0] = 1.f;
-
-
-    for (int i = 1; i < nlevels; ++i) {
-        scaleFactorVec[i] = scaleFactor * scaleFactorVec[i - 1];
-        invScaleFactorVec[i] = 1 / scaleFactorVec[i];
-
-        levelSigma2Vec[i] = scaleFactorVec[i] * scaleFactorVec[i];
-        invLevelSigma2Vec[i] = 1.f / levelSigma2Vec[i];
-    }
 
     SetnFeatures(nfeatures);
 
@@ -94,7 +76,6 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels, int
 
 void ORBextractor::SetnFeatures(int n)
 {
-    //reject unreasonable values
     if (n < 1 || n > 10000)
         return;
 
@@ -404,8 +385,16 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
     {
         int c = std::min(imagePyramid[nlevels-1].rows, imagePyramid[nlevels-1].cols);
         assert(cellSize < c && cellSize > 16);
+
+        int minLvl = 0, maxLvl = nlevels;
+        if (levelToDisplay != -1)
+        {
+            minLvl = levelToDisplay;
+            maxLvl = minLvl + 1;
+        }
+
 #pragma omp parallel for
-        for (int lvl = 0; lvl < nlevels; ++lvl)
+        for (int lvl = minLvl; lvl < maxLvl; ++lvl)
         {
             std::vector<cv::KeyPoint> levelKpts;
             levelKpts.clear();
@@ -576,6 +565,36 @@ void ORBextractor::ComputeScalePyramid(cv::Mat &image)
             cv::copyMakeBorder(image, borderedImg, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
                                cv::BORDER_REFLECT_101);
         }
+    }
+}
+
+void ORBextractor::SetnLevels(int n)
+{
+    nlevels = std::max(std::min(12, n), 2);
+    scaleFactorVec.resize(nlevels);
+    invScaleFactorVec.resize(nlevels);
+    imagePyramid.resize(nlevels);
+    nfeaturesPerLevelVec.resize(nlevels);
+    levelSigma2Vec.resize(nlevels);
+    invLevelSigma2Vec.resize(nlevels);
+    pixelOffset.resize(nlevels * CIRCLE_SIZE);
+
+    SetScaleFactor(scaleFactor);
+}
+
+void ORBextractor::SetScaleFactor(float s)
+{
+    scaleFactor = std::max(std::min(1.5f, s), 1.001f);
+    scaleFactorVec[0] = 1.f;
+    invScaleFactorVec[0] = 1.f;
+
+
+    for (int i = 1; i < nlevels; ++i) {
+        scaleFactorVec[i] = scaleFactor * scaleFactorVec[i - 1];
+        invScaleFactorVec[i] = 1 / scaleFactorVec[i];
+
+        levelSigma2Vec[i] = scaleFactorVec[i] * scaleFactorVec[i];
+        invLevelSigma2Vec[i] = 1.f / levelSigma2Vec[i];
     }
 }
 }
