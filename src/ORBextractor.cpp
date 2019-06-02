@@ -19,7 +19,7 @@
 #   define D(x)
 #endif
 
-#define MYFAST 0
+#define MYFAST 1
 #define TESTFAST 0
 
 #define THREADEDPATCHES 0

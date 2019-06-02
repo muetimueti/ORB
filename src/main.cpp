@@ -349,6 +349,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     cv::namedWindow(string(imgPath));
     cv::moveWindow(string(imgPath), 240, 260);
     string imgTrackbar = string("image nr");
+
     int nn = 0;
     cv::createTrackbar(imgTrackbar, string(imgPath), &nn, nImages);
     /** Trackbar call if opencv was compiled without Qt support:
@@ -626,7 +627,8 @@ void PerformanceMode(std::string &imgPath, int nFeatures, float scaleFactor, int
     cout << "\n-------------------------\n"
          << "Images in sequence: " << nImages << "\n";
 
-    cout << "\nsetting up...\n";
+    cout << "\nSettings:\nnFeatures: " << nFeatures << "\nscaleFactor: " << scaleFactor << "\nnLevels: " << nLevels <<
+        "\nFAST Thresholds: " << FASTThresholdInit << ", " << FASTThresholdMin << "\n";
 
     long totalDuration = 0;
 
@@ -635,28 +637,40 @@ void PerformanceMode(std::string &imgPath, int nFeatures, float scaleFactor, int
     using clk = std::chrono::high_resolution_clock;
 
     clk::time_point t0 = clk::now();
-    for (int ni = 0; ni < nImages; ++ni)
+    for (size_t d = 0; d < 7; ++d)
     {
-        img = cv::imread(string(imgPath) + "/" + vstrImageFilenames[ni], CV_LOAD_IMAGE_UNCHANGED);
+        if (d == 1)
+            continue;
+        extractor.SetDistribution(static_cast<Distribution::DistributionMethod>(d));
+        cout << "\nTesting performance with distribution " << static_cast<Distribution::DistributionMethod>(d)
+            << "...";
+        totalDuration = 0;
+        vTimesTrack = vector<long>(nImages);
+        for (int ni = 0; ni < nImages; ++ni)
+        {
+            img = cv::imread(string(imgPath) + "/" + vstrImageFilenames[ni], CV_LOAD_IMAGE_UNCHANGED);
 
-        cv::Mat imgGray;
-        cv::cvtColor(img, imgGray, CV_BGR2GRAY);
+            cv::Mat imgGray;
+            cv::cvtColor(img, imgGray, CV_BGR2GRAY);
 
-        vector<cv::KeyPoint> kpts;
-        cv::Mat descriptors;
+            vector<cv::KeyPoint> kpts;
+            cv::Mat descriptors;
 
-        clk::time_point t1 = clk::now();
-        extractor(imgGray, cv::Mat(), kpts, descriptors, true);
-        clk::time_point t2 = clk::now();
-        long d = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
-        totalDuration += d;
-        vTimesTrack[ni] = d;
-        if (ni%100 == 0)
-            cout << "\nNow at image " << ni;
+            clk::time_point t1 = clk::now();
+            extractor(imgGray, cv::Mat(), kpts, descriptors, true);
+            clk::time_point t2 = clk::now();
+            long d = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
+            totalDuration += d;
+            vTimesTrack[ni] = d;
+            //if (ni%100 == 0)
+            //    cout << "\nNow at image " << ni;
+        }
+        cout << "\nTotal time: " << (double)totalDuration/1000000.0 << " seconds"
+                 "\nmean: " << (double)totalDuration/nImages/1000.0 << " milliseconds"
+                 "\nmedian: " << (double)vTimesTrack[nImages/2]/1000.0 << " milliseconds";
+        cout << "\n-------------------------\n";
     }
-    cout << "\nTotal time: " << (double)totalDuration/1000000.0 << " seconds"
-        "\nmean: " << (double)totalDuration/nImages/1000.0 << " milliseconds"
-        "\nmedian: " << (double)vTimesTrack[nImages/2]/1000.0 << " milliseconds";
+
 }
 
 void SortKeypoints(vector<cv::KeyPoint> &kpts)
