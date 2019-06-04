@@ -665,6 +665,7 @@ void PerformanceMode(std::string &imgPath, int nFeatures, float scaleFactor, int
             //if (ni%100 == 0)
             //    cout << "\nNow at image " << ni;
         }
+        std::sort(vTimesTrack.begin(), vTimesTrack.end());
         cout << "\nTotal time: " << (double)totalDuration/1000000.0 << " seconds"
                  "\nmean: " << (double)totalDuration/nImages/1000.0 << " milliseconds"
                  "\nmedian: " << (double)vTimesTrack[nImages/2]/1000.0 << " milliseconds";
@@ -701,7 +702,7 @@ vector<std::pair<cv::KeyPoint, cv::KeyPoint>> CompareKeypoints(vector<cv::KeyPoi
 
     bool eq = true;
     int count = 0;
-    for (int i = 0; i < N; ++i) //TODO: revert to i = 0; i < N
+    for (int i = 0; i < N; ++i)
     {
         if (!(kpts1[i].pt.x == kpts2[i].pt.x && kpts1[i].pt.y == kpts2[i].pt.y &&
             kpts1[i].octave == kpts2[i].octave && kpts1[i].response == kpts2[i].response &&
