@@ -1,6 +1,6 @@
 #include <iostream>
 #include <fstream>
-
+#include <iomanip>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
@@ -292,8 +292,11 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
     vector<string> vstrImageFilenames;
     vector<double> vTimestamps;
-    string strFile = string(imgPath)+"/rgb.txt";
-    LoadImages(strFile, vstrImageFilenames, vTimestamps);
+    //string strFile = string(imgPath)+"/rgb.txt";
+    //LoadImages(strFile, vstrImageFilenames, vTimestamps)
+
+    vector<string> empty;
+    LoadImages(imgPath, vstrImageFilenames, empty, vTimestamps);
 
     int nImages = vstrImageFilenames.size();
 
@@ -366,7 +369,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         cv::setTrackbarPos("image nr", string(imgPath), ni);
         //cout << "\nNow processing image nr. " << ni << "...\n";
         // Read image from file
-        img = cv::imread(string(imgPath) + "/" + vstrImageFilenames[ni], CV_LOAD_IMAGE_UNCHANGED);
+        //img = cv::imread(string(imgPath) + "/" + vstrImageFilenames[ni], CV_LOAD_IMAGE_UNCHANGED);
+        img = cv::imread(vstrImageFilenames[ni], CV_LOAD_IMAGE_UNCHANGED);
         double tframe = vTimestamps[ni];
 
         if (img.empty())
@@ -378,7 +382,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         }
 
         cv::Mat imgGray;
-        cv::cvtColor(img, imgGray, CV_BGR2GRAY);
+        //cv::cvtColor(img, imgGray, CV_BGR2GRAY);
 
         vector<cv::KeyPoint> mykpts;
         cv::Mat mydescriptors;
@@ -396,7 +400,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
 
 
-        myExtractor(imgGray, cv::Mat(), mykpts, mydescriptors, distributePerLevel);
+        myExtractor(img, cv::Mat(), mykpts, mydescriptors, distributePerLevel);
         chrono::high_resolution_clock ::time_point t3 = chrono::high_resolution_clock::now();
 
         auto refduration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
@@ -413,6 +417,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         {
             DrawCellGrid(img, 0, img.cols, 0, img.rows, BUCKETING_GRID_SIZE);
         }
+        cv::cvtColor(img, img, cv::COLOR_GRAY2BGR);
         DisplayKeypoints(img, mykpts, color, thickness, radius, drawAngular, string(imgPath));
         cv::waitKey(1000/30);
 
@@ -1050,5 +1055,40 @@ void LoadImages(const string &strFile, vector<string> &vstrImageFilenames, vecto
            vstrImageFilenames.push_back(sRGB);
        }
    }
+}
 
+void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
+                vector<string> &vstrImageRight, vector<double> &vTimestamps)
+{
+    ifstream fTimes;
+    string strPathTimeFile = strPathToSequence + "/times.txt";
+    fTimes.open(strPathTimeFile.c_str());
+    while(!fTimes.eof())
+    {
+        string s;
+        getline(fTimes,s);
+        if(!s.empty())
+        {
+            stringstream ss;
+            ss << s;
+            double t;
+            ss >> t;
+            vTimestamps.push_back(t);
+        }
+    }
+
+    string strPrefixLeft = strPathToSequence + "/image_0/";
+    string strPrefixRight = strPathToSequence + "/image_1/";
+
+    const int nTimes = vTimestamps.size();
+    vstrImageLeft.resize(nTimes);
+    vstrImageRight.resize(nTimes);
+
+    for(int i=0; i<nTimes; i++)
+    {
+        stringstream ss;
+        ss << setfill('0') << setw(6) << i;
+        vstrImageLeft[i] = strPrefixLeft + ss.str() + ".png";
+        vstrImageRight[i] = strPrefixRight + ss.str() + ".png";
+    }
 }

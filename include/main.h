@@ -54,6 +54,8 @@ void AddRandomKeypoints(std::vector<cv::KeyPoint> &keypoints);
 
 void LoadImages(const std::string &strFile, std::vector<std::string> &vstrImageFilenames,
                 std::vector<double> &vTimestamps);
+void LoadImages(const std::string &strPathToSequence, std::vector<std::string> &vstrImageLeft,
+                std::vector<std::string> &vstrImageRight, std::vector<double> &vTimestamps);
 
 #endif //ORBEXTRACTOR_MAIN_H
 
