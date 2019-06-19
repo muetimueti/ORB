@@ -1009,9 +1009,6 @@ void Distribution::DistributeKeypointsSOFTSSC(std::vector<cv::KeyPoint> &kpts, i
     int high = (sol1>sol2)? sol1 : sol2;
     int low = floor(sqrt((double)kpts.size()/N));
 
-    float minScore = kpts[kpts.size()-1].response;
-    float maxScore = kpts[0].response;
-
     bool done = false;
     int kMin = myRound(N - N*epsilon), kMax = myRound(N + N*epsilon);
     std::vector<int> resultIndices;
