@@ -99,7 +99,7 @@ protected:
 
 
     void DivideAndFAST(std::vector<std::vector<cv::KeyPoint> >& allKeypoints,
-                       Distribution::DistributionMethod mode = Distribution::QUADTREE,
+                       Distribution::DistributionMethod mode = Distribution::QUADTREE_ORBSLAMSTYLE,
                        bool divideImage = true, int cellSize = 30, bool distributePerLevel = true);
 
     void ComputeScalePyramid(cv::Mat &image);

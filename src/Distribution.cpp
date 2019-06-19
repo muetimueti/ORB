@@ -31,7 +31,7 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int min
         return;
     const float epsilon = 0.1;
 
-    if (mode == ANMS_RT || mode == ANMS_KDTREE || mode == SSC)
+    if (mode == ANMS_RT || mode == ANMS_KDTREE || mode == SSC || mode == RANMS)
     {
         std::vector<int> responseVector;
         for (int i = 0; i < kpts.size(); i++)
@@ -50,9 +50,11 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int min
             DistributeKeypointsNaive(kpts, N);
             break;
         }
-        case QUADTREE :
+        case RANMS :
         {
-            DistributeKeypointsQuadTree(kpts, minX, maxX, minY, maxY, N);
+            int cols = maxX - minX;
+            int rows = maxY - minY;
+            DistributeKeypointsRANMS(kpts, rows, cols, N, epsilon);
             break;
         }
         case QUADTREE_ORBSLAMSTYLE :
@@ -712,7 +714,7 @@ void Distribution::DistributeKeypointsRT_ANMS(std::vector<cv::KeyPoint> &kpts, i
 {
     int numerator1 = rows + cols + 2*N;
     long long discriminant = (long long)4*cols + (long long)4*N + (long long)4*rows*N +
-                             (long long)rows*rows + (long long)cols*cols - (long long)2*cols*rows + (long long)4*cols*rows*N;
+            (long long)rows*rows + (long long)cols*cols - (long long)2*cols*rows + (long long)4*cols*rows*N;
 
     double denominator = 2*(N-1);
 
@@ -800,9 +802,6 @@ void Distribution::DistributeKeypointsRT_ANMS(std::vector<cv::KeyPoint> &kpts, i
 
 void Distribution::DistributeKeypointsSSC(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon)
 {
-    //for (auto &kpt : kpts)
-    //    std::cout << "\nkpt.response=" << kpt.response;
-    //return;
     int numerator1 = rows + cols + 2*N;
     long long discriminant = (long long)4*cols + (long long)4*N + (long long)4*rows*N +
             (long long)rows*rows + (long long)cols*cols - (long long)2*cols*rows + (long long)4*cols*rows*N;
@@ -881,3 +880,117 @@ void Distribution::DistributeKeypointsSSC(std::vector<cv::KeyPoint> &kpts, int r
     kpts = reskpts;
 }
 
+
+void Distribution::DistributeKeypointsRANMS(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon)
+{
+    int numerator1 = rows + cols + 2*N;
+    long long discriminant = (long long)4*cols + (long long)4*N + (long long)4*rows*N +
+            (long long)rows*rows + (long long)cols*cols - (long long)2*cols*rows + (long long)4*cols*rows*N;
+
+    double denominator = 2*(N-1);
+
+    double sol1 = (numerator1 - sqrt(discriminant))/denominator;
+    double sol2 = (numerator1 + sqrt(discriminant))/denominator;
+
+    int high = (sol1>sol2)? sol1 : sol2;
+    int low = floor(sqrt((double)kpts.size()/N));
+
+    bool done = false;
+    int kMin = myRound(N - N*epsilon), kMax = myRound(N + N*epsilon);
+    std::vector<int> resultIndices;
+
+    int maxWidth, prevMaxWidth = -1;
+
+    std::vector<int> tempResult;
+    tempResult.reserve(kpts.size());
+
+    RangeTree<u16, u16> tree(kpts.size(), kpts.size());
+    for (int i = 0; i < kpts.size(); ++i)
+    {
+        tree.add(kpts[i].pt.x, kpts[i].pt.y, (u16 *)(intptr_t)i);
+    }
+    tree.finalize();
+
+    float minScore = kpts[kpts.size()-1].response;
+    float maxScore = kpts[0].response;
+    float scoreRange = maxScore - minScore;
+
+    int keepIndex = N * 0.02;
+    int lastIndex = kpts.size();
+    for (int i = keepIndex; i < kpts.size(); ++i)
+    {
+        if (kpts[i].response < 20)
+        {
+            lastIndex = i;
+            break;
+        }
+    }
+    //std::cout << "\n------\n";
+
+    while(!done)
+    {
+        maxWidth = low + (high-low)/2;
+        //std::cout << "maxwidth = " << maxWidth << "\n";
+        if (maxWidth == prevMaxWidth)
+        {
+            resultIndices = tempResult;
+            break;
+        }
+        tempResult.clear();
+
+        for (int i = 0; i < lastIndex; ++i)
+        {
+            if (i < keepIndex)
+            {
+                tempResult.emplace_back(i);
+                continue;
+            }
+            float score = kpts[i].response;
+
+            int width = maxWidth * ((score - minScore) / scoreRange);// * widthFactor * 0.1;
+            int minX = static_cast<int>(kpts[i].pt.x - width);
+            int maxX = static_cast<int>(kpts[i].pt.x + width);
+            int minY = static_cast<int>(kpts[i].pt.y - width);
+            int maxY = static_cast<int>(kpts[i].pt.y + width);
+
+            if (minX < 0)
+                minX = 0;
+            if (minY < 0)
+                minY = 0;
+
+            bool best = true;
+            std::vector<u16*> *he = tree.search(minX, maxX, minY, maxY);
+            for (int j = 0; j < he->size(); ++j)
+            {
+                if (kpts[(u64)(*he)[j]].response > score)
+                {
+                    best = false;
+                    break;
+                }
+
+            }
+            if (best)
+                tempResult.emplace_back(i);
+            delete he;
+            he = nullptr;
+        }
+        prevMaxWidth = maxWidth;
+        if (tempResult.size() >= kMin && tempResult.size() <= kMax)
+        {
+            resultIndices = tempResult;
+            done = true;
+        }
+        else if (tempResult.size() < kMin)
+            high = maxWidth - 1;
+        else
+            low = maxWidth + 1;
+
+    }
+
+    std::vector<cv::KeyPoint> reskpts;
+    for (int i = 0; i < resultIndices.size(); ++i)
+    {
+        reskpts.emplace_back(kpts[resultIndices[i]]);
+    }
+    kpts = reskpts;
+}

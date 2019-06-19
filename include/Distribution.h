@@ -28,7 +28,7 @@ public:
     enum DistributionMethod
     {
         NAIVE = 0,
-        QUADTREE = 1,
+        RANMS = 1,
         QUADTREE_ORBSLAMSTYLE = 2,
         GRID = 3,
         ANMS_KDTREE = 4,
@@ -59,6 +59,7 @@ protected:
 
     static void DistributeKeypointsSSC(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon);
 
+    static void DistributeKeypointsRANMS(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon);
 };
 
 CV_INLINE  int myRound( float value )

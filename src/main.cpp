@@ -143,13 +143,13 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     pangolin::Var<bool> menuAll("menu.All Keypoints",false,false);
     pangolin::Var<bool> menuTopN("menu.TopN",false,false);
     pangolin::Var<bool> menuBucketing("menu.Bucketing",true,false);
-    pangolin::Var<bool> menuQuadtree("menu.Quadtree",false,false);
-    pangolin::Var<bool> menuQuadtreeORBSLAMSTYLE("menu.Quadtree ORBSLAMSTYLE",false,false);
+    pangolin::Var<bool> menuQuadtreeORBSLAMSTYLE("menu.Quadtree",false,false);
     pangolin::Var<bool> menuANMS_KDT("menu.KDTree-ANMS",false,false);
     pangolin::Var<bool> menuANMS_RT("menu.Range-Tree-ANMS",false,false);
     pangolin::Var<bool> menuSSC("menu.SSC",false,false);
+    pangolin::Var<bool> menuRANMS("menu.RANMS", false, false);
     pangolin::Var<bool> menuDistrPerLvl("menu.Distribute Per Level", false, true);
-    pangolin::Var<int> menuNFeatures("menu.Desired Features", 800, 1, 2000);
+    pangolin::Var<int> menuNFeatures("menu.Desired Features", 1000, 1, 2000);
     pangolin::Var<int> menuActualkpts("menu.Features Actual", false, 0);
     pangolin::Var<int> menuSetInitThreshold("menu.Init FAST Threshold", FASTThresholdInit, 1, 40);
     pangolin::Var<int> menuSetMinThreshold("menu.Min FAST Threshold", FASTThresholdMin, 1, 40);
@@ -215,11 +215,6 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
             extractor.SetDistribution(Distribution::GRID);
             menuBucketing = false;
         }
-        if (menuQuadtree)
-        {
-            extractor.SetDistribution(Distribution::QUADTREE);
-            menuQuadtree = false;
-        }
         if (menuQuadtreeORBSLAMSTYLE)
         {
             extractor.SetDistribution(Distribution::QUADTREE_ORBSLAMSTYLE);
@@ -239,6 +234,11 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
         {
             extractor.SetDistribution(Distribution::SSC);
             menuSSC = false;
+        }
+        if (menuRANMS)
+        {
+            extractor.SetDistribution(Distribution::RANMS);
+            menuRANMS = false;
         }
 
         if (menuDistrPerLvl && !distributePerLevel)
@@ -302,8 +302,6 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
     ORB_SLAM2::ORBextractor myExtractor(nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
 
-    ORB_SLAM_REF::referenceORB refExtractor(nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
-
     cout << "\n-------------------------\n"
            << "Images in sequence: " << nImages << "\n";
 
@@ -327,8 +325,9 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     pangolin::Var<bool> menuANMS_KDT("menu.KDTree-ANMS",false,false);
     pangolin::Var<bool> menuANMS_RT("menu.Range-Tree-ANMS",false,false);
     pangolin::Var<bool> menuSSC("menu.SSC",false,false);
+    pangolin::Var<bool> menuRANMS("menu.RANMS", false, false);
     pangolin::Var<bool> menuDistrPerLvl("menu.Distribute Per Level", false, true);
-    pangolin::Var<int> menuNFeatures("menu.Desired Features", 800, 1, 2000);
+    pangolin::Var<int> menuNFeatures("menu.Desired Features", 1000, 1, 2000);
     pangolin::Var<int> menuActualkpts("menu.Features Actual", false, 0);
     pangolin::Var<int> menuSetInitThreshold("menu.Init FAST Threshold", FASTThresholdInit, 5, 40);
     pangolin::Var<int> menuSetMinThreshold("menu.Min FAST Threshold", FASTThresholdMin, 1, 39);
@@ -493,6 +492,13 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             myTotalDuration = 0;
             count = 0;
             menuSSC = false;
+        }
+        if (menuRANMS)
+        {
+            myExtractor.SetDistribution(Distribution::RANMS);
+            myTotalDuration = 0;
+            count = 0;
+            menuRANMS = false;
         }
 
         if (menuSingleLvlOnly && (soloLvl != menuChosenLvl))
@@ -919,7 +925,7 @@ void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &im
         extractor.SetDistribution(Distribution::NAIVE);
         extractor(imgGray, cv::Mat(), kptsNaive, descriptors, true);
         t2 = clk::now();
-        extractor.SetDistribution(Distribution::QUADTREE);
+        extractor.SetDistribution(Distribution::RANMS);
         extractor(imgGray, cv::Mat(), kptsQuadtree, descriptors, true);
         t3 = clk::now();
         extractor.SetDistribution(Distribution::QUADTREE_ORBSLAMSTYLE);
@@ -945,7 +951,7 @@ void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &im
         extractor.SetDistribution(Distribution::NAIVE);
         extractor(imgGray, cv::Mat(), kptsNaive, descriptors, false);
         t2 = clk::now();
-        extractor.SetDistribution(Distribution::QUADTREE);
+        extractor.SetDistribution(Distribution::RANMS);
         extractor(imgGray, cv::Mat(), kptsQuadtree, descriptors, false);
         t3 = clk::now();
         extractor.SetDistribution(Distribution::QUADTREE_ORBSLAMSTYLE);
@@ -977,8 +983,8 @@ void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &im
     cout << "\nComplete computation time for each distribution:"
             "\nAll Keypoints kept: " << d1 << " microseconds" <<
             "\nTopN: " << d2 << " microseconds" <<
-            "\nQuadtree: " << d3 << " microseconds" <<
-            "\nQuadtre ORBSLAMSTYLE: " << d4 << " microseconds" <<
+            "\nRANMS: " << d3 << " microseconds" <<
+            "\nQuadtre: " << d4 << " microseconds" <<
             "\nBucketing: " << d5 << " microseconds" <<
             "\nANMS (KDTree): " << d6 << " microseconds" <<
             "\nANMS (Range Tree): " << d7 << " microseconds" <<
@@ -1044,4 +1050,5 @@ void LoadImages(const string &strFile, vector<string> &vstrImageFilenames, vecto
            vstrImageFilenames.push_back(sRGB);
        }
    }
+
 }
