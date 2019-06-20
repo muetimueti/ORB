@@ -34,11 +34,12 @@ public:
         ANMS_KDTREE = 4,
         ANMS_RT = 5,
         SSC = 6,
-        KEEP_ALL = 7
+        KEEP_ALL = 7,
+        SOFT_SSC = 8
     };
 
     static void DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, int minX, int maxX, int minY,
-                             int maxY, int N, DistributionMethod mode);
+                             int maxY, int N, DistributionMethod mode, float softSSCThreshold = 10);
 
 protected:
 
@@ -61,9 +62,8 @@ protected:
 
     static void DistributeKeypointsRANMS(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon);
 
-    static void DistributeKeypointsSOFTSSC(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N,
-            float epsilon, float threshold);
-
+    static void DistributeKeypointsSoftSSC(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N,
+                                           float epsilon, float threshold);
 };
 
 CV_INLINE  int myRound( float value )

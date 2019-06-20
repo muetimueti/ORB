@@ -25,13 +25,13 @@ static void RetainBestN(std::vector<cv::KeyPoint> &kpts, int N)
 
 void
 Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int minX, const int maxX, const int minY,
-                    const int maxY, const int N, DistributionMethod mode)
+                    const int maxY, const int N, DistributionMethod mode, float softSSCThreshold)
 {
     if (kpts.size() <= N)
         return;
     float epsilon = 0.1;
 
-    if (mode == ANMS_RT || mode == ANMS_KDTREE || mode == SSC || mode == RANMS)
+    if (mode == ANMS_RT || mode == ANMS_KDTREE || mode == SSC || mode == RANMS || mode == SOFT_SSC)
     {
         std::vector<int> responseVector;
         for (int i = 0; i < kpts.size(); i++)
@@ -90,7 +90,14 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int min
         {
             int cols = maxX - minX;
             int rows = maxY - minY;
-            DistributeKeypointsSOFTSSC(kpts, rows, cols, N, epsilon, 30);
+            DistributeKeypointsSSC(kpts, rows, cols, N, epsilon);
+            break;
+        }
+        case SOFT_SSC :
+        {
+            int cols = maxX - minX;
+            int rows = maxY - minY;
+            DistributeKeypointsSoftSSC(kpts, rows, cols, N, epsilon, softSSCThreshold);
             break;
         }
         default:
@@ -535,9 +542,9 @@ void Distribution::DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, cons
     //std::sort(kpts.begin(), kpts.end(), [](const cv::KeyPoint &a, const cv::KeyPoint &b){return (a.pt.x < b.pt.x ||
     //        (a.pt.x == b.pt.x && a.pt.y < b.pt.y));});
 
-    int cellSize = BUCKETING_GRID_SIZE;
     const float width = maxX - minX;
     const float height = maxY - minY;
+    int cellSize = (int)std::min((float)BUCKETING_GRID_SIZE, std::min(width, height));
 
     const int npatchesInX = width / cellSize;
     const int npatchesInY = height / cellSize;
@@ -546,7 +553,7 @@ void Distribution::DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, cons
 
     int nCells = npatchesInX * npatchesInY;
     std::vector<std::vector<cv::KeyPoint>> cellkpts(nCells);
-    int nPerCell = std::ceil((float)N / nCells);
+    int nPerCell = (float)N / nCells;
 
 
     for (auto &kpt : kpts)
@@ -567,8 +574,6 @@ void Distribution::DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, cons
         kpts.insert(kpts.end(), kptVec.begin(), kptVec.end());
         //std::cout << "\nsz of curr cell after retain = " << kptVec.size();
     }
-
-
 
 #if 0
     const int width = maxX - minX;
@@ -884,21 +889,14 @@ void Distribution::DistributeKeypointsSSC(std::vector<cv::KeyPoint> &kpts, int r
 
 void Distribution::DistributeKeypointsRANMS(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon)
 {
-    int high = 100;
-    int low = floor(sqrt((double)kpts.size()/N));
-    int niter = 0;
-
-    bool done = false;
-    int kMin = myRound(N - N*epsilon), kMax = myRound(N + N*epsilon);
-    std::vector<int> resultIndices;
     std::vector<float> responseVector(kpts.size());
     for (int i = 0; i < kpts.size(); ++i)
         responseVector[i] = kpts[i].response;
 
     int maxWidth, prevMaxWidth = -1;
 
-    std::vector<int> tempResult;
-    tempResult.reserve(kpts.size());
+    std::vector<int> resultIndices;
+    resultIndices.reserve(kpts.size());
 
     RangeTree<u16, u16> tree(kpts.size(), kpts.size());
     for (int i = 0; i < kpts.size(); ++i)
@@ -911,77 +909,43 @@ void Distribution::DistributeKeypointsRANMS(std::vector<cv::KeyPoint> &kpts, int
     float maxScore = responseVector[0];
     float scoreRange = maxScore - minScore;
 
-    int keepIndex = N * 0.02;
-    int lastIndex = responseVector.size() * 0.3;
-    /*
-    for (int i = keepIndex; i < kpts.size(); ++i)
+
+    maxWidth = 10;
+    resultIndices.clear();
+
+    for (int i = 0; i < kpts.size(); ++i)
     {
-        if (responseVector[i] < 20)
-        {
-            lastIndex = i;
-            break;
-        }
-    }
-     */
+        float score = responseVector[i];
 
-    while(!done)
-    {
-        ++niter;
-        maxWidth = low + (high-low)/2;
-        if (maxWidth == prevMaxWidth)
-        {
-            resultIndices = tempResult;
-            break;
-        }
-        tempResult.clear();
+        int width = maxWidth * ((score - minScore) / scoreRange);// * widthFactor * 0.1;
+        int minX = static_cast<int>(kpts[i].pt.x - width);
+        int maxX = static_cast<int>(kpts[i].pt.x + width);
+        int minY = static_cast<int>(kpts[i].pt.y - width);
+        int maxY = static_cast<int>(kpts[i].pt.y + width);
 
-        for (int i = 0; i < lastIndex; ++i)
+        if (minX < 0)
+            minX = 0;
+        if (minY < 0)
+            minY = 0;
+
+        bool best = true;
+        std::vector<u16*> *he = tree.search(minX, maxX, minY, maxY);
+        for (int j = 0; j < he->size(); ++j)
         {
-            if (i < keepIndex)
+            if ((u64)(*he)[j] > i)
             {
-                tempResult.emplace_back(i);
-                continue;
+                best = false;
+                break;
             }
-            float score = responseVector[i];
 
-            int width = maxWidth * ((score - minScore) / scoreRange);// * widthFactor * 0.1;
-            int minX = static_cast<int>(kpts[i].pt.x - width);
-            int maxX = static_cast<int>(kpts[i].pt.x + width);
-            int minY = static_cast<int>(kpts[i].pt.y - width);
-            int maxY = static_cast<int>(kpts[i].pt.y + width);
-
-            if (minX < 0)
-                minX = 0;
-            if (minY < 0)
-                minY = 0;
-
-            bool best = true;
-            std::vector<u16*> *he = tree.search(minX, maxX, minY, maxY);
-            for (int j = 0; j < he->size(); ++j)
-            {
-                if ((u64)(*he)[j] > i)
-                {
-                    best = false;
-                    break;
-                }
-
-            }
-            if (best)
-                tempResult.emplace_back(i);
-            delete he;
-            he = nullptr;
         }
-        prevMaxWidth = maxWidth;
-        if (tempResult.size() >= kMin && tempResult.size() <= kMax)
-        {
-            resultIndices = tempResult;
-            done = true;
-        }
-        else if (tempResult.size() < kMin)
-            high = maxWidth - 1;
-        else
-            low = maxWidth + 1;
+        if (best)
+            resultIndices.emplace_back(i);
+        delete he;
+        he = nullptr;
 
+        if (resultIndices.size() >= N)
+            break;
     }
 
     std::vector<cv::KeyPoint> reskpts;
@@ -990,11 +954,10 @@ void Distribution::DistributeKeypointsRANMS(std::vector<cv::KeyPoint> &kpts, int
         reskpts.emplace_back(kpts[resultIndices[i]]);
     }
     kpts = reskpts;
-    std::cout << "Iterations this frame: " << niter << "\n";
 }
 
 
-void Distribution::DistributeKeypointsSOFTSSC(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N,
+void Distribution::DistributeKeypointsSoftSSC(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N,
         float epsilon, float threshold)
 {
     int numerator1 = rows + cols + 2*N;

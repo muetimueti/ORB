@@ -5,7 +5,6 @@
 #include "include/ORBextractor.h"
 #include "include/ORBconstants.h"
 #include <unistd.h>
-#include "include/avx.h"
 #include <opencv2/features2d/features2d.hpp>
 
 #ifndef NDEBUG
@@ -23,6 +22,10 @@
 #define TESTFAST 0
 
 #define THREADEDPATCHES 0
+
+#if TESTFAST
+#include "include/avx.h"
+#endif
 
 namespace ORB_SLAM2
 {
@@ -59,7 +62,7 @@ float ORBextractor::IntensityCentroidAngle(const uchar* pointer, int step)
 
 ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels, int _iniThFAST, int _minThFAST):
         nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels), iniThFAST(_iniThFAST), minThFAST(_minThFAST),
-        levelToDisplay(-1), kptDistribution(Distribution::DistributionMethod::SSC), pixelOffset{},
+        levelToDisplay(-1), softSSCThreshold(10), kptDistribution(Distribution::DistributionMethod::SSC), pixelOffset{},
         fast(_iniThFAST, _minThFAST, _nlevels)
 {
     SetnLevels(_nlevels);
@@ -182,7 +185,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
             temp.insert(temp.end(), allkpts[lvl].begin(), allkpts[lvl].end());
         }
         Distribution::DistributeKeypoints(temp, 0, imagePyramid[0].cols, 0, imagePyramid[0].rows,
-                                          nfeatures, kptDistribution);
+                                          nfeatures, kptDistribution, softSSCThreshold);
 
         for (lvl = 0; lvl < nlevels; ++lvl)
             allkpts[lvl].clear();
@@ -366,7 +369,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
 
             if (distributePerLevel)
                 Distribution::DistributeKeypoints(levelKpts, minimumX, maximumX, minimumY, maximumY,
-                                                  nfeaturesPerLevelVec[lvl], mode);
+                                                  nfeaturesPerLevelVec[lvl], mode, softSSCThreshold);
 
 
             allkpts[lvl] = levelKpts;
@@ -512,7 +515,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
 
             if (distributePerLevel)
                 Distribution::DistributeKeypoints(levelKpts, minimumX, maximumX, minimumY, maximumY,
-                                                  nfeaturesPerLevelVec[lvl], mode);
+                                                  nfeaturesPerLevelVec[lvl], mode, softSSCThreshold);
 
 
             allkpts[lvl] = levelKpts;

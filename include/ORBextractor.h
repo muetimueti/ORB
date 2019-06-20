@@ -80,6 +80,11 @@ public:
         levelToDisplay = std::min(lvl, nlevels-1);
     }
 
+    void inline SetSoftSSCThreshold(float th)
+    {
+        softSSCThreshold = th;
+    }
+
     void SetnFeatures(int n);
 
     void SetFASTThresholds(int ini, int min);
@@ -115,6 +120,8 @@ protected:
     int minThFAST;
 
     int levelToDisplay;
+
+    float softSSCThreshold;
 
     Distribution::DistributionMethod kptDistribution;
 

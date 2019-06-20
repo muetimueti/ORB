@@ -314,9 +314,11 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     long myTotalDuration = 0;
     long refTotalDuration = 0;
 
+    int softTh = 10;
+
     cv::Mat img;
 
-    pangolin::CreateWindowAndBind("Menu",210,680);
+    pangolin::CreateWindowAndBind("Menu",210,750);
 
     pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(210));
 
@@ -329,6 +331,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     pangolin::Var<bool> menuANMS_RT("menu.Range-Tree-ANMS",false,false);
     pangolin::Var<bool> menuSSC("menu.SSC",false,false);
     pangolin::Var<bool> menuRANMS("menu.RANMS", false, false);
+    pangolin::Var<bool> menuSoftSSC("menu.Soft SSC", false, false);
+    pangolin::Var<int> menuSoftSSCThreshold("menu.Soft SSC Threshold", softTh, 0, 100);
     pangolin::Var<bool> menuDistrPerLvl("menu.Distribute Per Level", false, true);
     pangolin::Var<int> menuNFeatures("menu.Desired Features", 1000, 1, 2000);
     pangolin::Var<int> menuActualkpts("menu.Features Actual", false, 0);
@@ -341,7 +345,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     pangolin::Var<bool> menuScoreExp("menu.Experimental", false, false);
     pangolin::Var<float> menuScaleFactor("menu.Scale Factor", scaleFactor, 1.001, 1.2);
     pangolin::Var<int> menuNLevels("menu.nLevels", nLevels, 2, 8);
-    pangolin::Var<bool> menuSingleLvlOnly("menu.Dispay Keypoints of single level:", false, true);
+    pangolin::Var<bool> menuSingleLvlOnly("menu.Dispay single level:", false, true);
     pangolin::Var<int> menuChosenLvl("menu.Limit to Level", 0, 0, myExtractor.GetLevels()-1);
     pangolin::Var<int> menuMeanProcessingTime("menu.Mean Processing Time", 0);
     pangolin::Var<int> menuLastFrametime("menu.Last Frame", 0);
@@ -504,6 +508,19 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             myTotalDuration = 0;
             count = 0;
             menuRANMS = false;
+        }
+        if (menuSoftSSC)
+        {
+            myExtractor.SetDistribution(Distribution::SOFT_SSC);
+            myTotalDuration = 0;
+            count = 0;
+            menuSoftSSC = false;
+        }
+
+        if (menuSoftSSCThreshold != softTh)
+        {
+            myExtractor.SetSoftSSCThreshold(menuSoftSSCThreshold);
+            softTh = menuSoftSSCThreshold;
         }
 
         if (menuSingleLvlOnly && (soloLvl != menuChosenLvl))
