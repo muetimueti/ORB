@@ -60,10 +60,11 @@ protected:
 
     static void DistributeKeypointsSSC(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon);
 
-    static void DistributeKeypointsRANMS(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon);
+    static void DistributeKeypointsRANMS(std::vector<cv::KeyPoint> &kpts, int minX, int maxX, int minY, int maxY, int N, float epsilon,
+        int softSSCThreshold);
 
-    static void DistributeKeypointsSoftSSC(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N,
-                                           float epsilon, float threshold);
+    static void DistributeKeypointsSoftSSC(std::vector<cv::KeyPoint> &kpts, const int minX, const int maxX,
+                                           const int minY, const int maxY, int N, float epsilon, float threshold);
 };
 
 CV_INLINE  int myRound( float value )

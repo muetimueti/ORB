@@ -583,6 +583,17 @@ void ORBextractor::SetnLevels(int n)
     pixelOffset.resize(nlevels * CIRCLE_SIZE);
 
     SetScaleFactor(scaleFactor);
+
+    float fac = 1.f / scaleFactor;
+    float nDesiredFeaturesPerScale = nfeatures * (1.f - fac) / (1.f - (float) pow((double) fac, (double) nlevels));
+    int sumFeatures = 0;
+    for (int i = 0; i < nlevels - 1; ++i)
+    {
+        nfeaturesPerLevelVec[i] = myRound(nDesiredFeaturesPerScale);
+        sumFeatures += nfeaturesPerLevelVec[i];
+        nDesiredFeaturesPerScale *= fac;
+    }
+    nfeaturesPerLevelVec[nlevels-1] = std::max(nfeatures - sumFeatures, 0);
 }
 
 void ORBextractor::SetScaleFactor(float s)

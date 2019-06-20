@@ -29,7 +29,7 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int min
 {
     if (kpts.size() <= N)
         return;
-    float epsilon = 0.1;
+    const float epsilon = 0.1;
 
     if (mode == ANMS_RT || mode == ANMS_KDTREE || mode == SSC || mode == RANMS || mode == SOFT_SSC)
     {
@@ -54,8 +54,7 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int min
         {
             int cols = maxX - minX;
             int rows = maxY - minY;
-            epsilon*=2;
-            DistributeKeypointsRANMS(kpts, rows, cols, N, epsilon);
+            DistributeKeypointsRANMS(kpts, minX, maxX, minY, maxY, N, epsilon, softSSCThreshold);
             break;
         }
         case QUADTREE_ORBSLAMSTYLE :
@@ -95,9 +94,7 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int min
         }
         case SOFT_SSC :
         {
-            int cols = maxX - minX;
-            int rows = maxY - minY;
-            DistributeKeypointsSoftSSC(kpts, rows, cols, N, epsilon, softSSCThreshold);
+            DistributeKeypointsSoftSSC(kpts, minX, maxX, minY, maxY, N, epsilon, softSSCThreshold);
             break;
         }
         default:
@@ -887,8 +884,10 @@ void Distribution::DistributeKeypointsSSC(std::vector<cv::KeyPoint> &kpts, int r
 }
 
 
-void Distribution::DistributeKeypointsRANMS(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon)
+void Distribution::DistributeKeypointsRANMS(std::vector<cv::KeyPoint> &kpts, int minX, int maxX, int minY,
+        int maxY, int N, float epsilon, int softSSCThreshold)
 {
+#if 0
     std::vector<float> responseVector(kpts.size());
     for (int i = 0; i < kpts.size(); ++i)
         responseVector[i] = kpts[i].response;
@@ -954,12 +953,53 @@ void Distribution::DistributeKeypointsRANMS(std::vector<cv::KeyPoint> &kpts, int
         reskpts.emplace_back(kpts[resultIndices[i]]);
     }
     kpts = reskpts;
+#else
+    const float width = maxX - minX;
+    const float height = maxY - minY;
+    int cellSize = (int)std::min((float)BUCKETING_GRID_SIZE, std::min(width, height));
+
+    const int npatchesInX = width / cellSize;
+    const int npatchesInY = height / cellSize;
+    const int patchWidth = ceil(width / npatchesInX);
+    const int patchHeight = ceil(height / npatchesInY);
+
+    int nCells = npatchesInX * npatchesInY;
+    std::vector<std::vector<cv::KeyPoint>> cellkpts(nCells);
+    int nPerCell = (float)N / nCells;
+
+
+    for (auto &kpt : kpts)
+    {
+        int idx = (int)(kpt.pt.y/patchHeight) * npatchesInX + (int)(kpt.pt.x/patchWidth);
+        if (idx >= nCells)
+            idx = nCells-1;
+        cellkpts[idx].emplace_back(kpt);
+    }
+
+    kpts.clear();
+    kpts.reserve(N*2);
+
+    for (int i = 0; i < nCells; ++i)
+    {
+        int cellMinX = (i%npatchesInX) * patchWidth;
+        int cellMaxX = cellMinX + patchWidth;
+        int cellMinY = i/npatchesInX * patchHeight;
+        int cellMaxY = cellMinY + patchHeight;
+        if (nPerCell < cellkpts[i].size())
+            DistributeKeypointsSoftSSC(cellkpts[i], cellMinX, cellMaxX, cellMinY, cellMaxY, nPerCell, epsilon,
+                    softSSCThreshold);
+        kpts.insert(kpts.end(), cellkpts[i].begin(), cellkpts[i].end());
+    }
+
+#endif
 }
 
 
-void Distribution::DistributeKeypointsSoftSSC(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N,
-        float epsilon, float threshold)
+void Distribution::DistributeKeypointsSoftSSC(std::vector<cv::KeyPoint> &kpts, const int minX, const int maxX,
+        const int minY, const int maxY, int N, float epsilon, float threshold)
 {
+    int cols = maxX - minX;
+    int rows = maxY - minY;
     int numerator1 = rows + cols + 2*N;
     long long discriminant = (long long)4*cols + (long long)4*N + (long long)4*rows*N +
             (long long)rows*rows + (long long)cols*cols - (long long)2*cols*rows + (long long)4*cols*rows*N;
@@ -996,8 +1036,9 @@ void Distribution::DistributeKeypointsSoftSSC(std::vector<cv::KeyPoint> &kpts, i
 
         for (int i = 0; i < kpts.size(); ++i)
         {
-            int row = (int)(kpts[i].pt.y/c);
-            int col = (int)(kpts[i].pt.x/c);
+            //TODO: remove the minus min stuff if using classic SSC
+            int row = (int)((kpts[i].pt.y-minY)/c);
+            int col = (int)((kpts[i].pt.x-minX)/c);
             int score = kpts[i].response;
 
             if (covered[row][col] < score - threshold)
