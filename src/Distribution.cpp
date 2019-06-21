@@ -888,11 +888,7 @@ void Distribution::DistributeKeypointsRANMS(std::vector<cv::KeyPoint> &kpts, int
         int maxY, int N, float epsilon, int softSSCThreshold)
 {
 #if 0
-    std::vector<float> responseVector(kpts.size());
-    for (int i = 0; i < kpts.size(); ++i)
-        responseVector[i] = kpts[i].response;
-
-    int maxWidth, prevMaxWidth = -1;
+    int maxWidth;
 
     std::vector<int> resultIndices;
     resultIndices.reserve(kpts.size());
@@ -904,8 +900,8 @@ void Distribution::DistributeKeypointsRANMS(std::vector<cv::KeyPoint> &kpts, int
     }
     tree.finalize();
 
-    float minScore = responseVector[kpts.size()-1];
-    float maxScore = responseVector[0];
+    float minScore = kpts[kpts.size()-1].response;
+    float maxScore = kpts[0].response;
     float scoreRange = maxScore - minScore;
 
 
@@ -914,7 +910,7 @@ void Distribution::DistributeKeypointsRANMS(std::vector<cv::KeyPoint> &kpts, int
 
     for (int i = 0; i < kpts.size(); ++i)
     {
-        float score = responseVector[i];
+        float score = kpts[i].response;
 
         int width = maxWidth * ((score - minScore) / scoreRange);// * widthFactor * 0.1;
         int minX = static_cast<int>(kpts[i].pt.x - width);
