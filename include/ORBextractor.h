@@ -26,11 +26,11 @@ public:
 
 
     void operator()( cv::InputArray image, cv::InputArray mask,
-                     std::vector<cv::KeyPoint>& keypoints,
+                     std::vector<knuff::KeyPoint>& keypoints,
                      cv::OutputArray descriptors);
 
     void operator()(cv::InputArray inputImage, cv::InputArray mask,
-                                  std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors,
+                                  std::vector<knuff::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors,
                                   bool distributePerLevel = true);
 
     int inline GetLevels(){
@@ -98,12 +98,12 @@ protected:
     static float IntensityCentroidAngle(const uchar* pointer, int step);
 
 
-    void ComputeAngles(std::vector<std::vector<cv::KeyPoint>> &allkpts);
+    void ComputeAngles(std::vector<std::vector<knuff::KeyPoint>> &allkpts);
 
-    void ComputeDescriptors(std::vector<std::vector<cv::KeyPoint>> &allkpts, cv::Mat &descriptors);
+    void ComputeDescriptors(std::vector<std::vector<knuff::KeyPoint>> &allkpts, cv::Mat &descriptors);
 
 
-    void DivideAndFAST(std::vector<std::vector<cv::KeyPoint> >& allKeypoints,
+    void DivideAndFAST(std::vector<std::vector<knuff::KeyPoint> >& allKeypoints,
                        Distribution::DistributionMethod mode = Distribution::QUADTREE_ORBSLAMSTYLE,
                        bool divideImage = true, int cellSize = 30, bool distributePerLevel = true);
 

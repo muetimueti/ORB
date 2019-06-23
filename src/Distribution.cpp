@@ -13,18 +13,18 @@
 
 
 
-static void RetainBestN(std::vector<cv::KeyPoint> &kpts, int N)
+static void RetainBestN(std::vector<knuff::KeyPoint> &kpts, int N)
 {
     if (kpts.size() <= N)
         return;
     std::nth_element(kpts.begin(), kpts.begin()+N, kpts.end(),
-            [](const cv::KeyPoint &k1, const cv::KeyPoint &k2){return k1.response > k2.response;});
+            [](const knuff::KeyPoint &k1, const knuff::KeyPoint &k2){return k1.response > k2.response;});
     kpts.resize(N);
 }
 
 
 void
-Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int minX, const int maxX, const int minY,
+Distribution::DistributeKeypoints(std::vector<knuff::KeyPoint> &kpts, const int minX, const int maxX, const int minY,
                     const int maxY, const int N, DistributionMethod mode, float softSSCThreshold)
 {
     if (kpts.size() <= N)
@@ -38,7 +38,7 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int min
             responseVector.emplace_back(kpts[i].response);
         std::vector<int> idx(responseVector.size()); std::iota (std::begin(idx), std::end(idx), 0);
         cv::sortIdx(responseVector, idx, CV_SORT_DESCENDING);
-        std::vector<cv::KeyPoint> kptsSorted;
+        std::vector<knuff::KeyPoint> kptsSorted;
         for (int i = 0; i < kpts.size(); i++)
             kptsSorted.emplace_back(kpts[idx[i]]);
         kpts = kptsSorted;
@@ -94,7 +94,9 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int min
         }
         case SOFT_SSC :
         {
-            DistributeKeypointsSoftSSC(kpts, minX, maxX, minY, maxY, N, epsilon, softSSCThreshold);
+            int cols = maxX - minX;
+            int rows = maxY - minY;
+            DistributeKeypointsSoftSSC(kpts, cols, -1, rows, -1, N, epsilon, softSSCThreshold);
             break;
         }
         default:
@@ -108,7 +110,7 @@ Distribution::DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, const int min
 
 
 
-void Distribution::DistributeKeypointsNaive(std::vector<cv::KeyPoint> &kpts, const int N)
+void Distribution::DistributeKeypointsNaive(std::vector<knuff::KeyPoint> &kpts, const int N)
 {
     RetainBestN(kpts, N);
 }
@@ -132,7 +134,7 @@ void ExtractorNode::DivideNode(ExtractorNode &n1, ExtractorNode &n2, ExtractorNo
 
     for (auto &kpt : nodeKpts)
     {
-        if (kpt.pt.x < middleX)
+        if (kpt.pt.x< middleX)
         {
             if(kpt.pt.y < middleY)
                 n1.nodeKpts.emplace_back(kpt);
@@ -151,7 +153,7 @@ void ExtractorNode::DivideNode(ExtractorNode &n1, ExtractorNode &n2, ExtractorNo
 }
 
 
-void Distribution::DistributeKeypointsQuadTree(std::vector<cv::KeyPoint>& kpts, const int minX,
+void Distribution::DistributeKeypointsQuadTree(std::vector<knuff::KeyPoint>& kpts, const int minX,
                                  const int maxX, const int minY, const int maxY, const int N)
 {
     assert(!kpts.empty());
@@ -252,14 +254,14 @@ void Distribution::DistributeKeypointsQuadTree(std::vector<cv::KeyPoint>& kpts, 
         }
     }
 
-    std::vector<cv::KeyPoint> resKpts;
+    std::vector<knuff::KeyPoint> resKpts;
     resKpts.reserve(N);
 
     auto iter = nodesList.begin();
     for (; iter != nodesList.end(); ++iter)
     {
-        std::vector<cv::KeyPoint> &nodekpts = iter->nodeKpts;
-        cv::KeyPoint* kpt = &nodekpts[0];
+        std::vector<knuff::KeyPoint> &nodekpts = iter->nodeKpts;
+        knuff::KeyPoint* kpt = &nodekpts[0];
         if (iter->leaf)
         {
             resKpts.emplace_back(*kpt);
@@ -282,7 +284,7 @@ void Distribution::DistributeKeypointsQuadTree(std::vector<cv::KeyPoint>& kpts, 
 }
 
 
-void Distribution::DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint>& kpts, const int minX,
+void Distribution::DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<knuff::KeyPoint>& kpts, const int minX,
                                               const int maxX, const int minY, const int maxY, const int N)
 {
     assert(!kpts.empty());
@@ -498,13 +500,13 @@ void Distribution::DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyP
     }
 
 
-    std::vector<cv::KeyPoint> resKpts;
+    std::vector<knuff::KeyPoint> resKpts;
     resKpts.reserve(N*2);
     auto iter = nodesList.begin();
     for (; iter != nodesList.end(); ++iter)
     {
-        std::vector<cv::KeyPoint> &nodekpts = iter->nodeKpts;
-        cv::KeyPoint* kpt = &nodekpts[0];
+        std::vector<knuff::KeyPoint> &nodekpts = iter->nodeKpts;
+        knuff::KeyPoint* kpt = &nodekpts[0];
         if (iter->leaf)
         {
             resKpts.emplace_back(*kpt);
@@ -533,10 +535,10 @@ void Distribution::DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyP
  * @param minX, maxX, minY, maxY : relevant image dimensions
  * @param N : number of keypoints to retain
  */
-void Distribution::DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, const int minX, const int maxX,
+void Distribution::DistributeKeypointsGrid(std::vector<knuff::KeyPoint>& kpts, const int minX, const int maxX,
         const int minY, const int maxY, const int N)
 {
-    //std::sort(kpts.begin(), kpts.end(), [](const cv::KeyPoint &a, const cv::KeyPoint &b){return (a.pt.x < b.pt.x ||
+    //std::sort(kpts.begin(), kpts.end(), [](const knuff::KeyPoint &a, const knuff::KeyPoint &b){return (a.pt.x < b.pt.x ||
     //        (a.pt.x == b.pt.x && a.pt.y < b.pt.y));});
 
     const float width = maxX - minX;
@@ -549,7 +551,7 @@ void Distribution::DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, cons
     const int patchHeight = ceil(height / npatchesInY);
 
     int nCells = npatchesInX * npatchesInY;
-    std::vector<std::vector<cv::KeyPoint>> cellkpts(nCells);
+    std::vector<std::vector<knuff::KeyPoint>> cellkpts(nCells);
     int nPerCell = (float)N / nCells;
 
 
@@ -594,7 +596,7 @@ void Distribution::DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, cons
     const int nCells = cellCols * cellRows;
     int nPerCell = ceil((float)N / nCells);
 
-    std::vector<std::vector<cv::KeyPoint>> cellkpts(nCells);
+    std::vector<std::vector<knuff::KeyPoint>> cellkpts(nCells);
 
     for (auto &kptVec : cellkpts)
     {
@@ -634,7 +636,7 @@ void Distribution::DistributeKeypointsGrid(std::vector<cv::KeyPoint>& kpts, cons
  * PointCloud and KdTree taken from BAILOOL/ANMS-Codes
  */
 
-void Distribution::DistributeKeypointsKdT_ANMS(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon)
+void Distribution::DistributeKeypointsKdT_ANMS(std::vector<knuff::KeyPoint> &kpts, int rows, int cols, int N, float epsilon)
 {
     int numerator1 = rows + cols + 2*N;
     long long discriminant = (long long)4*cols + (long long)4*N + (long long)4*rows*N +
@@ -704,7 +706,7 @@ void Distribution::DistributeKeypointsKdT_ANMS(std::vector<cv::KeyPoint> &kpts, 
 
         prevradius = radius;
     }
-    std::vector<cv::KeyPoint> reskpts;
+    std::vector<knuff::KeyPoint> reskpts;
     for (int i = 0; i < resultIndices.size(); ++i)
     {
         reskpts.emplace_back(kpts[resultIndices[i]]);
@@ -713,7 +715,7 @@ void Distribution::DistributeKeypointsKdT_ANMS(std::vector<cv::KeyPoint> &kpts, 
 }
 
 
-void Distribution::DistributeKeypointsRT_ANMS(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon)
+void Distribution::DistributeKeypointsRT_ANMS(std::vector<knuff::KeyPoint> &kpts, int rows, int cols, int N, float epsilon)
 {
     int numerator1 = rows + cols + 2*N;
     long long discriminant = (long long)4*cols + (long long)4*N + (long long)4*rows*N +
@@ -794,7 +796,7 @@ void Distribution::DistributeKeypointsRT_ANMS(std::vector<cv::KeyPoint> &kpts, i
         prevwidth = width;
     }
 
-    std::vector<cv::KeyPoint> reskpts;
+    std::vector<knuff::KeyPoint> reskpts;
     for (int i = 0; i < resultIndices.size(); ++i)
     {
         reskpts.emplace_back(kpts[resultIndices[i]]);
@@ -803,7 +805,7 @@ void Distribution::DistributeKeypointsRT_ANMS(std::vector<cv::KeyPoint> &kpts, i
 }
 
 
-void Distribution::DistributeKeypointsSSC(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon)
+void Distribution::DistributeKeypointsSSC(std::vector<knuff::KeyPoint> &kpts, int rows, int cols, int N, float epsilon)
 {
     int numerator1 = rows + cols + 2*N;
     long long discriminant = (long long)4*cols + (long long)4*N + (long long)4*rows*N +
@@ -875,7 +877,7 @@ void Distribution::DistributeKeypointsSSC(std::vector<cv::KeyPoint> &kpts, int r
         prevwidth = width;
     }
 
-    std::vector<cv::KeyPoint> reskpts;
+    std::vector<knuff::KeyPoint> reskpts;
     for (int i = 0; i < resultIndices.size(); ++i)
     {
         reskpts.emplace_back(kpts[resultIndices[i]]);
@@ -884,7 +886,7 @@ void Distribution::DistributeKeypointsSSC(std::vector<cv::KeyPoint> &kpts, int r
 }
 
 
-void Distribution::DistributeKeypointsRANMS(std::vector<cv::KeyPoint> &kpts, int minX, int maxX, int minY,
+void Distribution::DistributeKeypointsRANMS(std::vector<knuff::KeyPoint> &kpts, int minX, int maxX, int minY,
         int maxY, int N, float epsilon, int softSSCThreshold)
 {
 #if 0
@@ -943,7 +945,7 @@ void Distribution::DistributeKeypointsRANMS(std::vector<cv::KeyPoint> &kpts, int
             break;
     }
 
-    std::vector<cv::KeyPoint> reskpts;
+    std::vector<knuff::KeyPoint> reskpts;
     for (int i = 0; i < resultIndices.size(); ++i)
     {
         reskpts.emplace_back(kpts[resultIndices[i]]);
@@ -960,7 +962,7 @@ void Distribution::DistributeKeypointsRANMS(std::vector<cv::KeyPoint> &kpts, int
     const int patchHeight = ceil(height / npatchesInY);
 
     int nCells = npatchesInX * npatchesInY;
-    std::vector<std::vector<cv::KeyPoint>> cellkpts(nCells);
+    std::vector<std::vector<knuff::KeyPoint>> cellkpts(nCells);
     int nPerCell = (float)N / nCells;
 
 
@@ -991,11 +993,20 @@ void Distribution::DistributeKeypointsRANMS(std::vector<cv::KeyPoint> &kpts, int
 }
 
 
-void Distribution::DistributeKeypointsSoftSSC(std::vector<cv::KeyPoint> &kpts, const int minX, const int maxX,
+void Distribution::DistributeKeypointsSoftSSC(std::vector<knuff::KeyPoint> &kpts, const int minX, const int maxX,
         const int minY, const int maxY, int N, float epsilon, float threshold)
 {
-    int cols = maxX - minX;
-    int rows = maxY - minY;
+    int cols, rows;
+    if (maxX != -1)
+    {
+        cols = maxX - minX;
+        rows = maxY - minY;
+    }
+    else
+    {
+        cols = minX;
+        rows = minY;
+    }
     int numerator1 = rows + cols + 2*N;
     long long discriminant = (long long)4*cols + (long long)4*N + (long long)4*rows*N +
             (long long)rows*rows + (long long)cols*cols - (long long)2*cols*rows + (long long)4*cols*rows*N;
@@ -1032,9 +1043,18 @@ void Distribution::DistributeKeypointsSoftSSC(std::vector<cv::KeyPoint> &kpts, c
 
         for (int i = 0; i < kpts.size(); ++i)
         {
-            //TODO: remove the minus min stuff if using classic SSC
-            int row = (int)((kpts[i].pt.y-minY)/c);
-            int col = (int)((kpts[i].pt.x-minX)/c);
+            int row, col;
+            if (maxX != -1)
+            {
+                row = (int)((kpts[i].pt.y-minY)/c);
+                col = (int)((kpts[i].pt.x-minX)/c);
+            }
+            else
+            {
+                row = (int)((kpts[i].pt.y)/c);
+                col = (int)((kpts[i].pt.x)/c);
+            }
+
             int score = kpts[i].response;
 
             if (covered[row][col] < score - threshold)
@@ -1068,7 +1088,7 @@ void Distribution::DistributeKeypointsSoftSSC(std::vector<cv::KeyPoint> &kpts, c
         prevwidth = width;
     }
 
-    std::vector<cv::KeyPoint> reskpts;
+    std::vector<knuff::KeyPoint> reskpts;
     for (int i = 0; i < resultIndices.size(); ++i)
     {
         reskpts.emplace_back(kpts[resultIndices[i]]);

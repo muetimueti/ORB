@@ -112,7 +112,7 @@ void ORBextractor::SetFASTThresholds(int ini, int min)
 
 
 void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
-                              std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors)
+                              std::vector<knuff::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors)
 {
     this->operator()(inputImage, mask, resultKeypoints, outputDescriptors, true);
 }
@@ -126,7 +126,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
  */
 
 void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
-                              std::vector<cv::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors, bool distributePerLevel)
+                              std::vector<knuff::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors, bool distributePerLevel)
 {
     std::chrono::high_resolution_clock::time_point funcEntry = std::chrono::high_resolution_clock::now();
 
@@ -155,7 +155,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
     }
     fast.SetStepVector(steps);
 
-    std::vector<std::vector<cv::KeyPoint>> allkpts;
+    std::vector<std::vector<knuff::KeyPoint>> allkpts;
 
     //using namespace std::chrono;
     //high_resolution_clock::time_point t1 = high_resolution_clock::now();
@@ -235,6 +235,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
             for (auto &kpt : allkpts[lvl])
             {
                 kpt.size = size;
+                //TODO: check if operator works correctly
                 if (lvl)
                     kpt.pt *= scale;
             }
@@ -260,7 +261,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
 }
 
 
-void ORBextractor::ComputeAngles(std::vector<std::vector<cv::KeyPoint>> &allkpts)
+void ORBextractor::ComputeAngles(std::vector<std::vector<knuff::KeyPoint>> &allkpts)
 {
 #pragma omp parallel for
     for (int lvl = 0; lvl < nlevels; ++lvl)
@@ -274,7 +275,7 @@ void ORBextractor::ComputeAngles(std::vector<std::vector<cv::KeyPoint>> &allkpts
 }
 
 
-void ORBextractor::ComputeDescriptors(std::vector<std::vector<cv::KeyPoint>> &allkpts, cv::Mat &descriptors)
+void ORBextractor::ComputeDescriptors(std::vector<std::vector<knuff::KeyPoint>> &allkpts, cv::Mat &descriptors)
 {
     const auto degToRadFactor = (float)(CV_PI/180.f);
     const cv::Point* p = &pattern[0];
@@ -292,7 +293,7 @@ void ORBextractor::ComputeDescriptors(std::vector<std::vector<cv::KeyPoint>> &al
         int i = 0, nkpts = allkpts[lvl].size();
         for (int k = 0; k < nkpts; ++k, ++current)
         {
-            const cv::KeyPoint &kpt = allkpts[lvl][k];
+            const knuff::KeyPoint &kpt = allkpts[lvl][k];
             auto descPointer = descriptors.ptr<uchar>(current);        //ptr to beginning of current descriptor
             const uchar* pixelPointer = &lvlClone.at<uchar>(myRound(kpt.pt.y), myRound(kpt.pt.x));  //ptr to kpt in img
 
@@ -329,7 +330,7 @@ void ORBextractor::ComputeDescriptors(std::vector<std::vector<cv::KeyPoint>> &al
  * @param divideImage  true-->divide image into cellSize x cellSize cells, run FAST per cell
  * @param cellSize must be greater than 16 and lesser than min(rows, cols) of smallest image in pyramid
  */
-void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts,
+void ORBextractor::DivideAndFAST(std::vector<std::vector<knuff::KeyPoint>> &allkpts,
                                  Distribution::DistributionMethod mode, bool divideImage, int cellSize, bool distributePerLevel)
 {
     allkpts.resize(nlevels);
@@ -340,7 +341,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
     {
         for (int lvl = 0; lvl < nlevels; ++lvl)
         {
-            std::vector<cv::KeyPoint> levelKpts;
+            std::vector<knuff::KeyPoint> levelKpts;
             levelKpts.clear();
             levelKpts.reserve(nfeatures * 10);
 
@@ -401,7 +402,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
 #pragma omp parallel for
         for (int lvl = minLvl; lvl < maxLvl; ++lvl)
         {
-            std::vector<cv::KeyPoint> levelKpts;
+            std::vector<knuff::KeyPoint> levelKpts;
             levelKpts.clear();
             levelKpts.reserve(nfeatures*10);
 
@@ -425,7 +426,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
             std::vector<std::promise<bool>> promises(nCells);
             int curCell = 0;
 
-            std::vector<std::vector<cv::KeyPoint>> cellkptvecs;
+            std::vector<std::vector<knuff::KeyPoint>> cellkptvecs;
 #endif
 
             for (int py = 0; py < npatchesInY; ++py)
@@ -460,7 +461,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
                     ++curCell;
 
 #else
-                    std::vector<cv::KeyPoint> patchKpts;
+                    std::vector<knuff::KeyPoint> patchKpts;
                     fast.FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
                               patchKpts, iniThFAST, lvl);
                     if (patchKpts.empty())
@@ -470,7 +471,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
                     }
 #endif
 #elif TESTFAST
-                    std::vector<cv::KeyPoint> patchKpts;
+                    std::vector<knuff::KeyPoint> patchKpts;
                     blorp::FAST_t<16>(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
                                       patchKpts, iniThFAST, true);
                     if (patchKpts.empty())
@@ -478,7 +479,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<cv::KeyPoint>> &allkpts
                                           patchKpts, minThFAST, true);
 
 #else
-                    std::vector<cv::KeyPoint> patchKpts;
+                    std::vector<knuff::KeyPoint> patchKpts;
                     cv::FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
                             patchKpts, iniThFAST, true, cv::FastFeatureDetector::TYPE_9_16);
                     if (patchKpts.empty())

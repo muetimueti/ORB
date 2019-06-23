@@ -108,13 +108,13 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     cout << "\nImage loaded successfully!\n" << endl;
 
 
-    std::vector<cv::KeyPoint> keypoints;
+    std::vector<knuff::KeyPoint> keypoints;
     cv::Mat descriptors;
 
-    std::vector<cv::KeyPoint> refkeypoints;
+    std::vector<knuff::KeyPoint> refkeypoints;
     cv::Mat refdescriptors;
 
-    std::vector<cv::KeyPoint> keypointsAll;
+    std::vector<knuff::KeyPoint> keypointsAll;
 
     ORB_SLAM2::ORBextractor extractor (nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
 
@@ -388,10 +388,10 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         cv::Mat imgGray;
         //cv::cvtColor(img, imgGray, CV_BGR2GRAY);
 
-        vector<cv::KeyPoint> mykpts;
+        vector<knuff::KeyPoint> mykpts;
         cv::Mat mydescriptors;
 
-        vector<cv::KeyPoint> refkpts;
+        vector<knuff::KeyPoint> refkpts;
         cv::Mat refdescriptors;
 
 
@@ -589,7 +589,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
 
         /** compare kpts and descriptors per image:
-        vector<std::pair<cv::KeyPoint, cv::KeyPoint>> kptDiffs;
+        vector<std::pair<knuff::KeyPoint, knuff::KeyPoint>> kptDiffs;
         kptDiffs = CompareKeypoints(mykpts, string("my kpts"), refkpts, string("reference kpts"), ni, true);
 
         if (!kptDiffs.empty())
@@ -681,7 +681,7 @@ void PerformanceMode(std::string &imgPath, int nFeatures, float scaleFactor, int
             cv::Mat imgGray;
             cv::cvtColor(img, imgGray, CV_BGR2GRAY);
 
-            vector<cv::KeyPoint> kpts;
+            vector<knuff::KeyPoint> kpts;
             cv::Mat descriptors;
 
             clk::time_point t1 = clk::now();
@@ -702,15 +702,15 @@ void PerformanceMode(std::string &imgPath, int nFeatures, float scaleFactor, int
 
 }
 
-void SortKeypoints(vector<cv::KeyPoint> &kpts)
+void SortKeypoints(vector<knuff::KeyPoint> &kpts)
 {
-    std::sort(kpts.begin(), kpts.end(), [](const cv::KeyPoint &k1, const cv::KeyPoint &k2)
+    std::sort(kpts.begin(), kpts.end(), [](const knuff::KeyPoint &k1, const knuff::KeyPoint &k2)
         {return (k1.pt.x < k2.pt.x || (k1.pt.x == k2.pt.x && k1.pt.y < k2.pt.y));});
 }
 
 
-vector<std::pair<cv::KeyPoint, cv::KeyPoint>> CompareKeypoints(vector<cv::KeyPoint> &kpts1, string name1,
-        vector<cv::KeyPoint> &kpts2, string name2, int imgNr, bool print)
+vector<std::pair<knuff::KeyPoint, knuff::KeyPoint>> CompareKeypoints(vector<knuff::KeyPoint> &kpts1, string name1,
+        vector<knuff::KeyPoint> &kpts2, string name2, int imgNr, bool print)
 {
     //SortKeypoints(kpts1);
     //SortKeypoints(kpts2);
@@ -725,7 +725,7 @@ vector<std::pair<cv::KeyPoint, cv::KeyPoint>> CompareKeypoints(vector<cv::KeyPoi
     else
         N = sz1;
 
-    vector<std::pair<cv::KeyPoint, cv::KeyPoint>> differences;
+    vector<std::pair<knuff::KeyPoint, knuff::KeyPoint>> differences;
     differences.reserve(N);
 
     bool eq = true;
@@ -793,16 +793,16 @@ vector<Descriptor_Pair> CompareDescriptors (cv::Mat &desc1, string name1, cv::Ma
     return differences;
 }
 
-void DisplayKeypoints(cv::Mat &image, std::vector<cv::KeyPoint> &keypoints, cv::Scalar &color,
+void DisplayKeypoints(cv::Mat &image, std::vector<knuff::KeyPoint> &keypoints, cv::Scalar &color,
                      int thickness, int radius, int drawAngular, string windowname)
 {
    cv::namedWindow(windowname, cv::WINDOW_AUTOSIZE);
    cv::imshow(windowname, image);
    //cv::waitKey(0);
 
-   for (const cv::KeyPoint &k : keypoints)
+   for (const knuff::KeyPoint &k : keypoints)
    {
-       cv::Point2f point = k.pt;
+       cv::Point2f point = cv::Point2f(k.pt.x, k.pt.y);
        cv::circle(image, point, radius, color, 1, CV_AA);
        //cv::rectangle(image, cv::Point2f(point.x-1, point.y-1),
        //              cv::Point2f(point.x+1, point.y+1), color, thickness, CV_AA);
@@ -853,7 +853,7 @@ void DrawCellGrid(cv::Mat &image, int minX, int maxX, int minY, int maxY, int ce
 void MeasureExecutionTime(int numIterations, ORB_SLAM2::ORBextractor &extractor, cv::Mat &img, MODE mode)
 {
    using namespace std::chrono;
-    std::vector<cv::KeyPoint> kpts;
+    std::vector<knuff::KeyPoint> kpts;
     cv::Mat desc;
 
    if (mode == DESC_RUNTIME)
@@ -895,14 +895,14 @@ void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &im
     imgColor.copyTo(imgGray);
 
 
-    std::vector<cv::KeyPoint> kptsAll;
-    std::vector<cv::KeyPoint> kptsNaive;
-    std::vector<cv::KeyPoint> kptsQuadtree;
-    std::vector<cv::KeyPoint> kptsQuadtreeORBSLAMSTYLE;
-    std::vector<cv::KeyPoint> kptsGrid;
-    std::vector<cv::KeyPoint> kptsANMS_KDTree;
-    std::vector<cv::KeyPoint> kptsANMS_RT;
-    std::vector<cv::KeyPoint> kptsSSC;
+    std::vector<knuff::KeyPoint> kptsAll;
+    std::vector<knuff::KeyPoint> kptsNaive;
+    std::vector<knuff::KeyPoint> kptsQuadtree;
+    std::vector<knuff::KeyPoint> kptsQuadtreeORBSLAMSTYLE;
+    std::vector<knuff::KeyPoint> kptsGrid;
+    std::vector<knuff::KeyPoint> kptsANMS_KDTree;
+    std::vector<knuff::KeyPoint> kptsANMS_RT;
+    std::vector<knuff::KeyPoint> kptsSSC;
 
     cv::Mat descriptors;
 
@@ -1031,7 +1031,7 @@ void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &im
     cv::waitKey(0);
 }
 
-void AddRandomKeypoints(std::vector<cv::KeyPoint> &keypoints)
+void AddRandomKeypoints(std::vector<knuff::KeyPoint> &keypoints)
 {
    int nKeypoints = 150;
    keypoints.clear();
@@ -1041,7 +1041,7 @@ void AddRandomKeypoints(std::vector<cv::KeyPoint> &keypoints)
        auto x = static_cast<float>(20 + (rand() % static_cast<int>(620 - 20 + 1)));
        auto y = static_cast<float>(20 + (rand() % static_cast<int>(460 - 20 + 1)));
        auto angle = static_cast<float>(0 + (rand() % static_cast<int>(359 - 0 + 1)));
-       keypoints.emplace_back(cv::KeyPoint(x, y, 7.f, angle, 0));
+       keypoints.emplace_back(knuff::KeyPoint(x, y, 7.f, angle, 0));
    }
 }
 

@@ -4,6 +4,8 @@
 #include <vector>
 #include <list>
 #include <opencv2/core/core.hpp>
+#include <saiga/vision/Features.h>
+#include "include/Types.h"
 
 #define BUCKETING_GRID_SIZE 80
 
@@ -15,7 +17,7 @@ public:
 
     void DivideNode(ExtractorNode &n1, ExtractorNode &n2, ExtractorNode &n3, ExtractorNode &n4);
 
-    std::vector<cv::KeyPoint> nodeKpts;
+    std::vector<knuff::KeyPoint> nodeKpts;
     cv::Point2i UL, UR, LL, LR;
     std::list<ExtractorNode>::iterator lit;
     bool leaf;
@@ -38,32 +40,32 @@ public:
         SOFT_SSC = 8
     };
 
-    static void DistributeKeypoints(std::vector<cv::KeyPoint> &kpts, int minX, int maxX, int minY,
+    static void DistributeKeypoints(std::vector<knuff::KeyPoint> &kpts, int minX, int maxX, int minY,
                              int maxY, int N, DistributionMethod mode, float softSSCThreshold = 10);
 
 protected:
 
-    static void DistributeKeypointsNaive(std::vector<cv::KeyPoint> &kpts, int N);
+    static void DistributeKeypointsNaive(std::vector<knuff::KeyPoint> &kpts, int N);
 
-    static void DistributeKeypointsQuadTree(std::vector<cv::KeyPoint> &kpts, int minX,
+    static void DistributeKeypointsQuadTree(std::vector<knuff::KeyPoint> &kpts, int minX,
                                      int maxX, int minY, int maxY, int N);
 
-    static void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<cv::KeyPoint> &kpts, int minX,
+    static void DistributeKeypointsQuadTree_ORBSLAMSTYLE(std::vector<knuff::KeyPoint> &kpts, int minX,
                                                   int maxX, int minY, int maxY, int N);
 
-    static void DistributeKeypointsGrid(std::vector<cv::KeyPoint> &kpts, int minX,
+    static void DistributeKeypointsGrid(std::vector<knuff::KeyPoint> &kpts, int minX,
                              int maxX, int minY, int maxY, int N);
 
-    static void DistributeKeypointsKdT_ANMS(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon);
+    static void DistributeKeypointsKdT_ANMS(std::vector<knuff::KeyPoint> &kpts, int rows, int cols, int N, float epsilon);
 
-    static void DistributeKeypointsRT_ANMS(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon);
+    static void DistributeKeypointsRT_ANMS(std::vector<knuff::KeyPoint> &kpts, int rows, int cols, int N, float epsilon);
 
-    static void DistributeKeypointsSSC(std::vector<cv::KeyPoint> &kpts, int rows, int cols, int N, float epsilon);
+    static void DistributeKeypointsSSC(std::vector<knuff::KeyPoint> &kpts, int rows, int cols, int N, float epsilon);
 
-    static void DistributeKeypointsRANMS(std::vector<cv::KeyPoint> &kpts, int minX, int maxX, int minY, int maxY, int N, float epsilon,
+    static void DistributeKeypointsRANMS(std::vector<knuff::KeyPoint> &kpts, int minX, int maxX, int minY, int maxY, int N, float epsilon,
         int softSSCThreshold);
 
-    static void DistributeKeypointsSoftSSC(std::vector<cv::KeyPoint> &kpts, const int minX, const int maxX,
+    static void DistributeKeypointsSoftSSC(std::vector<knuff::KeyPoint> &kpts, const int minX, const int maxX,
                                            const int minY, const int maxY, int N, float epsilon, float threshold);
 };
 
@@ -112,7 +114,7 @@ struct PointCloud
 };
 
 template <typename T>
-void generatePointCloud(PointCloud<T> &point, std::vector<cv::KeyPoint> keyPoints)
+void generatePointCloud(PointCloud<T> &point, std::vector<knuff::KeyPoint> keyPoints)
 {
     point.pts.resize(keyPoints.size());
     for (size_t i=0;i<keyPoints.size();i++)

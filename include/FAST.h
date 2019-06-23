@@ -2,6 +2,8 @@
 #define ORBEXTRACTOR_FAST_H
 
 #include <opencv2/core/core.hpp>
+//#include <saiga/vision/Features.h>
+#include "include/Types.h"
 #define FASTWORKERS 0
 
 const int CIRCLE_SIZE = 16;
@@ -24,7 +26,7 @@ public:
 
     void SetFASTThresholds(int ini, int min);
 
-    void FAST(cv::Mat img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl);
+    void FAST(cv::Mat img, std::vector<knuff::KeyPoint> &keypoints, int threshold, int lvl);
 
     enum ScoreType
     {
@@ -68,7 +70,7 @@ protected:
 
 
     template <typename scoretype>
-    void FAST_t(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl);
+    void FAST_t(cv::Mat &img, std::vector<knuff::KeyPoint> &keypoints, int threshold, int lvl);
 
     float CornerScore_Harris(const uchar* ptr, int lvl);
 
@@ -78,7 +80,7 @@ protected:
 
 #if FASTWORKERS
 public:
-    void FAST_mt(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl);
+    void FAST_mt(cv::Mat &img, std::vector<knuff::KeyPoint> &keypoints, int threshold, int lvl);
 #endif
 };
 
