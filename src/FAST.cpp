@@ -1,10 +1,8 @@
-#include <thread>
 #include "include/FAST.h"
 
 FASTdetector::FASTdetector(int _iniThreshold, int _minThreshold, int _nlevels) :
     iniThreshold(0), minThreshold(0), nlevels(_nlevels), scoreType(OPENCV), pixelOffset{},
-    threshold_tab_init{}, threshold_tab_min{},
-    workerPool(/*TODO: adjust*/ 2, _iniThreshold, _minThreshold)
+    threshold_tab_init{}, threshold_tab_min{}
 {
     pixelOffset.resize(nlevels * CIRCLE_SIZE);
     SetFASTThresholds(_iniThreshold, _minThreshold);
@@ -70,7 +68,6 @@ void FASTdetector::FAST(cv::Mat img, std::vector<cv::KeyPoint> &keypoints, int t
         {
             case (OPENCV):
             {
-                //this->FAST_mt(img, keypoints, threshold, lvl);
                 this->FAST_t<uchar>(img, keypoints, threshold, lvl);
                 break;
             }
@@ -420,7 +417,7 @@ float FASTdetector::CornerScore(const uchar* pointer, const int offset[], int th
     return -b0 - 1;
 }
 
-
+#if FASTWORKERS
 void FASTdetector::FAST_mt(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl)
 {
     keypoints.clear();
@@ -492,4 +489,5 @@ void FASTdetector::FAST_mt(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, i
         }
     }
 }
+#endif
 

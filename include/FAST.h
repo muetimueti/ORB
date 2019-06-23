@@ -2,9 +2,16 @@
 #define ORBEXTRACTOR_FAST_H
 
 #include <opencv2/core/core.hpp>
-#include <thread>
-#include "include/FASTworker.h"
+#define FASTWORKERS 0
 
+const int CIRCLE_SIZE = 16;
+
+const int CIRCLE_OFFSETS[16][2] =
+        {{0,  3}, { 1,  3}, { 2,  2}, { 3,  1}, { 3, 0}, { 3, -1}, { 2, -2}, { 1, -3},
+         {0, -3}, {-1, -3}, {-2, -2}, {-3, -1}, {-3, 0}, {-3,  1}, {-2,  2}, {-1,  3}};
+
+const int PIXELS_TO_CHECK[16] =
+        {0, 8, 2, 10, 4, 12, 6, 14, 1, 9, 3, 11, 5, 13, 7, 15};
 
 class FASTdetector
 {
@@ -39,7 +46,7 @@ public:
 
     static float CornerScore_Experimental(const uchar* ptr, int lvl);
 
-    FASTworker workerPool;
+    //FASTworker workerPool;
 
 protected:
 
@@ -69,9 +76,10 @@ protected:
 
     float CornerScore(const uchar* pointer, const int offset[], int threshold);
 
-
+#if FASTWORKERS
 public:
     void FAST_mt(cv::Mat &img, std::vector<cv::KeyPoint> &keypoints, int threshold, int lvl);
+#endif
 };
 
 

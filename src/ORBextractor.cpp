@@ -5,14 +5,12 @@
 #include "include/ORBextractor.h"
 #include "include/ORBconstants.h"
 #include <unistd.h>
-#include <opencv2/features2d/features2d.hpp>
+#include <chrono>
+
 
 #ifndef NDEBUG
 #   define D(x) x
-#   include <opencv2/highgui/highgui.hpp>
 
-#   include <chrono>
-#   include "include/referenceORB.h"
 
 #else
 #   define D(x)
@@ -25,6 +23,10 @@
 
 #if TESTFAST
 #include "include/avx.h"
+#endif
+
+#if !MYFAST and !TESTFAST
+#include <opencv2/features2d/features2d.hpp>
 #endif
 
 namespace ORB_SLAM2
