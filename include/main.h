@@ -4,8 +4,6 @@
 #include <string>
 #include <opencv2/core/core.hpp>
 #include "include/ORBextractor.h"
-#include "include/referenceORB.h"
-
 #include <unistd.h>
 
 #ifndef NDEBUG

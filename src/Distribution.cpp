@@ -29,6 +29,11 @@ Distribution::DistributeKeypoints(std::vector<knuff::KeyPoint> &kpts, const int 
 {
     if (kpts.size() <= N)
         return;
+    if (N == 0)
+    {
+        kpts = std::vector<knuff::KeyPoint>(0);
+        return;
+    }
     const float epsilon = 0.1;
 
     if (mode == ANMS_RT || mode == ANMS_KDTREE || mode == SSC || mode == RANMS || mode == SOFT_SSC)

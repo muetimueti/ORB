@@ -65,7 +65,7 @@ float ORBextractor::IntensityCentroidAngle(const uchar* pointer, int step)
 ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels, int _iniThFAST, int _minThFAST):
         nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels), iniThFAST(_iniThFAST), minThFAST(_minThFAST),
         levelToDisplay(-1), softSSCThreshold(10), kptDistribution(Distribution::DistributionMethod::SSC), pixelOffset{},
-        fast(_iniThFAST, _minThFAST, _nlevels)
+        fast(_iniThFAST, _minThFAST, _nlevels), fileInterface(), saveFeatures(false)
 {
     SetnLevels(_nlevels);
 
@@ -126,7 +126,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
  */
 
 void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
-                              std::vector<knuff::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors, bool distributePerLevel)
+        std::vector<knuff::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors, bool distributePerLevel)
 {
     std::chrono::high_resolution_clock::time_point funcEntry = std::chrono::high_resolution_clock::now();
 
@@ -201,9 +201,6 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
     if (distributePerLevel)
         ComputeAngles(allkpts);
 
-    //high_resolution_clock::time_point t2 = high_resolution_clock::now();
-    //auto d = duration_cast<microseconds>(t2-t1).count();
-    //std::cout << "\nmy comp time for FAST + distr: " << d << "\n";
 
     cv::Mat BRIEFdescriptors;
     int nkpts = 0;
@@ -245,6 +242,11 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
     for (int lvl = 0; lvl < nlevels; ++lvl)
     {
         resultKeypoints.insert(resultKeypoints.end(), allkpts[lvl].begin(), allkpts[lvl].end());
+    }
+
+    if (saveFeatures)
+    {
+        fileInterface.SaveFeatures(resultKeypoints);
     }
 
     //TODO: activate max duration

@@ -318,7 +318,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
     cv::Mat img;
 
-    pangolin::CreateWindowAndBind("Menu",210,750);
+    pangolin::CreateWindowAndBind("Menu",210,800);
 
     pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(210));
 
@@ -334,7 +334,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     pangolin::Var<bool> menuSoftSSC("menu.Soft SSC", false, false);
     pangolin::Var<int> menuSoftSSCThreshold("menu.Soft SSC Threshold", softTh, 0, 100);
     pangolin::Var<bool> menuDistrPerLvl("menu.Distribute Per Level", false, true);
-    pangolin::Var<int> menuNFeatures("menu.Desired Features", 1000, 1, 2000);
+    pangolin::Var<int> menuNFeatures("menu.Desired Features", 1500, 500, 2000);
     pangolin::Var<int> menuActualkpts("menu.Features Actual", false, 0);
     pangolin::Var<int> menuSetInitThreshold("menu.Init FAST Threshold", FASTThresholdInit, 5, 40);
     pangolin::Var<int> menuSetMinThreshold("menu.Min FAST Threshold", FASTThresholdMin, 1, 39);
@@ -349,6 +349,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     pangolin::Var<int> menuChosenLvl("menu.Limit to Level", 0, 0, myExtractor.GetLevels()-1);
     pangolin::Var<int> menuMeanProcessingTime("menu.Mean Processing Time", 0);
     pangolin::Var<int> menuLastFrametime("menu.Last Frame", 0);
+    pangolin::Var<bool> menuSaveFeatures("menu.SAVE FEATURES", false, false);
 
     pangolin::FinishFrame();
 
@@ -571,19 +572,18 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             myExtractor.SetScoreType(FASTdetector::SUM);
             menuScoreSum = false;
         }
-        /*
-        if (menuMultithreading && !multithreading)
+        if (menuSaveFeatures)
         {
-            myExtractor.SetMultithreading(true);
-            multithreading = true;
+            ni = 0;
+            myExtractor.SetFeatureSaving(true);
+            menuSaveFeatures = false;
+            string featureSavePath = "/home/ralph/SLAM/SavedFeatures/kitti_seq_07/";
+            myExtractor.SetFeatureSavePath(featureSavePath);
+            if (menuPause)
+            {
+                menuPause = false;
+            }
         }
-        else if (!menuMultithreading && multithreading)
-        {
-            myExtractor.SetMultithreading(false);
-            multithreading = false;
-        }
-         */
-
 
 
 

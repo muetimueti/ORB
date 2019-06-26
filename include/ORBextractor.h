@@ -4,6 +4,7 @@
 #include <vector>
 #include "include/Distribution.h"
 #include "include/FAST.h"
+#include "include/FeatureFileInterface.h"
 
 #ifndef NDEBUG
 #   define D(x) x
@@ -93,6 +94,17 @@ public:
 
     void SetScaleFactor(float s);
 
+    void SetFeatureSavePath(std::string &path)
+    {
+        path += std::to_string(nfeatures) + "f_" + std::to_string(scaleFactor) + "s_" +
+                std::to_string(kptDistribution) + "d/";
+        fileInterface.SetPath(path);
+    }
+    void inline SetFeatureSaving(bool s)
+    {
+        saveFeatures = s;
+    }
+
 protected:
 
     static float IntensityCentroidAngle(const uchar* pointer, int step);
@@ -136,6 +148,9 @@ protected:
     std::vector<float> invLevelSigma2Vec;
 
     FASTdetector fast;
+
+    FeatureFileInterface fileInterface;
+    bool saveFeatures;
 };
 
 
