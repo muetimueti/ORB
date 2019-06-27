@@ -4,13 +4,25 @@
 #include <string>
 #include <opencv2/core/mat.hpp>
 #include "include/Types.h"
+#include "Distribution.h"
 #include <sys/stat.h>
+
+#define message_assert(expr, msg) assert(( (void)(msg), (expr) ))
 
 class FeatureFileInterface
 {
 public:
-    explicit FeatureFileInterface(std::string &_path) : path(_path), counter(0) {}
-    FeatureFileInterface() : path(), counter(0) {}
+    typedef struct fileInfo
+    {
+        int nLevels;
+        int nFeatures;
+        float scaleFactor;
+        int SSCThreshold;
+        Distribution::DistributionMethod kptDistribution;
+    } fileInfo;
+
+    explicit FeatureFileInterface(std::string &_path) : saveCounter(0), loadCounter(0) {SetPath(_path);}
+    FeatureFileInterface() : path(), saveCounter(0), loadCounter(0) {}
 
     bool SaveFeatures(std::vector<knuff::KeyPoint> &kpts);
 
@@ -18,7 +30,11 @@ public:
 
     bool SaveDescriptors(cv::Mat &descriptors);
 
-    cv::Mat LoadDescriptors(std::string &path);
+    cv::Mat LoadDescriptors(std::string &path, cv::Mat &descriptors, int nkpts);
+
+    bool SaveInfo(fileInfo &info);
+
+    std::string GetDistributionName(Distribution::DistributionMethod d);
 
     std::string GetFilenameFromPath(std::string &path);
 
@@ -39,9 +55,15 @@ public:
         }
     }
 
+    void inline SetCurrentImage(int n)
+    {
+        loadCounter = n;
+    }
+
 private:
     std::string path;
-    int counter;
+    int saveCounter;
+    int loadCounter;
 };
 
 #endif //ORBEXTRACTOR_FEATUREFILEINTERFACE_H

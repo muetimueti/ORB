@@ -65,7 +65,7 @@ float ORBextractor::IntensityCentroidAngle(const uchar* pointer, int step)
 ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels, int _iniThFAST, int _minThFAST):
         nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels), iniThFAST(_iniThFAST), minThFAST(_minThFAST),
         levelToDisplay(-1), softSSCThreshold(10), kptDistribution(Distribution::DistributionMethod::SSC), pixelOffset{},
-        fast(_iniThFAST, _minThFAST, _nlevels), fileInterface(), saveFeatures(false)
+        fast(_iniThFAST, _minThFAST, _nlevels), fileInterface(), saveFeatures(false), usePrecomputedFeatures(false)
 {
     SetnLevels(_nlevels);
 
@@ -76,7 +76,6 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels, int
     const int nPoints = 512;
     const auto tempPattern = (const cv::Point*) bit_pattern_31_;
     std::copy(tempPattern, tempPattern+nPoints, std::back_inserter(pattern));
-
 }
 
 void ORBextractor::SetnFeatures(int n)
@@ -128,26 +127,37 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
 void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
         std::vector<knuff::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors, bool distributePerLevel)
 {
+    if (usePrecomputedFeatures)
+    {
+        resultKeypoints = fileInterface.LoadFeatures(loadPath);
+
+        cv::Mat BRIEFdescriptors;
+        int nkpts = resultKeypoints.size();
+        if (nkpts <= 0)
+        {
+            outputDescriptors.release();
+        }
+        else
+        {
+            outputDescriptors.create(nkpts, 32, CV_8U);
+            BRIEFdescriptors = outputDescriptors.getMat();
+        }
+
+        fileInterface.LoadDescriptors(loadPath, BRIEFdescriptors, nkpts);
+        return;
+    }
+
     std::chrono::high_resolution_clock::time_point funcEntry = std::chrono::high_resolution_clock::now();
 
     if (inputImage.empty())
         return;
 
     cv::Mat image = inputImage.getMat();
-    assert(image.type() == CV_8UC1);
+    message_assert("Image must be single-channel!",image.type() == CV_8UC1);
 
     ComputeScalePyramid(image);
 
-    /*
-    for (int lvl = 0; lvl < nlevels; ++lvl)
-    {
-        for (int i = 0; i < CIRCLE_SIZE; ++i)
-        {
-            pixelOffset[lvl*CIRCLE_SIZE + i] =
-                    CIRCLE_OFFSETS[i][0] + CIRCLE_OFFSETS[i][1] * (int)imagePyramid[lvl].step1();
-        }
-    }
-     */
+
     std::vector<int> steps(nlevels);
     for (int lvl = 0; lvl < nlevels; ++lvl)
     {
@@ -232,7 +242,6 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
             for (auto &kpt : allkpts[lvl])
             {
                 kpt.size = size;
-                //TODO: check if operator works correctly
                 if (lvl)
                     kpt.pt *= scale;
             }
@@ -247,9 +256,9 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
     if (saveFeatures)
     {
         fileInterface.SaveFeatures(resultKeypoints);
+        fileInterface.SaveDescriptors(BRIEFdescriptors);
     }
 
-    //TODO: activate max duration
     //ensure feature detection always takes 50ms
     unsigned long maxDuration = 50000;
     std::chrono::high_resolution_clock::time_point funcExit = std::chrono::high_resolution_clock::now();

@@ -104,6 +104,18 @@ public:
     {
         saveFeatures = s;
     }
+    void inline SetLoadPath(std::string &path)
+    {
+        loadPath = path;
+    }
+    void inline EnablePrecomputedFeatures(bool b)
+    {
+        usePrecomputedFeatures = b;
+    }
+    inline FeatureFileInterface* GetFileInterface()
+    {
+        return &fileInterface;
+    }
 
 protected:
 
@@ -151,6 +163,8 @@ protected:
 
     FeatureFileInterface fileInterface;
     bool saveFeatures;
+    bool usePrecomputedFeatures;
+    std::string loadPath;
 };
 
 

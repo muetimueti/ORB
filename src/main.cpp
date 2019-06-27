@@ -18,6 +18,9 @@
 # define D(x)
 #endif
 
+#define PRECOMPUTEDFEATURES 1
+#define FEATUREPATH "/home/ralph/SLAM/SavedFeatures/kitti_seq_07/1000f_1.100000s_3d/"
+
 
 using namespace std;
 
@@ -26,7 +29,7 @@ int main(int argc, char **argv)
 {
     std::chrono::high_resolution_clock::time_point program_start = std::chrono::high_resolution_clock::now();
 
-    if (argc != 4)
+    if (argc != 4 && argc != 5)
     {
         cerr << "required arguments: <path to settings> <path to image / sequence> "
                 "<mode: 0-> single image / 1-> image sequence>" << endl;
@@ -148,7 +151,7 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     pangolin::Var<bool> menuANMS_RT("menu.Range-Tree-ANMS",false,false);
     pangolin::Var<bool> menuSSC("menu.SSC",false,false);
     pangolin::Var<bool> menuRANMS("menu.RANMS", false, false);
-    pangolin::Var<bool> menuDistrPerLvl("menu.Distribute Per Level", false, true);
+    pangolin::Var<bool> menuDistrPerLvl("menu.Distribute Per Level", false, distributePerLevel);
     pangolin::Var<int> menuNFeatures("menu.Desired Features", 1000, 1, 2000);
     pangolin::Var<int> menuActualkpts("menu.Features Actual", false, 0);
     pangolin::Var<int> menuSetInitThreshold("menu.Init FAST Threshold", FASTThresholdInit, 1, 40);
@@ -160,12 +163,10 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     pangolin::Var<bool> menuScoreExp("menu.Experimental", false, false);
     pangolin::Var<bool> menuExit("menu.EXIT", false, false);
 
-
     pangolin::FinishFrame();
 
     cv::namedWindow(string(imgPath));
     cv::moveWindow(string(imgPath), 80, 260);
-
 
     while (true)
     {
@@ -333,8 +334,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     pangolin::Var<bool> menuRANMS("menu.RANMS", false, false);
     pangolin::Var<bool> menuSoftSSC("menu.Soft SSC", false, false);
     pangolin::Var<int> menuSoftSSCThreshold("menu.Soft SSC Threshold", softTh, 0, 100);
-    pangolin::Var<bool> menuDistrPerLvl("menu.Distribute Per Level", false, true);
-    pangolin::Var<int> menuNFeatures("menu.Desired Features", 1500, 500, 2000);
+    pangolin::Var<bool> menuDistrPerLvl("menu.Distribute Per Level", true, true);
+    pangolin::Var<int> menuNFeatures("menu.Desired Features", nFeatures, 500, 2000);
     pangolin::Var<int> menuActualkpts("menu.Features Actual", false, 0);
     pangolin::Var<int> menuSetInitThreshold("menu.Init FAST Threshold", FASTThresholdInit, 5, 40);
     pangolin::Var<int> menuSetMinThreshold("menu.Min FAST Threshold", FASTThresholdMin, 1, 39);
@@ -363,11 +364,18 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     //cv::createTrackbar(imgTrackbar, string(imgPath), nullptr, nImages);
      */
 
-    //cv::createButton("btn", nullptr, nullptr, cv::QT_PUSH_BUTTON, false);
+    cv::displayStatusBar(string(imgPath), "Current Distribution: Bucketing");
 
     int count = 0;
     bool distributePerLevel = false;
     int soloLvl = -1;
+
+#if PRECOMPUTEDFEATURES
+    string loadPath = FEATUREPATH;
+    myExtractor.EnablePrecomputedFeatures(true);
+    myExtractor.SetLoadPath(loadPath);
+    cv::displayStatusBar(string(imgPath), "Current Distribution: Loaded from File");
+#endif
 
     for(int ni=0; ni<nImages; ni++)
     {
@@ -392,13 +400,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         vector<knuff::KeyPoint> mykpts;
         cv::Mat mydescriptors;
 
-        vector<knuff::KeyPoint> refkpts;
-        cv::Mat refdescriptors;
-
-
-
         chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
-        //refExtractor(img, cv::Mat(), refkpts, refdescriptors);
 
         //std::cout << "\ncurrent img: " << string(imgPath) + vstrImageFilenames[ni];
 
@@ -424,11 +426,15 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         }
         cv::cvtColor(img, img, cv::COLOR_GRAY2BGR);
         DisplayKeypoints(img, mykpts, color, thickness, radius, drawAngular, string(imgPath));
-        cv::waitKey(1000/30);
+        cv::waitKey(1);
 
         //gui stuff
         if (cv::getTrackbarPos(imgTrackbar, string(imgPath)) != ni)
+        {
             ni = cv::getTrackbarPos(imgTrackbar, string(imgPath));
+            myExtractor.GetFileInterface()->SetCurrentImage(ni);
+        }
+
 
         int n = menuNFeatures;
         if (n != nFeatures)
@@ -457,6 +463,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuAll)
         {
             myExtractor.SetDistribution(Distribution::KEEP_ALL);
+            cv::displayStatusBar(string(imgPath), "Current Distribution: None (All Keypoints kept)");
             myTotalDuration = 0;
             count = 0;
             menuAll = false;
@@ -464,6 +471,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuTopN)
         {
             myExtractor.SetDistribution(Distribution::NAIVE);
+            cv::displayStatusBar(string(imgPath), "Current Distribution: Top N");
             myTotalDuration = 0;
             count = 0;
             menuTopN = false;
@@ -471,6 +479,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuBucketing)
         {
             myExtractor.SetDistribution(Distribution::GRID);
+            cv::displayStatusBar(string(imgPath), "Current Distribution: Bucketing");
             myTotalDuration = 0;
             count = 0;
             menuBucketing = false;
@@ -478,6 +487,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuQuadtreeORBSLAMSTYLE)
         {
             myExtractor.SetDistribution(Distribution::QUADTREE_ORBSLAMSTYLE);
+            cv::displayStatusBar(string(imgPath), "Current Distribution: Quadtree");
             myTotalDuration = 0;
             count = 0;
             menuQuadtreeORBSLAMSTYLE = false;
@@ -485,6 +495,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuANMS_KDT)
         {
             myExtractor.SetDistribution(Distribution::ANMS_KDTREE);
+            cv::displayStatusBar(string(imgPath), "Current Distribution: KD-Tree");
             myTotalDuration = 0;
             count = 0;
             menuANMS_KDT = false;
@@ -492,6 +503,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuANMS_RT)
         {
             myExtractor.SetDistribution(Distribution::ANMS_RT);
+            cv::displayStatusBar(string(imgPath), "Current Distribution: Range Tree");
             myTotalDuration = 0;
             count = 0;
             menuANMS_RT = false;
@@ -499,6 +511,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuSSC)
         {
             myExtractor.SetDistribution(Distribution::SSC);
+            cv::displayStatusBar(string(imgPath), "Current Distribution: SSC");
             myTotalDuration = 0;
             count = 0;
             menuSSC = false;
@@ -506,6 +519,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuRANMS)
         {
             myExtractor.SetDistribution(Distribution::RANMS);
+            cv::displayStatusBar(string(imgPath), "Current Distribution: Bucketed Soft SSC");
             myTotalDuration = 0;
             count = 0;
             menuRANMS = false;
@@ -513,6 +527,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuSoftSSC)
         {
             myExtractor.SetDistribution(Distribution::SOFT_SSC);
+            cv::displayStatusBar(string(imgPath), "Current Distribution: Soft SSC");
             myTotalDuration = 0;
             count = 0;
             menuSoftSSC = false;
@@ -543,7 +558,11 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             distributePerLevel = false;
 
         if (menuPause)
+        {
             --ni;
+            myExtractor.GetFileInterface()->SetCurrentImage(ni);
+        }
+
 
         if (menuSetInitThreshold != FASTThresholdInit || menuSetMinThreshold != FASTThresholdMin)
         {
@@ -574,7 +593,11 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         }
         if (menuSaveFeatures)
         {
-            ni = 0;
+#if PRECOMPUTEDFEATURES
+            cerr << "Saving Features while using loaded features is not supported.\n";
+            menuSaveFeatures = false;
+#else
+            ni = -1;
             myExtractor.SetFeatureSaving(true);
             menuSaveFeatures = false;
             string featureSavePath = "/home/ralph/SLAM/SavedFeatures/kitti_seq_07/";
@@ -583,6 +606,14 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             {
                 menuPause = false;
             }
+            FeatureFileInterface::fileInfo info;
+            info.nLevels = myExtractor.GetLevels();
+            info.nFeatures = menuNFeatures;
+            info.scaleFactor = myExtractor.GetScaleFactor();
+            info.SSCThreshold = softTh;
+            info.kptDistribution = myExtractor.GetDistribution();
+            myExtractor.GetFileInterface()->SaveInfo(info);
+#endif
         }
 
 
