@@ -19,13 +19,21 @@ struct Descriptor_Pair
     int index;
 };
 
+enum Dataset
+{
+    kitti = 0,
+    tum = 1,
+    euroc = 2
+};
+
 enum MODE {DESC_RUNTIME = 0, FAST_RUNTIME = 1};
 
 void SingleImageMode(std::string &imgPath, int nFeatures, float scaleFactor, int nLevels, int FASTThresholdInit,
                      int FASTThresholdMin, cv::Scalar color, int thickness, int radius, bool drawAngular);
 
 void SequenceMode(std::string &imgPath, int nFeatures, float scaleFactor, int nLevels, int FASTThresholdInit,
-                    int FASTThresholdMin, cv::Scalar color, int thickness, int radius, bool drawAngular);
+                    int FASTThresholdMin, cv::Scalar color, int thickness, int radius, bool drawAngular,
+                    Dataset dataset);
 
 void PerformanceMode(std::string &imgPath, int nFeatures, float scaleFactor, int nLevels, int FASTThresholdInit,
                      int FASTThresholdMin);

@@ -18,8 +18,8 @@
 # define D(x)
 #endif
 
-#define PRECOMPUTEDFEATURES 1
-#define FEATUREPATH "/home/ralph/SLAM/SavedFeatures/kitti_seq_07/1000f_1.100000s_3d/"
+#define PRECOMPUTEDFEATURES 0
+#define FEATUREPATH "/home/ralph/SLAM/SavedFeatures/kitti_seq_07/1500f_1.100000s_3d/"
 
 
 using namespace std;
@@ -29,10 +29,10 @@ int main(int argc, char **argv)
 {
     std::chrono::high_resolution_clock::time_point program_start = std::chrono::high_resolution_clock::now();
 
-    if (argc != 4 && argc != 5)
+    if (argc != 6)
     {
         cerr << "required arguments: <path to settings> <path to image / sequence> "
-                "<mode: 0-> single image / 1-> image sequence>" << endl;
+                "<mode: 0/1> <save path> <kitti/tum/euroc>" << endl;
     }
 
     string settingsPath = string(argv[1]);
@@ -62,6 +62,9 @@ int main(int argc, char **argv)
     string m = argv[3];
     int mode = std::stoi(m);
 
+    string strdataset = argv[5];
+    Dataset dataset = strdataset == "kitti" ? kitti : strdataset == "euroc"? euroc : tum;
+
     if (mode == 0)
     {
         SingleImageMode(imgPath, nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin,
@@ -70,7 +73,7 @@ int main(int argc, char **argv)
     else if (mode == 1)
     {
         SequenceMode(imgPath, nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin,
-                     color, thickness, radius, drawAngular);
+                     color, thickness, radius, drawAngular, dataset);
     }
     else
     {
@@ -287,24 +290,29 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
 }
 
 void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels, int FASTThresholdInit,
-                    int FASTThresholdMin, cv::Scalar color, int thickness, int radius, bool drawAngular)
+                    int FASTThresholdMin, cv::Scalar color, int thickness, int radius, bool drawAngular,
+                    Dataset dataset)
 {
+    bool stereo;
+    stereo = dataset == kitti || dataset == euroc;
     cout << "\nStarting in sequence mode...\n";
 
-    vector<string> vstrImageFilenames;
+    vector<string> vstrImageFilenamesLeft;
     vector<double> vTimestamps;
     //string strFile = string(imgPath)+"/rgb.txt";
     //LoadImages(strFile, vstrImageFilenames, vTimestamps)
 
-    vector<string> empty;
-    LoadImages(imgPath, vstrImageFilenames, empty, vTimestamps);
+    vector<string> vstrImageFilenamesRight;
+    LoadImages(imgPath, vstrImageFilenamesLeft, vstrImageFilenamesRight, vTimestamps);
 
-    int nImages = vstrImageFilenames.size();
+    int nImages = vstrImageFilenamesLeft.size();
 
     vector<float> vTimesTrack;
     vTimesTrack.resize(nImages);
 
     ORB_SLAM2::ORBextractor myExtractor(nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
+    ORB_SLAM2::ORBextractor myExtractorRight(nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
+
 
     cout << "\n-------------------------\n"
            << "Images in sequence: " << nImages << "\n";
@@ -318,6 +326,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     int softTh = 10;
 
     cv::Mat img;
+    cv::Mat imgRight;
 
     pangolin::CreateWindowAndBind("Menu",210,800);
 
@@ -380,17 +389,21 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     for(int ni=0; ni<nImages; ni++)
     {
         cv::setTrackbarPos("image nr", string(imgPath), ni);
-        //cout << "\nNow processing image nr. " << ni << "...\n";
-        // Read image from file
+
+
+        /// images loaded from TUM dataset:
         //img = cv::imread(string(imgPath) + "/" + vstrImageFilenames[ni], CV_LOAD_IMAGE_UNCHANGED);
-        img = cv::imread(vstrImageFilenames[ni], CV_LOAD_IMAGE_UNCHANGED);
+
+        ///images loaded from KITTI dataset:
+        img = cv::imread(vstrImageFilenamesLeft[ni], CV_LOAD_IMAGE_UNCHANGED);
+        if (stereo)
+            imgRight = cv::imread(vstrImageFilenamesRight[ni], CV_LOAD_IMAGE_UNCHANGED);
         double tframe = vTimestamps[ni];
 
         if (img.empty())
-
         {
             cerr << endl << "Failed to load image at: "
-            << string(imgPath) << "/" << vstrImageFilenames[ni] << endl;
+            << string(imgPath) << "/" << vstrImageFilenamesLeft[ni] << endl;
             exit(EXIT_FAILURE);
         }
 
@@ -400,6 +413,9 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         vector<knuff::KeyPoint> mykpts;
         cv::Mat mydescriptors;
 
+        vector<knuff::KeyPoint> mykptsRight;
+        cv::Mat mydescriptorsRight;
+
         chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
 
         //std::cout << "\ncurrent img: " << string(imgPath) + vstrImageFilenames[ni];
@@ -408,15 +424,16 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
 
         myExtractor(img, cv::Mat(), mykpts, mydescriptors, distributePerLevel);
+        if (stereo)
+            myExtractorRight(imgRight, cv::Mat(), mykptsRight, mydescriptorsRight, distributePerLevel);
+
         chrono::high_resolution_clock ::time_point t3 = chrono::high_resolution_clock::now();
 
-        auto refduration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
         auto myduration = chrono::duration_cast<chrono::microseconds>(t3 - t2).count();
 
         ++count;
 
         myTotalDuration += myduration;
-        refTotalDuration += refduration;
 
         pangolin::FinishFrame();
 
@@ -441,18 +458,24 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         {
             nFeatures = n;
             myExtractor.SetnFeatures(n);
+            if (stereo)
+                myExtractorRight.SetnFeatures(n);
         }
 
         float scaleF = menuScaleFactor;
         if (scaleF != myExtractor.GetScaleFactor())
         {
             myExtractor.SetScaleFactor(scaleF);
+            if (stereo)
+                myExtractorRight.SetScaleFactor(scaleF);
         }
 
         int nlvl = menuNLevels;
         if (nlvl != myExtractor.GetLevels())
         {
             myExtractor.SetnLevels(nlvl);
+            if (stereo)
+                myExtractorRight.SetnLevels(nlvl);
         }
 
         menuLastFrametime = myduration/1000;
@@ -463,6 +486,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuAll)
         {
             myExtractor.SetDistribution(Distribution::KEEP_ALL);
+            if (stereo)
+                myExtractorRight.SetDistribution(Distribution::KEEP_ALL);
             cv::displayStatusBar(string(imgPath), "Current Distribution: None (All Keypoints kept)");
             myTotalDuration = 0;
             count = 0;
@@ -471,6 +496,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuTopN)
         {
             myExtractor.SetDistribution(Distribution::NAIVE);
+            if (stereo)
+                myExtractorRight.SetDistribution(Distribution::NAIVE);
             cv::displayStatusBar(string(imgPath), "Current Distribution: Top N");
             myTotalDuration = 0;
             count = 0;
@@ -479,6 +506,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuBucketing)
         {
             myExtractor.SetDistribution(Distribution::GRID);
+            if (stereo)
+                myExtractorRight.SetDistribution(Distribution::GRID);
             cv::displayStatusBar(string(imgPath), "Current Distribution: Bucketing");
             myTotalDuration = 0;
             count = 0;
@@ -487,6 +516,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuQuadtreeORBSLAMSTYLE)
         {
             myExtractor.SetDistribution(Distribution::QUADTREE_ORBSLAMSTYLE);
+            if (stereo)
+                myExtractorRight.SetDistribution(Distribution::QUADTREE_ORBSLAMSTYLE);
             cv::displayStatusBar(string(imgPath), "Current Distribution: Quadtree");
             myTotalDuration = 0;
             count = 0;
@@ -495,6 +526,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuANMS_KDT)
         {
             myExtractor.SetDistribution(Distribution::ANMS_KDTREE);
+            if (stereo)
+                myExtractorRight.SetDistribution(Distribution::ANMS_KDTREE);
             cv::displayStatusBar(string(imgPath), "Current Distribution: KD-Tree");
             myTotalDuration = 0;
             count = 0;
@@ -503,6 +536,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuANMS_RT)
         {
             myExtractor.SetDistribution(Distribution::ANMS_RT);
+            if (stereo)
+                myExtractorRight.SetDistribution(Distribution::ANMS_RT);
             cv::displayStatusBar(string(imgPath), "Current Distribution: Range Tree");
             myTotalDuration = 0;
             count = 0;
@@ -511,6 +546,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuSSC)
         {
             myExtractor.SetDistribution(Distribution::SSC);
+            if (stereo)
+                myExtractorRight.SetDistribution(Distribution::SSC);
             cv::displayStatusBar(string(imgPath), "Current Distribution: SSC");
             myTotalDuration = 0;
             count = 0;
@@ -519,6 +556,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuRANMS)
         {
             myExtractor.SetDistribution(Distribution::RANMS);
+            if (stereo)
+                myExtractorRight.SetDistribution(Distribution::RANMS);
             cv::displayStatusBar(string(imgPath), "Current Distribution: Bucketed Soft SSC");
             myTotalDuration = 0;
             count = 0;
@@ -527,6 +566,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuSoftSSC)
         {
             myExtractor.SetDistribution(Distribution::SOFT_SSC);
+            if (stereo)
+                myExtractorRight.SetDistribution(Distribution::SOFT_SSC);
             cv::displayStatusBar(string(imgPath), "Current Distribution: Soft SSC");
             myTotalDuration = 0;
             count = 0;
@@ -536,6 +577,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuSoftSSCThreshold != softTh)
         {
             myExtractor.SetSoftSSCThreshold(menuSoftSSCThreshold);
+            if(stereo)
+                myExtractorRight.SetSoftSSCThreshold(menuSoftSSCThreshold);
             softTh = menuSoftSSCThreshold;
         }
 
@@ -545,6 +588,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             menuDistrPerLvl = true;
             myExtractor.SetLevelToDisplay(soloLvl);
         }
+
         if (!menuSingleLvlOnly)
         {
             soloLvl = -1;
@@ -561,6 +605,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         {
             --ni;
             myExtractor.GetFileInterface()->SetCurrentImage(ni);
+            if (stereo)
+                myExtractorRight.GetFileInterface()->SetCurrentImage(ni);
         }
 
 
@@ -569,26 +615,36 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             FASTThresholdInit = menuSetInitThreshold;
             FASTThresholdMin = menuSetMinThreshold;
             myExtractor.SetFASTThresholds(FASTThresholdInit, FASTThresholdMin);
+            if (stereo)
+                myExtractorRight.SetFASTThresholds(FASTThresholdInit, FASTThresholdMin);
         }
 
         if (menuScoreExp)
         {
             myExtractor.SetScoreType(FASTdetector::EXPERIMENTAL);
+            if (stereo)
+                myExtractorRight.SetScoreType(FASTdetector::EXPERIMENTAL);
             menuScoreExp = false;
         }
         if (menuScoreHarris)
         {
             myExtractor.SetScoreType(FASTdetector::HARRIS);
+            if (stereo)
+                myExtractorRight.SetScoreType(FASTdetector::HARRIS);
             menuScoreHarris = false;
         }
         if (menuScoreOpenCV)
         {
             myExtractor.SetScoreType(FASTdetector::OPENCV);
+            if (stereo)
+                myExtractorRight.SetScoreType(FASTdetector::OPENCV);
             menuScoreOpenCV = false;
         }
         if (menuScoreSum)
         {
             myExtractor.SetScoreType(FASTdetector::SUM);
+            if (stereo)
+                myExtractorRight.SetScoreType(FASTdetector::SUM);
             menuScoreSum = false;
         }
         if (menuSaveFeatures)
@@ -600,7 +656,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             ni = -1;
             myExtractor.SetFeatureSaving(true);
             menuSaveFeatures = false;
-            string featureSavePath = "/home/ralph/SLAM/SavedFeatures/kitti_seq_07/";
+            string featureSavePath = "/home/ralph/SLAM/SavedFeatures/kitti_seq_07/left";
+
             myExtractor.SetFeatureSavePath(featureSavePath);
             if (menuPause)
             {
@@ -613,6 +670,14 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             info.SSCThreshold = softTh;
             info.kptDistribution = myExtractor.GetDistribution();
             myExtractor.GetFileInterface()->SaveInfo(info);
+
+            if (stereo)
+            {
+                myExtractorRight.SetFeatureSaving(true);
+                string featureSavePathRight = "/home/ralph/SLAM/SavedFeatures/kitti_seq_07/right";
+                myExtractorRight.SetFeatureSavePath(featureSavePathRight);
+                myExtractorRight.GetFileInterface()->SaveInfo(info);
+            }
 #endif
         }
 
