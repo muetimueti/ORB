@@ -36,7 +36,7 @@ Distribution::DistributeKeypoints(std::vector<knuff::KeyPoint> &kpts, const int 
     }
     const float epsilon = 0.1;
 
-    if (mode == ANMS_RT || mode == ANMS_KDTREE || mode == SSC || mode == RANMS || mode == SOFT_SSC)
+    if (mode == ANMS_RT || mode == ANMS_KDTREE || mode == SSC || mode == RANMS || mode == SOFT_SSC || mode == VSSC)
     {
         std::vector<int> responseVector;
         for (int i = 0; i < kpts.size(); i++)
@@ -102,6 +102,11 @@ Distribution::DistributeKeypoints(std::vector<knuff::KeyPoint> &kpts, const int 
             int cols = maxX - minX;
             int rows = maxY - minY;
             DistributeKeypointsSoftSSC(kpts, cols, -1, rows, -1, N, epsilon, softSSCThreshold);
+            break;
+        }
+        case VSSC:
+        {
+            DistributeKeypointsVSSC(kpts, minX, maxX, minY, maxY, N, epsilon, softSSCThreshold);
             break;
         }
         default:
@@ -1091,6 +1096,77 @@ void Distribution::DistributeKeypointsSoftSSC(std::vector<knuff::KeyPoint> &kpts
             low = width + 1;
 
         prevwidth = width;
+    }
+
+    std::vector<knuff::KeyPoint> reskpts;
+    for (int i = 0; i < resultIndices.size(); ++i)
+    {
+        reskpts.emplace_back(kpts[resultIndices[i]]);
+    }
+    kpts = reskpts;
+}
+
+void Distribution::DistributeKeypointsVSSC(std::vector<knuff::KeyPoint> &kpts, const int minX, const int maxX,
+                                           const int minY, const int maxY, int N, float epsilon, float threshold)
+{
+    int cols = maxX - minX;
+    int rows = maxY - minY;
+
+    std::vector<int> resultIndices;
+    resultIndices.reserve(kpts.size());
+
+    int median = kpts[kpts.size()/2].response;
+
+    float c = 1, width = 6;
+    int cellCols = std::floor(cols/c);
+    int cellRows = std::floor(rows/c);
+
+    int nCells = (cellRows+1)*(cellCols+1);
+
+    std::vector<int> covered(nCells, -1);
+
+    resultIndices.clear();
+
+    for (int i = 0; i < kpts.size(); ++i)
+    {
+        width = 6;
+        int row = (int)((kpts[i].pt.y)/c);
+        int col = (int)((kpts[i].pt.x)/c);
+
+        int score = kpts[i].response;
+
+        if (covered[row*cellCols + col] < score - threshold)
+        {
+            if (score > median + 40)
+                ++width;
+            else if (score < median - 40)
+                --width;
+            int rowMin = row - (int)(width) >= 0 ? (row - (int)(width)) : 0;
+            int rowMax = row + (int)(width) <= cellRows ? (row + (int)(width)) : cellRows;
+            int colMin = col - (int)(width) >= 0 ? (col - (int)(width)) : 0;
+            int colMax = col + (int)(width) <= cellCols ? (col + (int)(width)) : cellCols;
+
+            bool best = true;
+            for (int dy = rowMin; dy <= rowMax; ++dy)
+            {
+                for (int dx = colMin; dx <= colMax; ++dx)
+                {
+                    if (covered[dy*cellCols + dx] < score)
+                    {
+                        covered[dy*cellCols + dx] = score;
+                    }
+                    else
+                    {
+                        best = false;
+                        break;
+                    }
+                }
+            }
+            if (best)
+                resultIndices.emplace_back(i);
+        }
+        if (resultIndices.size() > N)
+            break;
     }
 
     std::vector<knuff::KeyPoint> reskpts;

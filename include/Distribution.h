@@ -37,7 +37,8 @@ public:
         ANMS_RT = 5,
         SSC = 6,
         KEEP_ALL = 7,
-        SOFT_SSC = 8
+        SOFT_SSC = 8,
+        VSSC = 9
     };
 
     static void DistributeKeypoints(std::vector<knuff::KeyPoint> &kpts, int minX, int maxX, int minY,
@@ -65,8 +66,11 @@ protected:
     static void DistributeKeypointsRANMS(std::vector<knuff::KeyPoint> &kpts, int minX, int maxX, int minY, int maxY, int N, float epsilon,
         int softSSCThreshold);
 
-    static void DistributeKeypointsSoftSSC(std::vector<knuff::KeyPoint> &kpts, const int minX, const int maxX,
-                                           const int minY, const int maxY, int N, float epsilon, float threshold);
+    static void DistributeKeypointsSoftSSC(std::vector<knuff::KeyPoint> &kpts, int minX, int maxX, int minY, int maxY,
+            int N, float epsilon, float threshold);
+
+    static void DistributeKeypointsVSSC(std::vector<knuff::KeyPoint> &kpts, int minX, int maxX, int minY, int maxY,
+            int N, float epsilon, float threshold);
 };
 
 CV_INLINE  int myRound( float value )
