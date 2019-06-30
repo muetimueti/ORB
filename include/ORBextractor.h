@@ -117,6 +117,8 @@ public:
         return &fileInterface;
     }
 
+    void SetSteps();
+
 protected:
 
     static float IntensityCentroidAngle(const uchar* pointer, int step);
@@ -142,10 +144,13 @@ protected:
     int nlevels;
     int iniThFAST;
     int minThFAST;
+    bool stepsChanged;
 
     int levelToDisplay;
 
     float softSSCThreshold;
+
+    knuff::Point prevDims;
 
     Distribution::DistributionMethod kptDistribution;
 

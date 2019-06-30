@@ -46,6 +46,11 @@ public:
         return scoreType;
     }
 
+    void inline SetLevels(int nlvls)
+    {
+        pixelOffset.resize(nlvls * CIRCLE_SIZE);
+    }
+
     static float CornerScore_Experimental(const uchar* ptr, int lvl);
 
     //FASTworker workerPool;

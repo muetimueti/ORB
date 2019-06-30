@@ -323,7 +323,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     long myTotalDuration = 0;
     long refTotalDuration = 0;
 
-    int softTh = 10;
+    int softTh = 0;
 
     cv::Mat img;
     cv::Mat imgRight;
@@ -343,6 +343,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     pangolin::Var<bool> menuRANMS("menu.RANMS", false, false);
     pangolin::Var<bool> menuSoftSSC("menu.Soft SSC", false, false);
     pangolin::Var<int> menuSoftSSCThreshold("menu.Soft SSC Threshold", softTh, 0, 100);
+    pangolin::Var<bool> menuVSSC("menu.VSSC", false, false);
     pangolin::Var<bool> menuDistrPerLvl("menu.Distribute Per Level", true, true);
     pangolin::Var<int> menuNFeatures("menu.Desired Features", nFeatures, 500, 2000);
     pangolin::Var<int> menuActualkpts("menu.Features Actual", false, 0);
@@ -580,6 +581,17 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             if(stereo)
                 myExtractorRight.SetSoftSSCThreshold(menuSoftSSCThreshold);
             softTh = menuSoftSSCThreshold;
+        }
+
+        if (menuVSSC)
+        {
+            myExtractor.SetDistribution(Distribution::VSSC);
+            if (stereo)
+                myExtractorRight.SetDistribution(Distribution::VSSC);
+            cv::displayStatusBar(string(imgPath), "Current Distribution: VSSC");
+            myTotalDuration = 0;
+            count = 0;
+            menuVSSC = false;
         }
 
         if (menuSingleLvlOnly && (soloLvl != menuChosenLvl))

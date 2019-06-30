@@ -63,9 +63,10 @@ float ORBextractor::IntensityCentroidAngle(const uchar* pointer, int step)
 
 
 ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels, int _iniThFAST, int _minThFAST):
-        nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels), iniThFAST(_iniThFAST), minThFAST(_minThFAST),
-        levelToDisplay(-1), softSSCThreshold(10), kptDistribution(Distribution::DistributionMethod::SSC), pixelOffset{},
-        fast(_iniThFAST, _minThFAST, _nlevels), fileInterface(), saveFeatures(false), usePrecomputedFeatures(false)
+        nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels), iniThFAST(_iniThFAST),
+        minThFAST(_minThFAST), stepsChanged(true), levelToDisplay(-1), softSSCThreshold(10), prevDims(-1, -1),
+        kptDistribution(Distribution::DistributionMethod::SSC), pixelOffset{}, fast(_iniThFAST, _minThFAST, _nlevels),
+        fileInterface(), saveFeatures(false), usePrecomputedFeatures(false)
 {
     SetnLevels(_nlevels);
 
@@ -155,15 +156,12 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
     cv::Mat image = inputImage.getMat();
     message_assert("Image must be single-channel!",image.type() == CV_8UC1);
 
+    if (prevDims.x != image.cols || prevDims.y != image.rows)
+        stepsChanged = true;
+
     ComputeScalePyramid(image);
 
-
-    std::vector<int> steps(nlevels);
-    for (int lvl = 0; lvl < nlevels; ++lvl)
-    {
-        steps[lvl] = (int)imagePyramid[lvl].step1();
-    }
-    fast.SetStepVector(steps);
+    SetSteps();
 
     std::vector<std::vector<knuff::KeyPoint>> allkpts;
 
@@ -585,8 +583,25 @@ void ORBextractor::ComputeScalePyramid(cv::Mat &image)
     }
 }
 
+void ORBextractor::SetSteps()
+{
+    if (stepsChanged)
+    {
+        std::vector<int> steps(nlevels);
+        for (int lvl = 0; lvl < nlevels; ++lvl)
+        {
+            steps[lvl] = (int)imagePyramid[lvl].step1();
+        }
+        fast.SetLevels(nlevels);
+        fast.SetStepVector(steps);
+
+        stepsChanged = false;
+    }
+}
+
 void ORBextractor::SetnLevels(int n)
 {
+    stepsChanged = true;
     nlevels = std::max(std::min(12, n), 2);
     scaleFactorVec.resize(nlevels);
     invScaleFactorVec.resize(nlevels);
@@ -597,6 +612,7 @@ void ORBextractor::SetnLevels(int n)
     pixelOffset.resize(nlevels * CIRCLE_SIZE);
 
     SetScaleFactor(scaleFactor);
+    SetSteps();
 
     float fac = 1.f / scaleFactor;
     float nDesiredFeaturesPerScale = nfeatures * (1.f - fac) / (1.f - (float) pow((double) fac, (double) nlevels));
@@ -612,10 +628,12 @@ void ORBextractor::SetnLevels(int n)
 
 void ORBextractor::SetScaleFactor(float s)
 {
+    stepsChanged = true;
     scaleFactor = std::max(std::min(1.5f, s), 1.001f);
     scaleFactorVec[0] = 1.f;
     invScaleFactorVec[0] = 1.f;
 
+    SetSteps();
 
     for (int i = 1; i < nlevels; ++i) {
         scaleFactorVec[i] = scaleFactor * scaleFactorVec[i - 1];
