@@ -1190,6 +1190,13 @@ void Distribution::DistributeKeypointsVSSC(std::vector<knuff::KeyPoint> &kpts, c
 
     float c = 1;
     int width, col, row;
+
+    int grav = std::min(rows, cols) / 100 * 2;
+    float b = sqrt(kpts.size() / N) * 2;
+    int w = (int)(b > grav? (int)b : std::ceil(b));
+
+    std::cout << "w=" << w << "\n";
+
     int cellCols = std::floor(cols/c);
     int cellRows = std::floor(rows/c);
 
@@ -1201,19 +1208,20 @@ void Distribution::DistributeKeypointsVSSC(std::vector<knuff::KeyPoint> &kpts, c
 
     for (int i = 0; i < kpts.size(); ++i)
     {
-        width = 6;
+        width = w;
         row = (int)((kpts[i].pt.y)/c);
         col = (int)((kpts[i].pt.x)/c);
 
         int score = kpts[i].response;
 
-        if (covered[row*cellCols + col] < score + threshold)
+        if (covered[row*cellCols + col] <= score + threshold)
         {
 #if VSSC_V1
-            if (score > median + 40)
-                --width;
-            else if (score < median - 40)
-                ++width;
+
+            //if (score > median + 40)
+            //    --width;
+            //else if (score < median - 40)
+            //    ++width;
             int rowMin = row - (int)(width) >= 0 ? (row - (int)(width)) : 0;
             int rowMax = row + (int)(width) <= cellRows ? (row + (int)(width)) : cellRows;
             int colMin = col - (int)(width) >= 0 ? (col - (int)(width)) : 0;
@@ -1224,10 +1232,15 @@ void Distribution::DistributeKeypointsVSSC(std::vector<knuff::KeyPoint> &kpts, c
             {
                 for (int dx = colMin; dx <= colMax; ++dx)
                 {
-                    if (covered[dy*cellCols + dx] < score)
+                    int idx = dy*cellCols + dx;
+                    if (covered[idx] < score)
                     {
-                        covered[dy*cellCols + dx] = score;
+                        covered[idx] = score;
                     }
+                    //else if (covered[idx] == score)
+                    //{
+                    //    continue;
+                    //}
                     else
                     {
                         best = false;

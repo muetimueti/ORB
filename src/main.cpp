@@ -299,11 +299,27 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
     vector<string> vstrImageFilenamesLeft;
     vector<double> vTimestamps;
-    //string strFile = string(imgPath)+"/rgb.txt";
-    //LoadImages(strFile, vstrImageFilenames, vTimestamps)
-
     vector<string> vstrImageFilenamesRight;
-    LoadImages(imgPath, vstrImageFilenamesLeft, vstrImageFilenamesRight, vTimestamps);
+
+    if (dataset == tum)
+    {
+        string strFile = string(imgPath)+"/rgb.txt";
+        LoadImagesTUM(strFile, vstrImageFilenamesLeft, vTimestamps);
+    }
+
+    else if (dataset == kitti)
+    {
+        LoadImagesKITTI(imgPath, vstrImageFilenamesLeft, vstrImageFilenamesRight, vTimestamps);
+    }
+
+    else if (dataset == euroc)
+    {
+        string pathLeft = imgPath, pathRight = imgPath, pathTimes = imgPath;
+        pathLeft += "cam0/data/";
+        pathRight += "cam1/data/";
+        pathTimes += "MH03.txt";
+        LoadImagesEUROC(pathLeft, pathRight, pathTimes,vstrImageFilenamesLeft, vstrImageFilenamesRight, vTimestamps);
+    }
 
     int nImages = vstrImageFilenamesLeft.size();
 
@@ -321,7 +337,6 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     bool eqdescriptors = true;
 
     long myTotalDuration = 0;
-    long refTotalDuration = 0;
 
     int softTh = 0;
 
@@ -751,7 +766,7 @@ void PerformanceMode(std::string &imgPath, int nFeatures, float scaleFactor, int
     vector<string> vstrImageFilenames;
     vector<double> vTimestamps;
     string strFile = string(imgPath)+"/rgb.txt";
-    LoadImages(strFile, vstrImageFilenames, vTimestamps);
+    LoadImagesTUM(strFile, vstrImageFilenames, vTimestamps);
 
     int nImages = vstrImageFilenames.size();
 
@@ -1153,7 +1168,7 @@ void AddRandomKeypoints(std::vector<knuff::KeyPoint> &keypoints)
    }
 }
 
-void LoadImages(const string &strFile, vector<string> &vstrImageFilenames, vector<double> &vTimestamps)
+void LoadImagesTUM(const string &strFile, vector<string> &vstrImageFilenames, vector<double> &vTimestamps)
 {
    ifstream f;
    f.open(strFile.c_str());
@@ -1182,7 +1197,7 @@ void LoadImages(const string &strFile, vector<string> &vstrImageFilenames, vecto
    }
 }
 
-void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
+void LoadImagesKITTI(const string &strPathToSequence, vector<string> &vstrImageLeft,
                 vector<string> &vstrImageRight, vector<double> &vTimestamps)
 {
     ifstream fTimes;
@@ -1215,5 +1230,31 @@ void LoadImages(const string &strPathToSequence, vector<string> &vstrImageLeft,
         ss << setfill('0') << setw(6) << i;
         vstrImageLeft[i] = strPrefixLeft + ss.str() + ".png";
         vstrImageRight[i] = strPrefixRight + ss.str() + ".png";
+    }
+}
+
+void LoadImagesEUROC(const string &strPathLeft, const string &strPathRight, const string &strPathTimes,
+                vector<string> &vstrImageLeft, vector<string> &vstrImageRight, vector<double> &vTimeStamps)
+{
+    ifstream fTimes;
+    fTimes.open(strPathTimes.c_str());
+    vTimeStamps.reserve(5000);
+    vstrImageLeft.reserve(5000);
+    vstrImageRight.reserve(5000);
+    while(!fTimes.eof())
+    {
+        string s;
+        getline(fTimes,s);
+        if(!s.empty())
+        {
+            stringstream ss;
+            ss << s;
+            vstrImageLeft.push_back(strPathLeft + "/" + ss.str() + ".png");
+            vstrImageRight.push_back(strPathRight + "/" + ss.str() + ".png");
+            double t;
+            ss >> t;
+            vTimeStamps.push_back(t/1e9);
+
+        }
     }
 }

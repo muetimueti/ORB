@@ -58,10 +58,12 @@ void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &im
 
 void AddRandomKeypoints(std::vector<knuff::KeyPoint> &keypoints);
 
-void LoadImages(const std::string &strFile, std::vector<std::string> &vstrImageFilenames,
+void LoadImagesTUM(const std::string &strFile, std::vector<std::string> &vstrImageFilenames,
                 std::vector<double> &vTimestamps);
-void LoadImages(const std::string &strPathToSequence, std::vector<std::string> &vstrImageLeft,
+void LoadImagesKITTI(const std::string &strPathToSequence, std::vector<std::string> &vstrImageLeft,
                 std::vector<std::string> &vstrImageRight, std::vector<double> &vTimestamps);
-
+void LoadImagesEUROC(const std::string &strPathLeft, const std::string &strPathRight, const std::string &strPathTimes,
+                     std::vector<std::string> &vstrImageLeft, std::vector<std::string> &vstrImageRight,
+                     std::vector<double> &vTimeStamps);
 #endif //ORBEXTRACTOR_MAIN_H
 
