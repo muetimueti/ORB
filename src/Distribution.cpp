@@ -1195,8 +1195,6 @@ void Distribution::DistributeKeypointsVSSC(std::vector<knuff::KeyPoint> &kpts, c
     float b = sqrt(kpts.size() / N) * 2;
     int w = (int)(b > grav? (int)b : std::ceil(b));
 
-    std::cout << "w=" << w << "\n";
-
     int cellCols = std::floor(cols/c);
     int cellRows = std::floor(rows/c);
 
