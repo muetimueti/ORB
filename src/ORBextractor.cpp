@@ -7,6 +7,8 @@
 #include <unistd.h>
 #include <chrono>
 
+#include <saiga/core/util/Range.h>
+
 
 #ifndef NDEBUG
 #   define D(x) x
@@ -112,9 +114,19 @@ void ORBextractor::SetFASTThresholds(int ini, int min)
 
 
 void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
-                              std::vector<knuff::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors)
+                              std::vector<kvis::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors)
 {
-    this->operator()(inputImage, mask, resultKeypoints, outputDescriptors, true);
+    //this->operator()(inputImage, mask, resultKeypoints, outputDescriptors, true);
+
+    cv::Mat image = inputImage.getMat();
+    message_assert("Image must be single-channel!",image.type() == CV_8UC1);
+
+    Saiga::ImageView<uchar> saigaImage = Saiga::MatToImageView<uchar>(image);
+    Saiga::ImageView<uchar> saigaDescriptors;
+
+    this->operator()(saigaImage, resultKeypoints, saigaDescriptors, true);
+
+    cv::Mat cvRes = Saiga::ImageViewToMat<uchar>(saigaDescriptors);
 }
 
 /** @overload
@@ -124,37 +136,13 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
  * @param outputDescriptors matrix in which descriptors will be stored
  * @param distributePerLevel true->distribute kpts per octave, false->distribute kpts per image
  */
-
-void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
-        std::vector<knuff::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors, bool distributePerLevel)
+void ORBextractor::operator()(Saiga::ImageView<uchar> &image, std::vector<kvis::KeyPoint> &resultKeypoints,
+        Saiga::ImageView<uchar> &outputDescriptors, bool distributePerLevel)
 {
-    if (usePrecomputedFeatures)
-    {
-        resultKeypoints = fileInterface.LoadFeatures(loadPath);
-
-        cv::Mat BRIEFdescriptors;
-        int nkpts = resultKeypoints.size();
-        if (nkpts <= 0)
-        {
-            outputDescriptors.release();
-        }
-        else
-        {
-            outputDescriptors.create(nkpts, 32, CV_8U);
-            BRIEFdescriptors = outputDescriptors.getMat();
-        }
-
-        fileInterface.LoadDescriptors(loadPath, BRIEFdescriptors, nkpts);
-        return;
-    }
-
     std::chrono::high_resolution_clock::time_point funcEntry = std::chrono::high_resolution_clock::now();
 
-    if (inputImage.empty())
+    if (image.size() <= 0)
         return;
-
-    cv::Mat image = inputImage.getMat();
-    message_assert("Image must be single-channel!",image.type() == CV_8UC1);
 
     if (prevDims.x != image.cols || prevDims.y != image.rows)
         stepsChanged = true;
@@ -163,7 +151,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
 
     SetSteps();
 
-    std::vector<std::vector<knuff::KeyPoint>> allkpts;
+    std::vector<std::vector<kvis::KeyPoint>> allkpts;
 
     //using namespace std::chrono;
     //high_resolution_clock::time_point t1 = high_resolution_clock::now();
@@ -209,22 +197,11 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
     if (distributePerLevel)
         ComputeAngles(allkpts);
 
-
-    cv::Mat BRIEFdescriptors;
     int nkpts = 0;
     for (int lvl = 0; lvl < nlevels; ++lvl)
-    {
-        nkpts += (int)allkpts[lvl].size();
-    }
-    if (nkpts <= 0)
-    {
-        outputDescriptors.release();
-    }
-    else
-    {
-        outputDescriptors.create(nkpts, 32, CV_8U);
-        BRIEFdescriptors = outputDescriptors.getMat();
-    }
+        nkpts += allkpts[lvl].size();
+
+    Saiga::ImageView<uchar> BRIEFdescriptors;
 
     resultKeypoints.clear();
     resultKeypoints.reserve(nkpts);
@@ -270,7 +247,7 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
 }
 
 
-void ORBextractor::ComputeAngles(std::vector<std::vector<knuff::KeyPoint>> &allkpts)
+void ORBextractor::ComputeAngles(std::vector<std::vector<kvis::KeyPoint>> &allkpts)
 {
 #pragma omp parallel for
     for (int lvl = 0; lvl < nlevels; ++lvl)
@@ -284,7 +261,7 @@ void ORBextractor::ComputeAngles(std::vector<std::vector<knuff::KeyPoint>> &allk
 }
 
 
-void ORBextractor::ComputeDescriptors(std::vector<std::vector<knuff::KeyPoint>> &allkpts, cv::Mat &descriptors)
+void ORBextractor::ComputeDescriptors(std::vector<std::vector<kvis::KeyPoint>> &allkpts, cv::Mat &descriptors)
 {
     const auto degToRadFactor = (float)(CV_PI/180.f);
     const cv::Point* p = &pattern[0];
@@ -302,7 +279,7 @@ void ORBextractor::ComputeDescriptors(std::vector<std::vector<knuff::KeyPoint>> 
         int i = 0, nkpts = allkpts[lvl].size();
         for (int k = 0; k < nkpts; ++k, ++current)
         {
-            const knuff::KeyPoint &kpt = allkpts[lvl][k];
+            const kvis::KeyPoint &kpt = allkpts[lvl][k];
             auto descPointer = descriptors.ptr<uchar>(current);        //ptr to beginning of current descriptor
             const uchar* pixelPointer = &lvlClone.at<uchar>(myRound(kpt.pt.y), myRound(kpt.pt.x));  //ptr to kpt in img
 
@@ -339,18 +316,18 @@ void ORBextractor::ComputeDescriptors(std::vector<std::vector<knuff::KeyPoint>> 
  * @param divideImage  true-->divide image into cellSize x cellSize cells, run FAST per cell
  * @param cellSize must be greater than 16 and lesser than min(rows, cols) of smallest image in pyramid
  */
-void ORBextractor::DivideAndFAST(std::vector<std::vector<knuff::KeyPoint>> &allkpts,
-                                 Distribution::DistributionMethod mode, bool divideImage, int cellSize, bool distributePerLevel)
+void ORBextractor::DivideAndFAST(std::vector<std::vector<kvis::KeyPoint>> &allkpts,
+        Distribution::DistributionMethod mode, bool divideImage, int cellSize, bool distributePerLevel)
 {
     allkpts.resize(nlevels);
 
     const int minimumX = EDGE_THRESHOLD - 3, minimumY = minimumX;
-
+#if 0
     if (!divideImage)
     {
         for (int lvl = 0; lvl < nlevels; ++lvl)
         {
-            std::vector<knuff::KeyPoint> levelKpts;
+            std::vector<kvis::KeyPoint> levelKpts;
             levelKpts.clear();
             levelKpts.reserve(nfeatures * 10);
 
@@ -397,6 +374,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<knuff::KeyPoint>> &allk
         }
     }
     else
+#endif
     {
         int c = std::min(imagePyramid[nlevels-1].rows, imagePyramid[nlevels-1].cols);
         assert(cellSize < c && cellSize > 16);
@@ -411,7 +389,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<knuff::KeyPoint>> &allk
 #pragma omp parallel for
         for (int lvl = minLvl; lvl < maxLvl; ++lvl)
         {
-            std::vector<knuff::KeyPoint> levelKpts;
+            std::vector<kvis::KeyPoint> levelKpts;
             levelKpts.clear();
             levelKpts.reserve(nfeatures*10);
 
@@ -435,7 +413,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<knuff::KeyPoint>> &allk
             std::vector<std::promise<bool>> promises(nCells);
             int curCell = 0;
 
-            std::vector<std::vector<knuff::KeyPoint>> cellkptvecs;
+            std::vector<std::vector<kvis::KeyPoint>> cellkptvecs;
 #endif
 
             for (int py = 0; py < npatchesInY; ++py)
@@ -470,17 +448,16 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<knuff::KeyPoint>> &allk
                     ++curCell;
 
 #else
-                    std::vector<knuff::KeyPoint> patchKpts;
-                    fast.FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
-                              patchKpts, iniThFAST, lvl);
+                    std::vector<kvis::KeyPoint> patchKpts;
+                    img_t patch = imagePyramid[lvl].subImageView(startY, startX, patchHeight, patchWidth);
+                    fast.FAST(patch, patchKpts, iniThFAST, lvl);
                     if (patchKpts.empty())
                     {
-                        fast.FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
-                                  patchKpts, minThFAST, lvl);
+                        fast.FAST(patch, patchKpts, minThFAST, lvl);
                     }
 #endif
 #elif TESTFAST
-                    std::vector<knuff::KeyPoint> patchKpts;
+                    std::vector<kvis::KeyPoint> patchKpts;
                     blorp::FAST_t<16>(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
                                       patchKpts, iniThFAST, true);
                     if (patchKpts.empty())
@@ -488,7 +465,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<knuff::KeyPoint>> &allk
                                           patchKpts, minThFAST, true);
 
 #else
-                    std::vector<knuff::KeyPoint> patchKpts;
+                    std::vector<kvis::KeyPoint> patchKpts;
                     cv::FAST(imagePyramid[lvl].rowRange(startY, endY).colRange(startX, endX),
                             patchKpts, iniThFAST, true, cv::FastFeatureDetector::TYPE_9_16);
                     if (patchKpts.empty())
@@ -546,42 +523,23 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<knuff::KeyPoint>> &allk
     }
 }
 
-void ORBextractor::ComputeScalePyramid(cv::Mat &image)
+void ORBextractor::ComputeScalePyramid(img_t& image)
 {
-    for (int lvl = 0; lvl < nlevels; ++ lvl)
+    imagePyramid[0] = image;
+
+    for (int lvl = 1; lvl < nlevels; ++ lvl)
     {
-        int width = (int)myRound(image.cols * invScaleFactorVec[lvl]); // 1.f / getScale(lvl));
-        int height = (int)myRound(image.rows * invScaleFactorVec[lvl]); // 1.f / getScale(lvl));
+        int width = (int)myRound(image.cols * invScaleFactorVec[lvl]);
+        int height = (int)myRound(image.rows * invScaleFactorVec[lvl]);
 
-        int doubleEdge = EDGE_THRESHOLD * 2;
-        int borderedWidth = width + doubleEdge;
-        int borderedHeight = height + doubleEdge;
+        void* p = nullptr;
+        Saiga::ImageView<uchar> newLevel(height, width, p);
 
-        //Size sz(width, height);
-        //Size borderedSize(borderedWidth, borderedHeight);
-
-        cv::Mat borderedImg(borderedHeight, borderedWidth, image.type());
-        cv::Range rowRange(EDGE_THRESHOLD, height + EDGE_THRESHOLD);
-        cv::Range colRange(EDGE_THRESHOLD, width + EDGE_THRESHOLD);
-
-        //imagePyramid[lvl] = borderedImg(cv::Rect(EDGE_THRESHOLD, EDGE_THRESHOLD, width, height));
-        imagePyramid[lvl] = borderedImg(rowRange, colRange);
-
-
-        if (lvl)
-        {
-            cv::resize(imagePyramid[lvl-1], imagePyramid[lvl], cv::Size(width, height), 0, 0, CV_INTER_LINEAR);
-
-            cv::copyMakeBorder(imagePyramid[lvl], borderedImg, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
-                               EDGE_THRESHOLD, cv::BORDER_REFLECT_101+cv::BORDER_ISOLATED);
-        }
-        else
-        {
-            cv::copyMakeBorder(image, borderedImg, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
-                               cv::BORDER_REFLECT_101);
-        }
+        image.copyScaleLinear(newLevel);
+        imagePyramid[lvl] = newLevel;
     }
 }
+
 
 void ORBextractor::SetSteps()
 {
@@ -590,7 +548,7 @@ void ORBextractor::SetSteps()
         std::vector<int> steps(nlevels);
         for (int lvl = 0; lvl < nlevels; ++lvl)
         {
-            steps[lvl] = (int)imagePyramid[lvl].step1();
+            steps[lvl] = (int)imagePyramid[lvl].pitchBytes;
         }
         fast.SetLevels(nlevels);
         fast.SetStepVector(steps);
@@ -601,7 +559,6 @@ void ORBextractor::SetSteps()
 
 void ORBextractor::SetnLevels(int n)
 {
-    stepsChanged = true;
     nlevels = std::max(std::min(12, n), 2);
     scaleFactorVec.resize(nlevels);
     invScaleFactorVec.resize(nlevels);
@@ -612,7 +569,6 @@ void ORBextractor::SetnLevels(int n)
     pixelOffset.resize(nlevels * CIRCLE_SIZE);
 
     SetScaleFactor(scaleFactor);
-    SetSteps();
 
     float fac = 1.f / scaleFactor;
     float nDesiredFeaturesPerScale = nfeatures * (1.f - fac) / (1.f - (float) pow((double) fac, (double) nlevels));

@@ -27,12 +27,12 @@ public:
 
 
     void operator()( cv::InputArray image, cv::InputArray mask,
-                     std::vector<knuff::KeyPoint>& keypoints,
+                     std::vector<kvis::KeyPoint>& keypoints,
                      cv::OutputArray descriptors);
 
-    void operator()(cv::InputArray inputImage, cv::InputArray mask,
-                                  std::vector<knuff::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors,
-                                  bool distributePerLevel = true);
+
+    void operator()(Saiga::ImageView<uchar> &inputImage, std::vector<kvis::KeyPoint> &resultKeypoints,
+                    Saiga::ImageView<uchar> &outputDescriptors, bool distributePerLevel);
 
     int inline GetLevels(){
         return nlevels;}
@@ -124,20 +124,20 @@ protected:
     static float IntensityCentroidAngle(const uchar* pointer, int step);
 
 
-    void ComputeAngles(std::vector<std::vector<knuff::KeyPoint>> &allkpts);
+    void ComputeAngles(std::vector<std::vector<kvis::KeyPoint>> &allkpts);
 
-    void ComputeDescriptors(std::vector<std::vector<knuff::KeyPoint>> &allkpts, cv::Mat &descriptors);
+    void ComputeDescriptors(std::vector<std::vector<kvis::KeyPoint>> &allkpts, cv::Mat &descriptors);
 
 
-    void DivideAndFAST(std::vector<std::vector<knuff::KeyPoint> >& allKeypoints,
+    void DivideAndFAST(std::vector<std::vector<kvis::KeyPoint> >& allKeypoints,
                        Distribution::DistributionMethod mode = Distribution::QUADTREE_ORBSLAMSTYLE,
                        bool divideImage = true, int cellSize = 30, bool distributePerLevel = true);
 
-    void ComputeScalePyramid(cv::Mat &image);
+    void ComputeScalePyramid(img_t& image);
 
     std::vector<cv::Point> pattern;
 
-    std::vector<cv::Mat> imagePyramid;
+    std::vector<img_t> imagePyramid;
 
     int nfeatures;
     double scaleFactor;
@@ -150,7 +150,7 @@ protected:
 
     float softSSCThreshold;
 
-    knuff::Point prevDims;
+    kvis::Point prevDims;
 
     Distribution::DistributionMethod kptDistribution;
 

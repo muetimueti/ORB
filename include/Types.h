@@ -2,8 +2,16 @@
 #define ORBEXTRACTOR_TYPES_H
 
 #include <iostream>
+#include <saiga/extra/opencv/opencv.h>
 
-namespace knuff
+
+#define message_assert(expr, msg) assert(( (void)(msg), (expr) ))
+
+typedef unsigned char uchar;
+
+typedef Saiga::ImageView<uchar> img_t;
+
+namespace kvis
 {
 struct Point
 {
@@ -68,6 +76,6 @@ public:
         return os;
     }
 };
-} //namespace knuff
+} //namespace kvis
 
 #endif //ORBEXTRACTOR_TYPES_H

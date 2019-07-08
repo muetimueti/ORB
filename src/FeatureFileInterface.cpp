@@ -13,7 +13,7 @@ using namespace std;
  * 1 kpt per line
  */
 
-bool FeatureFileInterface::SaveFeatures(vector<knuff::KeyPoint> &kpts)
+bool FeatureFileInterface::SaveFeatures(vector<kvis::KeyPoint> &kpts)
 {
     message_assert("Save path must be set", !path.empty());
     cout << "Saving features to " << path << "...\n";
@@ -45,9 +45,9 @@ bool FeatureFileInterface::SaveFeatures(vector<knuff::KeyPoint> &kpts)
 }
 
 
-vector<knuff::KeyPoint> FeatureFileInterface::LoadFeatures(std::string &path)
+vector<kvis::KeyPoint> FeatureFileInterface::LoadFeatures(std::string &path)
 {
-    vector<knuff::KeyPoint> kpts;
+    vector<kvis::KeyPoint> kpts;
     string fpath = path + "features/" + to_string(loadCounter) + ".orbf";
 
     fstream file;
@@ -65,7 +65,7 @@ vector<knuff::KeyPoint> FeatureFileInterface::LoadFeatures(std::string &path)
         {
             istringstream iss(line);
             vector<string> vals{istream_iterator<string>{iss}, istream_iterator<string>{}};
-            kpts.emplace_back(knuff::KeyPoint(stof(vals[0]), stof(vals[1]), stof(vals[2]), stof(vals[3]),
+            kpts.emplace_back(kvis::KeyPoint(stof(vals[0]), stof(vals[1]), stof(vals[2]), stof(vals[3]),
                     stof(vals[4]), stoi(vals[5])));
         }
     }

@@ -7,8 +7,6 @@
 #include "Distribution.h"
 #include <sys/stat.h>
 
-#define message_assert(expr, msg) assert(( (void)(msg), (expr) ))
-
 class FeatureFileInterface
 {
 public:
@@ -24,9 +22,9 @@ public:
     explicit FeatureFileInterface(std::string &_path) : saveCounter(0), loadCounter(0) {SetPath(_path);}
     FeatureFileInterface() : path(), saveCounter(0), loadCounter(0) {}
 
-    bool SaveFeatures(std::vector<knuff::KeyPoint> &kpts);
+    bool SaveFeatures(std::vector<kvis::KeyPoint> &kpts);
 
-    std::vector<knuff::KeyPoint> LoadFeatures(std::string &path);
+    std::vector<kvis::KeyPoint> LoadFeatures(std::string &path);
 
     bool SaveDescriptors(cv::Mat &descriptors);
 

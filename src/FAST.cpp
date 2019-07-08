@@ -62,7 +62,7 @@ void FASTdetector::SetStepVector(std::vector<int> &_steps)
 }
 
 
-void FASTdetector::FAST(cv::Mat img, std::vector<knuff::KeyPoint> &keypoints, int threshold, int lvl)
+void FASTdetector::FAST(img_t img, std::vector<kvis::KeyPoint> &keypoints, int threshold, int lvl)
 {
         switch (scoreType)
         {
@@ -97,7 +97,7 @@ void FASTdetector::FAST(cv::Mat img, std::vector<knuff::KeyPoint> &keypoints, in
 
 
 template <typename scoretype>
-void FASTdetector::FAST_t(cv::Mat &img, std::vector<knuff::KeyPoint> &keypoints, int threshold, int lvl)
+void FASTdetector::FAST_t(img_t &img, std::vector<kvis::KeyPoint> &keypoints, int threshold, int lvl)
 {
     keypoints.clear();
 
@@ -264,7 +264,7 @@ void FASTdetector::FAST_t(cv::Mat &img, std::vector<knuff::KeyPoint> &keypoints,
                 score > prevRowScores[pos+1] && score > prevRowScores[pos-1] &&
                 score > currRowScores[pos-1] && score > currRowScores[pos] && score > currRowScores[pos+1])
             {
-                keypoints.emplace_back(knuff::KeyPoint((float)pos, (float)(i-1), 7.f, -1, (float)score, lvl));
+                keypoints.emplace_back(kvis::KeyPoint((float)pos, (float)(i-1), 7.f, -1, (float)score, lvl));
             }
         }
     }
@@ -418,7 +418,7 @@ float FASTdetector::CornerScore(const uchar* pointer, const int offset[], int th
 }
 
 #if FASTWORKERS
-void FASTdetector::FAST_mt(cv::Mat &img, std::vector<knuff::KeyPoint> &keypoints, int threshold, int lvl)
+void FASTdetector::FAST_mt(cv::Mat &img, std::vector<kvis::KeyPoint> &keypoints, int threshold, int lvl)
 {
     keypoints.clear();
 
@@ -484,7 +484,7 @@ void FASTdetector::FAST_mt(cv::Mat &img, std::vector<knuff::KeyPoint> &keypoints
             score > results[i-1].scores[pos-1] && score > results[i-1].scores[pos+1] &&
             score > results[i].scores[pos-1] && score > results[i].scores[pos] && score > results[i].scores[pos+1])
             {
-                keypoints.emplace_back(knuff::KeyPoint((float)pos, (float)(i-1), 7.f, -1, (float)score, lvl));
+                keypoints.emplace_back(kvis::KeyPoint((float)pos, (float)(i-1), 7.f, -1, (float)score, lvl));
             }
         }
     }

@@ -26,7 +26,7 @@ public:
 
     void SetFASTThresholds(int ini, int min);
 
-    void FAST(cv::Mat img, std::vector<knuff::KeyPoint> &keypoints, int threshold, int lvl);
+    void FAST(img_t img, std::vector<kvis::KeyPoint> &keypoints, int threshold, int lvl);
 
     enum ScoreType
     {
@@ -75,7 +75,7 @@ protected:
 
 
     template <typename scoretype>
-    void FAST_t(cv::Mat &img, std::vector<knuff::KeyPoint> &keypoints, int threshold, int lvl);
+    void FAST_t(img_t &img, std::vector<kvis::KeyPoint> &keypoints, int threshold, int lvl);
 
     float CornerScore_Harris(const uchar* ptr, int lvl);
 
