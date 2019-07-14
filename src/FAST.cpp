@@ -137,7 +137,8 @@ void FASTdetector::FAST_t(img_t &img, std::vector<kvis::KeyPoint> &keypoints, in
 
     for (i = 3; i < img.rows - 2; ++i)
     {
-        const uchar* pointer = img.ptr<uchar>(i) + 3;
+        //const uchar* pointer = img.ptr<uchar>(i) + 3;
+        const uchar* pointer = &img(i, 3);
 
         ncandidatesprev = ncandidates;
         ncandidates = 0;

@@ -270,7 +270,8 @@ void ORBextractor::ComputeDescriptors(std::vector<std::vector<kvis::KeyPoint>> &
 
     for (int lvl = 0; lvl < nlevels; ++lvl)
     {
-        cv::Mat lvlClone = imagePyramid[lvl].clone();
+        img_t lvlClone;
+        imagePyramid[lvl].copyTo(lvlClone);
         cv::GaussianBlur(lvlClone, lvlClone, cv::Size(7, 7), 2, 2, cv::BORDER_REFLECT_101);
 
         const int step = (int)lvlClone.step;
