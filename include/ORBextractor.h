@@ -116,6 +116,10 @@ public:
     {
         return &fileInterface;
     }
+    inline std::vector<long> GetDistributionTimes()
+    {
+        return timeVector;
+    }
 
     void SetSteps();
 
@@ -170,6 +174,8 @@ protected:
     bool saveFeatures;
     bool usePrecomputedFeatures;
     std::string loadPath;
+
+    std::vector <long> timeVector;
 };
 
 

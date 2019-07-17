@@ -51,11 +51,13 @@ int main(int argc, char **argv)
     int nLevels = settingsFile["ORBextractor.nLevels"];
     int FASTThresholdInit = settingsFile["ORBextractor.iniThFAST"];
     int FASTThresholdMin = settingsFile["ORBextractor.minThFAST"];
+    int distribution = settingsFile["ORBextractor.distribution"];
 
     cv::Scalar color = cv::Scalar(settingsFile["Color.r"], settingsFile["Color.g"], settingsFile["Color.b"]);
     int thickness = settingsFile["Line.thickness"];
     int radius = settingsFile["Circle.radius"];
     int drawAngular = settingsFile["drawAngular"];
+
 
     string imgPath = string(argv[2]);
 
@@ -73,7 +75,8 @@ int main(int argc, char **argv)
     else if (mode == 1)
     {
         SequenceMode(imgPath, nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin,
-                     color, thickness, radius, drawAngular, dataset);
+                     color, thickness, radius, drawAngular, dataset,
+                     static_cast<Distribution::DistributionMethod>(distribution));
     }
     else
     {
@@ -291,7 +294,7 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
 
 void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels, int FASTThresholdInit,
                     int FASTThresholdMin, cv::Scalar color, int thickness, int radius, bool drawAngular,
-                    Dataset dataset)
+                    Dataset dataset, Distribution::DistributionMethod distribution)
 {
     bool stereo;
     stereo = dataset == kitti || dataset == euroc;
@@ -323,12 +326,11 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
     int nImages = vstrImageFilenamesLeft.size();
 
-    vector<float> vTimesTrack;
+    vector<long> vTimesTrack;
     vTimesTrack.resize(nImages);
 
     ORB_SLAM2::ORBextractor myExtractor(nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
     ORB_SLAM2::ORBextractor myExtractorRight(nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
-
 
     cout << "\n-------------------------\n"
            << "Images in sequence: " << nImages << "\n";
@@ -339,6 +341,11 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     long myTotalDuration = 0;
 
     int softTh = 0;
+    myExtractor.SetSoftSSCThreshold(softTh);
+    myExtractorRight.SetSoftSSCThreshold(softTh);
+
+    myExtractor.SetDistribution(distribution);
+    myExtractorRight.SetDistribution(distribution);
 
     cv::Mat img;
     cv::Mat imgRight;
@@ -350,14 +357,14 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     pangolin::Var<bool> menuPause("menu. ~PAUSE~", false, true);
     pangolin::Var<bool> menuAll("menu.All Keypoints",false,false);
     pangolin::Var<bool> menuTopN("menu.TopN",false,false);
-    pangolin::Var<bool> menuBucketing("menu.Bucketing",true,false);
+    pangolin::Var<bool> menuBucketing("menu.Bucketing",false,false);
     pangolin::Var<bool> menuQuadtreeORBSLAMSTYLE("menu.Quadtree",false,false);
     pangolin::Var<bool> menuANMS_KDT("menu.KDTree-ANMS",false,false);
     pangolin::Var<bool> menuANMS_RT("menu.Range-Tree-ANMS",false,false);
     pangolin::Var<bool> menuSSC("menu.SSC",false,false);
     pangolin::Var<bool> menuRANMS("menu.RANMS", false, false);
     pangolin::Var<bool> menuSoftSSC("menu.Soft SSC", false, false);
-    pangolin::Var<int> menuSoftSSCThreshold("menu.Soft SSC Threshold", softTh, 0, 100);
+    pangolin::Var<int> menuSoftSSCThreshold("menu.Soft SSC Threshold", softTh, 0, 20);
     pangolin::Var<bool> menuVSSC("menu.VSSC", false, false);
     pangolin::Var<bool> menuDistrPerLvl("menu.Distribute Per Level", true, true);
     pangolin::Var<int> menuNFeatures("menu.Desired Features", nFeatures, 500, 2000);
@@ -389,7 +396,10 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     //cv::createTrackbar(imgTrackbar, string(imgPath), nullptr, nImages);
      */
 
-    cv::displayStatusBar(string(imgPath), "Current Distribution: Bucketing");
+    string d = distribution == 0 ? "Top N" : distribution == 1? "ranms" : distribution == 2? "Quadtree" :
+            distribution == 3? "Bucketing" : distribution == 4? "KDTree" : distribution == 5? "Range Tree" :
+            distribution == 6? "SSC" : distribution == 7? "All" : distribution == 8? "Soft SSC" : "Reverse Suppression";
+    cv::displayStatusBar(string(imgPath), "Current Distribution: " + d);
 
     int count = 0;
     bool distributePerLevel = false;
@@ -453,7 +463,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
         pangolin::FinishFrame();
 
-        if (myExtractor.GetDistribution() == Distribution::GRID && !distributePerLevel)
+        if (myExtractor.GetDistribution() == Distribution::GRID /*&& !distributePerLevel*/)
         {
             DrawCellGrid(img, 0, img.cols, 0, img.rows, BUCKETING_GRID_SIZE);
         }
@@ -494,6 +504,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
                 myExtractorRight.SetnLevels(nlvl);
         }
 
+        vTimesTrack.emplace_back(myduration);
         menuLastFrametime = myduration/1000;
         menuMeanProcessingTime = myTotalDuration/1000 / count;
 
@@ -508,6 +519,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             myTotalDuration = 0;
             count = 0;
             menuAll = false;
+            vTimesTrack.clear();
+
         }
         if (menuTopN)
         {
@@ -518,6 +531,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             myTotalDuration = 0;
             count = 0;
             menuTopN = false;
+            vTimesTrack.clear();
+
         }
         if (menuBucketing)
         {
@@ -528,6 +543,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             myTotalDuration = 0;
             count = 0;
             menuBucketing = false;
+            vTimesTrack.clear();
+
         }
         if (menuQuadtreeORBSLAMSTYLE)
         {
@@ -538,6 +555,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             myTotalDuration = 0;
             count = 0;
             menuQuadtreeORBSLAMSTYLE = false;
+            vTimesTrack.clear();
+
         }
         if (menuANMS_KDT)
         {
@@ -548,6 +567,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             myTotalDuration = 0;
             count = 0;
             menuANMS_KDT = false;
+            vTimesTrack.clear();
+
         }
         if (menuANMS_RT)
         {
@@ -558,6 +579,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             myTotalDuration = 0;
             count = 0;
             menuANMS_RT = false;
+            vTimesTrack.clear();
+
         }
         if (menuSSC)
         {
@@ -568,6 +591,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             myTotalDuration = 0;
             count = 0;
             menuSSC = false;
+            vTimesTrack.clear();
+
         }
         if (menuRANMS)
         {
@@ -578,6 +603,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             myTotalDuration = 0;
             count = 0;
             menuRANMS = false;
+            vTimesTrack.clear();
+
         }
         if (menuSoftSSC)
         {
@@ -588,6 +615,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             myTotalDuration = 0;
             count = 0;
             menuSoftSSC = false;
+            vTimesTrack.clear();
+
         }
 
         if (menuSoftSSCThreshold != softTh)
@@ -607,6 +636,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             myTotalDuration = 0;
             count = 0;
             menuVSSC = false;
+            vTimesTrack.clear();
+
         }
 
         if (menuSingleLvlOnly && (soloLvl != menuChosenLvl))
@@ -711,6 +742,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
 
 
+
+
         /** compare kpts and descriptors per image:
         vector<std::pair<knuff::KeyPoint, knuff::KeyPoint>> kptDiffs;
         kptDiffs = CompareKeypoints(mykpts, string("my kpts"), refkpts, string("reference kpts"), ni, true);
@@ -749,6 +782,35 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
          */
 
     }
+
+    std::vector<long> distributionTimes = myExtractor.GetDistributionTimes();
+    long long mean = 0;
+    int c = 0;
+    for (auto t : distributionTimes)
+    {
+        mean += t;
+        ++c;
+    }
+    mean /= c;
+    std::sort(distributionTimes.begin(), distributionTimes.end());
+    long median = distributionTimes[distributionTimes.size()/2];
+
+    cout << "\nAverage computation time for distribution only: " << mean/1000 << "." << mean << " milliseconds\n";
+    cout << "Median computation time for distribution only: " << median/1000 << "." << median << " milliseconds\n";
+
+    mean = 0;
+    c = 0;
+    for (auto t : vTimesTrack)
+    {
+        mean += t;
+        ++c;
+    }
+    mean /= c;
+    std::sort(vTimesTrack.begin(), vTimesTrack.end());
+    median = vTimesTrack[vTimesTrack.size()/2];
+
+    cout << "\nAverage feature detection time: " << mean/1000 << "." << mean << " milliseconds\n";
+    cout << "Median feature detection time: " << median/1000 << "." << median << " milliseconds\n";
     //cout << "\n" << (eqkpts ? "All keypoints across all images were equal!\n" : "Not all keypoints are equal...:(\n");
     //cout << "\n" << (eqdescriptors ? "All descriptors across all images and keypoints were equal!\n" :
     //                    "Not all descriptors were equal... :(\n");

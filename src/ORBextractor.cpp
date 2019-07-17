@@ -66,7 +66,7 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels, int
         nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels), iniThFAST(_iniThFAST),
         minThFAST(_minThFAST), stepsChanged(true), levelToDisplay(-1), softSSCThreshold(10), prevDims(-1, -1),
         kptDistribution(Distribution::DistributionMethod::SSC), pixelOffset{}, fast(_iniThFAST, _minThFAST, _nlevels),
-        fileInterface(), saveFeatures(false), usePrecomputedFeatures(false)
+        fileInterface(), saveFeatures(false), usePrecomputedFeatures(false), timeVector{}
 {
     SetnLevels(_nlevels);
 
@@ -407,6 +407,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<knuff::KeyPoint>> &allk
             minLvl = levelToDisplay;
             maxLvl = minLvl + 1;
         }
+        long distributionDuration = 0;
 
 #pragma omp parallel for
         for (int lvl = minLvl; lvl < maxLvl; ++lvl)
@@ -526,9 +527,15 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<knuff::KeyPoint>> &allk
             allkpts[lvl].reserve(nfeatures);
 
             if (distributePerLevel)
+            {
+                using clk = std::chrono::high_resolution_clock;
+                clk::time_point t0 = clk::now();
                 Distribution::DistributeKeypoints(levelKpts, minimumX, maximumX, minimumY, maximumY,
                                                   nfeaturesPerLevelVec[lvl], mode, softSSCThreshold);
-
+                clk::time_point t1 = clk::now();
+                long duration = std::chrono::duration_cast<std::chrono::microseconds>(t1-t0).count();
+                distributionDuration += duration;
+            }
 
             allkpts[lvl] = levelKpts;
 
@@ -539,10 +546,9 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<knuff::KeyPoint>> &allk
                 kpt.pt.y += minimumY;
                 kpt.pt.x += minimumX;
                 kpt.octave = lvl;
-                //kpt.angle = IntensityCentroidAngle(&imagePyramid[lvl].at<uchar>(
-                //        myRound(kpt.pt.x), myRound(kpt.pt.y)), imagePyramid[lvl].step1());
             }
         }
+        timeVector.emplace_back(distributionDuration);
     }
 }
 

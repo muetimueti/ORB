@@ -11,17 +11,27 @@
 #include <iostream>
 #include <chrono>
 
-#define VSSC_V1 1
+#define PRINT_COMPUTATION_TIMES 0
 
+#if PRINT_COMPUTATION_TIMES
+typedef std::chrono::high_resolution_clock clk;
+#endif
 
 
 static void RetainBestN(std::vector<knuff::KeyPoint> &kpts, int N)
 {
+#if PRINT_COMPUTATION_TIMES
+    clk::time_point t0 = clk::now();
+#endif
     if (kpts.size() <= N)
         return;
     std::nth_element(kpts.begin(), kpts.begin()+N, kpts.end(),
             [](const knuff::KeyPoint &k1, const knuff::KeyPoint &k2){return k1.response > k2.response;});
     kpts.resize(N);
+#if PRINT_COMPUTATION_TIMES
+    clk::time_point t1 = clk::now();
+
+#endif
 }
 
 
@@ -1138,7 +1148,7 @@ void Distribution::DistributeKeypointsSoftSSC(std::vector<knuff::KeyPoint> &kpts
 
             int score = kpts[i].response;
 
-            if (covered[row][col] < score - threshold)
+            if (covered[row][col] < score + threshold)
             {
                 tempResult.emplace_back(i);
                 int rowMin = row - (int)(width/c) >= 0 ? (row - (int)(width/c)) : 0;
@@ -1186,118 +1196,76 @@ void Distribution::DistributeKeypointsVSSC(std::vector<knuff::KeyPoint> &kpts, c
     std::vector<int> resultIndices;
     resultIndices.reserve(kpts.size());
 
-    int median = kpts[kpts.size()/2].response;
-
     float c = 1;
     int width, col, row;
 
-    int grav = std::min(rows, cols) / 100 * 2;
-    float b = sqrt(kpts.size() / N) * 2;
-    int w = (int)(b > grav? (int)b : std::ceil(b));
+    width = 6;
 
     int cellCols = std::floor(cols/c);
     int cellRows = std::floor(rows/c);
 
     int nCells = (cellRows+1)*(cellCols+1);
 
-    std::vector<int> covered(nCells, -1);
 
-    resultIndices.clear();
-
-    for (int i = 0; i < kpts.size(); ++i)
+    bool done = false;
+    while (!done)
     {
-        width = w;
-        row = (int)((kpts[i].pt.y)/c);
-        col = (int)((kpts[i].pt.x)/c);
+        std::vector<int> covered(nCells, -1);
+        resultIndices.clear();
 
-        int score = kpts[i].response;
-
-        if (covered[row*cellCols + col] <= score + threshold)
+        if (width < 3)
         {
-#if VSSC_V1
-
-            //if (score > median + 40)
-            //    --width;
-            //else if (score < median - 40)
-            //    ++width;
-            int rowMin = row - (int)(width) >= 0 ? (row - (int)(width)) : 0;
-            int rowMax = row + (int)(width) <= cellRows ? (row + (int)(width)) : cellRows;
-            int colMin = col - (int)(width) >= 0 ? (col - (int)(width)) : 0;
-            int colMax = col + (int)(width) <= cellCols ? (col + (int)(width)) : cellCols;
-
-            bool best = true;
-            for (int dy = rowMin; dy <= rowMax; ++dy)
-            {
-                for (int dx = colMin; dx <= colMax; ++dx)
-                {
-                    int idx = dy*cellCols + dx;
-                    if (covered[idx] < score)
-                    {
-                        covered[idx] = score;
-                    }
-                    //else if (covered[idx] == score)
-                    //{
-                    //    continue;
-                    //}
-                    else
-                    {
-                        best = false;
-                        //break;
-                    }
-                }
-            }
-            if (best)
-                resultIndices.emplace_back(i);
+            break;
         }
-#else
-            int influence = width;
-            if (score > median + 40)
-                ++influence;
-            else if (score < median - 40)
-                --influence;
 
-            int infRowMin = row - (int)(influence) >= 0 ? (row - (int)(influence)) : 0;
-            int infRowMax = row + (int)(influence) <= cellRows ? (row + (int)(influence)) : cellRows;
-            int infColMin = col - (int)(influence) >= 0 ? (col - (int)(influence)) : 0;
-            int infColMax = col + (int)(influence) <= cellCols ? (col + (int)(influence)) : cellCols;
+        for (int i = 0; i < kpts.size(); ++i)
+        {
+            row = (int)((kpts[i].pt.y)/c);
+            col = (int)((kpts[i].pt.x)/c);
 
+            int score = kpts[i].response;
 
-            int rowMin = row - (int)(width) >= 0 ? (row - (int)(width)) : 0;
-            int rowMax = row + (int)(width) <= cellRows ? (row + (int)(width)) : cellRows;
-            int colMin = col - (int)(width) >= 0 ? (col - (int)(width)) : 0;
-            int colMax = col + (int)(width) <= cellCols ? (col + (int)(width)) : cellCols;
-
-            bool best = true;
-
-            for (int dy = rowMin; dy <= rowMax; ++dy)
+            if (covered[row*cellCols + col] <= score + threshold)
             {
-                for (int dx = colMin; dx <= colMax; ++dx)
+                int rowMin = row - (int)(width) >= 0 ? (row - (int)(width)) : 0;
+                int rowMax = row + (int)(width) <= cellRows ? (row + (int)(width)) : cellRows;
+                int colMin = col - (int)(width) >= 0 ? (col - (int)(width)) : 0;
+                int colMax = col + (int)(width) <= cellCols ? (col + (int)(width)) : cellCols;
+
+                bool best = true;
+                for (int dy = rowMin; dy <= rowMax; ++dy)
                 {
-                    if (covered[dy*cellCols + dx] > score)
+                    for (int dx = colMin; dx <= colMax; ++dx)
                     {
-                        best = false;
-                        break;
-                    }
-                }
-            }
-            if (best)
-            {
-                for (int dy = infRowMin; dy <= infRowMax; ++dy)
-                {
-                    for (int dx = infColMin; dx <= infColMax; ++dx)
-                    {
-                        if (covered[dy*cellCols + dx] < score)
+                        int idx = dy*cellCols + dx;
+                        if (score > covered[idx])
                         {
-                            covered[dy*cellCols + dx] = score;
+                            covered[idx] = score;
+                        }
+                        else
+                        {
+                            best = false;
+                            //break;
                         }
                     }
                 }
-                resultIndices.emplace_back(i);
+                if (best)
+                    resultIndices.emplace_back(i);
+            }
+            if (resultIndices.size() > N)
+            {
+                done = true;
+                break;
             }
         }
-#endif
-        if (resultIndices.size() > N)
-            break;
+        if (resultIndices.size() < N - (N*epsilon))
+        {
+            --width;
+        }
+        else
+        {
+            done = true;
+        }
     }
 
     std::vector<knuff::KeyPoint> reskpts;

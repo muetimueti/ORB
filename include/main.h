@@ -33,7 +33,7 @@ void SingleImageMode(std::string &imgPath, int nFeatures, float scaleFactor, int
 
 void SequenceMode(std::string &imgPath, int nFeatures, float scaleFactor, int nLevels, int FASTThresholdInit,
                     int FASTThresholdMin, cv::Scalar color, int thickness, int radius, bool drawAngular,
-                    Dataset dataset);
+                    Dataset dataset, Distribution::DistributionMethod distribution);
 
 void PerformanceMode(std::string &imgPath, int nFeatures, float scaleFactor, int nLevels, int FASTThresholdInit,
                      int FASTThresholdMin);
