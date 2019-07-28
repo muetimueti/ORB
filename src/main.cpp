@@ -96,7 +96,7 @@ int main(int argc, char **argv)
     */
    pangolin::QuitAll();
    std::cout << "\nProgram duration: " << program_duration << " microseconds.\n" <<
-   "(equals ~" <<  (float)program_duration / 1000000.f << " seconds)\n";
+   "(~" <<  (float)program_duration / 1000000.f << " seconds)\n";
 
    return 0;
 }
@@ -177,12 +177,7 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     while (true)
     {
         cv::Mat imgGray;
-        imgColor.copyTo(imgGray);
-
-        if (imgGray.channels() == 3)
-            cv::cvtColor(imgGray, imgGray, CV_BGR2GRAY);
-        else if (imgGray.channels() == 4)
-            cv::cvtColor(imgGray, imgGray, CV_BGRA2GRAY);
+        cv::cvtColor(imgColor, imgGray, CV_BGR2GRAY);
 
         cv::Mat displayImg;
         imgColor.copyTo(displayImg);
@@ -326,7 +321,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
     int nImages = vstrImageFilenamesLeft.size();
 
-    vector<long> vTimesTrack;
+    vector<long long> vTimesTrack;
     vTimesTrack.resize(nImages);
 
     ORB_SLAM2::ORBextractor myExtractor(nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
@@ -340,7 +335,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
     long myTotalDuration = 0;
 
-    int softTh = 0;
+    int softTh = 4;
     myExtractor.SetSoftSSCThreshold(softTh);
     myExtractorRight.SetSoftSSCThreshold(softTh);
 
@@ -364,7 +359,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     pangolin::Var<bool> menuSSC("menu.SSC",false,false);
     pangolin::Var<bool> menuRANMS("menu.RANMS", false, false);
     pangolin::Var<bool> menuSoftSSC("menu.Soft SSC", false, false);
-    pangolin::Var<int> menuSoftSSCThreshold("menu.Soft SSC Threshold", softTh, 0, 20);
+    pangolin::Var<int> menuSoftSSCThreshold("menu.Soft SSC Threshold", softTh, 0, 80);
     pangolin::Var<bool> menuVSSC("menu.VSSC", false, false);
     pangolin::Var<bool> menuDistrPerLvl("menu.Distribute Per Level", true, true);
     pangolin::Var<int> menuNFeatures("menu.Desired Features", nFeatures, 500, 2000);
@@ -402,7 +397,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     cv::displayStatusBar(string(imgPath), "Current Distribution: " + d);
 
     int count = 0;
-    bool distributePerLevel = false;
+    bool distributePerLevel = true;
     int soloLvl = -1;
 
 #if PRECOMPUTEDFEATURES
@@ -418,13 +413,18 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
 
         /// images loaded from TUM dataset:
-        //img = cv::imread(string(imgPath) + "/" + vstrImageFilenames[ni], CV_LOAD_IMAGE_UNCHANGED);
+        if (dataset == tum)
+            img = cv::imread(string(imgPath) + "/" + vstrImageFilenamesLeft[ni], CV_LOAD_IMAGE_GRAYSCALE);
+        else
+        {
+            ///images loaded from KITTI dataset:
+            img = cv::imread(vstrImageFilenamesLeft[ni], CV_LOAD_IMAGE_UNCHANGED);
+            if (stereo)
+                imgRight = cv::imread(vstrImageFilenamesRight[ni], CV_LOAD_IMAGE_UNCHANGED);
+            double tframe = vTimestamps[ni];
+        }
 
-        ///images loaded from KITTI dataset:
-        img = cv::imread(vstrImageFilenamesLeft[ni], CV_LOAD_IMAGE_UNCHANGED);
-        if (stereo)
-            imgRight = cv::imread(vstrImageFilenamesRight[ni], CV_LOAD_IMAGE_UNCHANGED);
-        double tframe = vTimestamps[ni];
+
 
         if (img.empty())
         {
@@ -442,16 +442,14 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         vector<knuff::KeyPoint> mykptsRight;
         cv::Mat mydescriptorsRight;
 
-        chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
-
-        //std::cout << "\ncurrent img: " << string(imgPath) + vstrImageFilenames[ni];
-
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
 
 
         myExtractor(img, cv::Mat(), mykpts, mydescriptors, distributePerLevel);
         if (stereo)
-            myExtractorRight(imgRight, cv::Mat(), mykptsRight, mydescriptorsRight, distributePerLevel);
+        {
+            //myExtractorRight(imgRight, cv::Mat(), mykptsRight, mydescriptorsRight, distributePerLevel);
+        }
 
         chrono::high_resolution_clock ::time_point t3 = chrono::high_resolution_clock::now();
 
@@ -738,79 +736,27 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             }
 #endif
         }
-
-
-
-
-
-
-        /** compare kpts and descriptors per image:
-        vector<std::pair<knuff::KeyPoint, knuff::KeyPoint>> kptDiffs;
-        kptDiffs = CompareKeypoints(mykpts, string("my kpts"), refkpts, string("reference kpts"), ni, true);
-
-        if (!kptDiffs.empty())
-            eqkpts = false;
-
-        int nkpts = mykpts.size();
-
-        vector<Descriptor_Pair> descriptorDiffs;
-        descriptorDiffs = CompareDescriptors(mydescriptors, "my descriptors", refdescriptors,
-                                                 "reference descriptors", nkpts, ni, true);
-        if (!descriptorDiffs.empty())
-            eqdescriptors = false;
-        */
-
-
-        /** time measurement per image:
-         *
-        chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
-
-        refExtractor(img, cv::Mat(), kpts, descriptors);
-
-        chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
-
-        myExtractor(img, cv::Mat(), kpts, descriptors);
-
-        chrono::high_resolution_clock ::time_point t3 = chrono::high_resolution_clock::now();
-
-        auto refduration = chrono::duration_cast<chrono::microseconds>(t2 - t1).count();
-        auto myduration = chrono::duration_cast<chrono::microseconds>(t3 - t2).count();
-
-
-        std::cout << "Computation time with my ORB for image nr. " << ni << ": " << myduration << " microseconds.\n";
-        std::cout << "Computation time with ref ORB for image nr. " << ni << ": " << refduration << " microseconds.\n";
-         */
-
     }
 
     std::vector<long> distributionTimes = myExtractor.GetDistributionTimes();
     long long mean = 0;
-    int c = 0;
     for (auto t : distributionTimes)
     {
         mean += t;
-        ++c;
     }
-    mean /= c;
+    mean /= distributionTimes.size();
     std::sort(distributionTimes.begin(), distributionTimes.end());
-    long median = distributionTimes[distributionTimes.size()/2];
+    long long median = distributionTimes[distributionTimes.size()/2];
 
-    cout << "\nAverage computation time for distribution only: " << mean/1000 << "." << mean << " milliseconds\n";
-    cout << "Median computation time for distribution only: " << median/1000 << "." << median << " milliseconds\n";
+    cout << "\nAverage computation time for distribution only: " << mean << " microseconds\n";
+    //cout << "Median computation time for distribution only: " << median << " microseconds\n";
 
-    mean = 0;
-    c = 0;
-    for (auto t : vTimesTrack)
-    {
-        mean += t;
-        ++c;
-    }
-    mean /= c;
+
     std::sort(vTimesTrack.begin(), vTimesTrack.end());
     median = vTimesTrack[vTimesTrack.size()/2];
+    cout << "\nAverage feature detection time: " << myTotalDuration/nImages << " microseconds\n";
+    //cout << "Median feature detection time: " << median << " microseconds\n";
 
-    cout << "\nAverage feature detection time: " << mean/1000 << "." << mean << " milliseconds\n";
-    cout << "Median feature detection time: " << median/1000 << "." << median << " milliseconds\n";
     //cout << "\n" << (eqkpts ? "All keypoints across all images were equal!\n" : "Not all keypoints are equal...:(\n");
     //cout << "\n" << (eqdescriptors ? "All descriptors across all images and keypoints were equal!\n" :
     //                    "Not all descriptors were equal... :(\n");

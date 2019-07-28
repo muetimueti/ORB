@@ -11,27 +11,14 @@
 #include <iostream>
 #include <chrono>
 
-#define PRINT_COMPUTATION_TIMES 0
-
-#if PRINT_COMPUTATION_TIMES
-typedef std::chrono::high_resolution_clock clk;
-#endif
-
 
 static void RetainBestN(std::vector<knuff::KeyPoint> &kpts, int N)
 {
-#if PRINT_COMPUTATION_TIMES
-    clk::time_point t0 = clk::now();
-#endif
     if (kpts.size() <= N)
         return;
     std::nth_element(kpts.begin(), kpts.begin()+N, kpts.end(),
             [](const knuff::KeyPoint &k1, const knuff::KeyPoint &k2){return k1.response > k2.response;});
     kpts.resize(N);
-#if PRINT_COMPUTATION_TIMES
-    clk::time_point t1 = clk::now();
-
-#endif
 }
 
 
@@ -123,7 +110,9 @@ Distribution::DistributeKeypoints(std::vector<knuff::KeyPoint> &kpts, const int 
         }
         default:
         {
-            DistributeKeypointsQuadTree(kpts, minX, maxX, minY, maxY, N);
+            int cols = maxX - minX;
+            int rows = maxY - minY;
+            DistributeKeypointsSoftSSC(kpts, cols, -1, rows, -1, N, epsilon, softSSCThreshold);
             break;
         }
     }
@@ -178,23 +167,22 @@ void ExtractorNode::DivideNode(ExtractorNode &n1, ExtractorNode &n2, ExtractorNo
 void Distribution::DistributeKeypointsQuadTree(std::vector<knuff::KeyPoint>& kpts, const int minX,
                                  const int maxX, const int minY, const int maxY, const int N)
 {
-    assert(!kpts.empty());
+    const int nroots = round(static_cast<float>(maxX-minX)/(maxY-minY));
 
-    const int nroots = myRound((float)(maxX-minX)/(float)(maxY-minY));
-
-    int nodeWidth = myRound((float)(maxX - minX) / nroots);
+    const float nodeWidth = static_cast<float>(maxX - minX) / nroots;
 
     std::list<ExtractorNode> nodesList;
 
     std::vector<ExtractorNode*> rootVec;
     rootVec.resize(nroots);
 
+
     for (int i = 0; i < nroots; ++i)
     {
-        int x0 = minX + nodeWidth * i;
-        int x1 = minX + nodeWidth * (i+1);
-        int y0 = minY;
-        int y1 = maxY;
+        int x0 = nodeWidth * (float)i;
+        int x1 = nodeWidth * (float)(i+1);
+        int y0 = 0;
+        int y1 = maxY-minY;
         ExtractorNode n;
         n.UL = cv::Point2i(x0, y0);
         n.UR = cv::Point2i(x1, y0);
@@ -206,12 +194,32 @@ void Distribution::DistributeKeypointsQuadTree(std::vector<knuff::KeyPoint>& kpt
         rootVec[i] = &nodesList.back();
     }
 
+
     for (auto &kpt : kpts)
     {
         rootVec[(int)(kpt.pt.x / nodeWidth)]->nodeKpts.emplace_back(kpt);
     }
 
     std::list<ExtractorNode>::iterator current;
+    current = nodesList.begin();
+
+    while (current != nodesList.end())
+    {
+        if (current->nodeKpts.size() == 1)
+        {
+            current->leaf = true;
+            ++current;
+        }
+        else if (current->nodeKpts.empty())
+        {
+            current = nodesList.erase(current);
+        }
+        else
+            ++current;
+    }
+
+    std::vector<ExtractorNode*> nodesToExpand;
+    nodesToExpand.reserve(nodesList.size()*4);
 
     bool omegadoom = false;
     int lastSize = 0;
@@ -220,13 +228,11 @@ void Distribution::DistributeKeypointsQuadTree(std::vector<knuff::KeyPoint>& kpt
         current = nodesList.begin();
         lastSize = nodesList.size();
 
+        nodesToExpand.clear();
+        int nToExpand = 0;
+
         while (current != nodesList.end())
         {
-            if (current->nodeKpts.empty())
-            {
-                current = nodesList.erase(current);
-            }
-
             if (current->leaf)
             {
                 ++current;
@@ -240,45 +246,140 @@ void Distribution::DistributeKeypointsQuadTree(std::vector<knuff::KeyPoint>& kpt
                 nodesList.push_front(n1);
                 if (n1.nodeKpts.size() == 1)
                     n1.leaf = true;
+                else
+                {
+                    ++nToExpand;
+                    nodesToExpand.emplace_back(&nodesList.front());
+                    nodesList.front().lit = nodesList.begin();
+                }
             }
             if (!n2.nodeKpts.empty())
             {
                 nodesList.push_front(n2);
                 if (n2.nodeKpts.size() == 1)
                     n2.leaf = true;
+                else
+                {
+                    ++nToExpand;
+                    nodesToExpand.emplace_back(&nodesList.front());
+                    nodesList.front().lit = nodesList.begin();
+                }
             }
             if (!n3.nodeKpts.empty())
             {
                 nodesList.push_front(n3);
                 if (n3.nodeKpts.size() == 1)
                     n3.leaf = true;
+                else
+                {
+                    ++nToExpand;
+                    nodesToExpand.emplace_back(&nodesList.front());
+                    nodesList.front().lit = nodesList.begin();
+                }
             }
             if (!n4.nodeKpts.empty())
             {
                 nodesList.push_front(n4);
                 if (n4.nodeKpts.size() == 1)
                     n4.leaf = true;
+                else
+                {
+                    ++nToExpand;
+                    nodesToExpand.emplace_back(&nodesList.front());
+                    nodesList.front().lit = nodesList.begin();
+                }
             }
 
             current = nodesList.erase(current);
 
-            if (nodesList.size() == lastSize)
-            {
-                omegadoom = true;
-                break;
-            }
+        }
+        if ((int)nodesList.size() >= N || (int)nodesList.size()==lastSize)
+        {
+            omegadoom = true;
+        }
 
-            if (nodesList.size() >= N)
+        else if ((int)nodesList.size() + nToExpand*3 > N)
+        {
+            while(!omegadoom)
             {
-                omegadoom = true;
-                break;
+                lastSize = nodesList.size();
+                std::vector<ExtractorNode*> prevNodes = nodesToExpand;
+
+                nodesToExpand.clear();
+
+                std::sort(prevNodes.begin(), prevNodes.end(),
+                          [](const ExtractorNode *n1, const ExtractorNode *n2)
+                          {return n1->nodeKpts.size() > n2->nodeKpts.size();});
+
+                for (auto &node : prevNodes)
+                {
+                    ExtractorNode n1, n2, n3, n4;
+                    node->DivideNode(n1, n2, n3, n4);
+
+                    if (!n1.nodeKpts.empty())
+                    {
+                        nodesList.push_front(n1);
+                        if (n1.nodeKpts.size() == 1)
+                            n1.leaf = true;
+                        else
+                        {
+                            nodesToExpand.emplace_back(&nodesList.front());
+                            nodesList.front().lit = nodesList.begin();
+                        }
+
+                    }
+                    if (!n2.nodeKpts.empty())
+                    {
+                        nodesList.push_front(n2);
+                        if (n2.nodeKpts.size() == 1)
+                            n2.leaf = true;
+                        else
+                        {
+                            nodesToExpand.emplace_back(&nodesList.front());
+                            nodesList.front().lit = nodesList.begin();
+                        }
+
+                    }
+                    if (!n3.nodeKpts.empty())
+                    {
+                        nodesList.push_front(n3);
+                        if (n3.nodeKpts.size() == 1)
+                            n3.leaf = true;
+                        else
+                        {
+                            nodesToExpand.emplace_back(&nodesList.front());
+                            nodesList.front().lit = nodesList.begin();
+                        }
+
+                    }
+                    if (!n4.nodeKpts.empty())
+                    {
+                        nodesList.push_front(n4);
+                        if (n4.nodeKpts.size() == 1)
+                            n4.leaf = true;
+                        else
+                        {
+                            nodesToExpand.emplace_back(&nodesList.front());
+                            nodesList.front().lit = nodesList.begin();
+                        }
+
+                    }
+                    nodesList.erase(node->lit);
+
+                    if ((int)nodesList.size() >= N)
+                        break;
+                }
+                if ((int)nodesList.size() >= N || (int)nodesList.size() == lastSize)
+                    omegadoom = true;
+
+
             }
         }
     }
 
-    std::vector<knuff::KeyPoint> resKpts;
-    resKpts.reserve(N);
 
+    std::vector<knuff::KeyPoint> resKpts;
+    resKpts.reserve(N*2);
     auto iter = nodesList.begin();
     for (; iter != nodesList.end(); ++iter)
     {
@@ -302,6 +403,7 @@ void Distribution::DistributeKeypointsQuadTree(std::vector<knuff::KeyPoint>& kpt
         }
         resKpts.emplace_back(*kpt);
     }
+
     kpts = resKpts;
 }
 
@@ -1007,8 +1109,9 @@ void Distribution::DistributeKeypointsRANMS(std::vector<knuff::KeyPoint> &kpts, 
         int cellMaxY = cellMinY + patchHeight;
         if (nPerCell < cellkpts[i].size())
         {
-            //DistributeKeypointsSoftSSC(cellkpts[i], cellMinX, cellMaxX, cellMinY, cellMaxY, nPerCell, epsilon,
-            //                           softSSCThreshold);
+            DistributeKeypointsSoftSSC(cellkpts[i], cellMinX, cellMaxX, cellMinY, cellMaxY, nPerCell, epsilon,
+                    softSSCThreshold);
+            /*
             int cols = maxX - minX;
             int rows = maxY - minY;
 
@@ -1035,7 +1138,7 @@ void Distribution::DistributeKeypointsRANMS(std::vector<knuff::KeyPoint> &kpts, 
 
                 int score = kpts[i].response;
 
-                if (covered[row*cellCols + col] < score - softSSCThreshold)
+                if (covered[row*cellCols + col] < score + softSSCThreshold)
                 {
                     if (score > median + 40)
                         --width;
@@ -1075,6 +1178,7 @@ void Distribution::DistributeKeypointsRANMS(std::vector<knuff::KeyPoint> &kpts, 
                 reskpts.emplace_back(kpts[resultIndices[i]]);
             }
             kpts = reskpts;
+             */
         }
 
         kpts.insert(kpts.end(), cellkpts[i].begin(), cellkpts[i].end());
@@ -1197,9 +1301,9 @@ void Distribution::DistributeKeypointsVSSC(std::vector<knuff::KeyPoint> &kpts, c
     resultIndices.reserve(kpts.size());
 
     float c = 1;
-    int width, col, row;
+    int w, col, row;
 
-    width = 6;
+    w = 6;
 
     int cellCols = std::floor(cols/c);
     int cellRows = std::floor(rows/c);
@@ -1213,11 +1317,6 @@ void Distribution::DistributeKeypointsVSSC(std::vector<knuff::KeyPoint> &kpts, c
         std::vector<int> covered(nCells, -1);
         resultIndices.clear();
 
-        if (width < 3)
-        {
-            break;
-        }
-
         for (int i = 0; i < kpts.size(); ++i)
         {
             row = (int)((kpts[i].pt.y)/c);
@@ -1227,6 +1326,7 @@ void Distribution::DistributeKeypointsVSSC(std::vector<knuff::KeyPoint> &kpts, c
 
             if (covered[row*cellCols + col] <= score + threshold)
             {
+                int width = w/2 + (w/2) * (1 - (((float)score - 7.f) / 248.f)) + 1;
                 int rowMin = row - (int)(width) >= 0 ? (row - (int)(width)) : 0;
                 int rowMax = row + (int)(width) <= cellRows ? (row + (int)(width)) : cellRows;
                 int colMin = col - (int)(width) >= 0 ? (col - (int)(width)) : 0;
@@ -1258,14 +1358,10 @@ void Distribution::DistributeKeypointsVSSC(std::vector<knuff::KeyPoint> &kpts, c
                 break;
             }
         }
-        if (resultIndices.size() < N - (N*epsilon))
-        {
-            --width;
-        }
-        else
-        {
+        if (resultIndices.size() > N - N*epsilon)
             done = true;
-        }
+        else
+            --w;
     }
 
     std::vector<knuff::KeyPoint> reskpts;
