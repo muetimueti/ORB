@@ -4,7 +4,7 @@
 #include <vector>
 #include "include/Distribution.h"
 #include "include/FAST.h"
-#include "include/FeatureFileInterface.h"
+//#include "include/FeatureFileInterface.h"
 
 #ifndef NDEBUG
 #   define D(x) x
@@ -93,7 +93,7 @@ public:
     void SetnLevels(int n);
 
     void SetScaleFactor(float s);
-
+    /*
     void SetFeatureSavePath(std::string &path)
     {
         path += std::to_string(nfeatures) + "f_" + std::to_string(scaleFactor) + "s_" +
@@ -116,6 +116,7 @@ public:
     {
         return &fileInterface;
     }
+     */
 
     void SetSteps();
 
@@ -126,7 +127,7 @@ protected:
 
     void ComputeAngles(std::vector<std::vector<kvis::KeyPoint>> &allkpts);
 
-    void ComputeDescriptors(std::vector<std::vector<kvis::KeyPoint>> &allkpts, cv::Mat &descriptors);
+    void ComputeDescriptors(std::vector<std::vector<kvis::KeyPoint>> &allkpts, img_t &descriptors);
 
 
     void DivideAndFAST(std::vector<std::vector<kvis::KeyPoint> >& allKeypoints,
@@ -135,7 +136,7 @@ protected:
 
     void ComputeScalePyramid(img_t& image);
 
-    std::vector<cv::Point> pattern;
+    std::vector<kvis::Point> pattern;
 
     std::vector<img_t> imagePyramid;
 
@@ -166,7 +167,7 @@ protected:
 
     FASTdetector fast;
 
-    FeatureFileInterface fileInterface;
+    //FeatureFileInterface fileInterface;
     bool saveFeatures;
     bool usePrecomputedFeatures;
     std::string loadPath;

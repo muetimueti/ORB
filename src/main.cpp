@@ -98,7 +98,7 @@ int main(int argc, char **argv)
    return 0;
 }
 
-
+/* TODO: port to saiga
 void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels, int FASTThresholdInit,
                         int FASTThresholdMin, cv::Scalar color, int thickness, int radius, bool drawAngular)
 {
@@ -289,6 +289,7 @@ void SingleImageMode(string &imgPath, int nFeatures, float scaleFactor, int nLev
     }
 }
 
+ */
 void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels, int FASTThresholdInit,
                     int FASTThresholdMin, cv::Scalar color, int thickness, int radius, bool drawAngular,
                     Dataset dataset)
@@ -424,22 +425,20 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         }
 
         cv::Mat imgGray;
-        //cv::cvtColor(img, imgGray, CV_BGR2GRAY);
+        cv::cvtColor(img, imgGray, CV_BGR2GRAY);
 
         vector<kvis::KeyPoint> mykpts;
-        cv::Mat mydescriptors;
+        img_t mydescriptors;
 
         vector<kvis::KeyPoint> mykptsRight;
-        cv::Mat mydescriptorsRight;
+        img_t mydescriptorsRight;
 
-        chrono::high_resolution_clock::time_point t1 = chrono::high_resolution_clock::now();
 
-        //std::cout << "\ncurrent img: " << string(imgPath) + vstrImageFilenames[ni];
 
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
 
 
-        myExtractor(img, cv::Mat(), mykpts, mydescriptors, distributePerLevel);
+        myExtractor(img, mykpts, mydescriptors, distributePerLevel);
         if (stereo)
             myExtractorRight(imgRight, cv::Mat(), mykptsRight, mydescriptorsRight, distributePerLevel);
 

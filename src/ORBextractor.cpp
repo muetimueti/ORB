@@ -8,6 +8,7 @@
 #include <chrono>
 
 #include <saiga/core/util/Range.h>
+#include <include/2Dimgeffects.h>
 
 
 #ifndef NDEBUG
@@ -60,15 +61,15 @@ float ORBextractor::IntensityCentroidAngle(const uchar* pointer, int step)
         m01 += y * sumY;
     }
 
-    return cv::fastAtan2((float)m01, (float)m10);
+    return std::atan2((float)m01, (float)m10);
 }
 
 
 ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels, int _iniThFAST, int _minThFAST):
         nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels), iniThFAST(_iniThFAST),
         minThFAST(_minThFAST), stepsChanged(true), levelToDisplay(-1), softSSCThreshold(10), prevDims(-1, -1),
-        kptDistribution(Distribution::DistributionMethod::SSC), pixelOffset{}, fast(_iniThFAST, _minThFAST, _nlevels),
-        fileInterface(), saveFeatures(false), usePrecomputedFeatures(false)
+        kptDistribution(Distribution::DistributionMethod::SSC), pixelOffset{}, fast(_iniThFAST, _minThFAST, _nlevels)
+        /*, fileInterface(), saveFeatures(false), usePrecomputedFeatures(false)*/
 {
     SetnLevels(_nlevels);
 
@@ -77,7 +78,7 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels, int
     SetnFeatures(nfeatures);
 
     const int nPoints = 512;
-    const auto tempPattern = (const cv::Point*) bit_pattern_31_;
+    const auto tempPattern = (const kvis::Point*) bit_pattern_31_;
     std::copy(tempPattern, tempPattern+nPoints, std::back_inserter(pattern));
 }
 
@@ -201,7 +202,8 @@ void ORBextractor::operator()(Saiga::ImageView<uchar> &image, std::vector<kvis::
     for (int lvl = 0; lvl < nlevels; ++lvl)
         nkpts += allkpts[lvl].size();
 
-    Saiga::ImageView<uchar> BRIEFdescriptors;
+    uchar* d;
+    img_t BRIEFdescriptors(nkpts, 32, d);
 
     resultKeypoints.clear();
     resultKeypoints.reserve(nkpts);
@@ -227,12 +229,14 @@ void ORBextractor::operator()(Saiga::ImageView<uchar> &image, std::vector<kvis::
     {
         resultKeypoints.insert(resultKeypoints.end(), allkpts[lvl].begin(), allkpts[lvl].end());
     }
-
+    /*
     if (saveFeatures)
     {
         fileInterface.SaveFeatures(resultKeypoints);
-        fileInterface.SaveDescriptors(BRIEFdescriptors);
+        //TODO: port fileinterface to saiga
+        //fileInterface.SaveDescriptors(BRIEFdescriptors);
     }
+     */
 
     //ensure feature detection always takes 50ms
     unsigned long maxDuration = 50000;
@@ -254,17 +258,17 @@ void ORBextractor::ComputeAngles(std::vector<std::vector<kvis::KeyPoint>> &allkp
     {
         for (auto &kpt : allkpts[lvl])
         {
-            kpt.angle = IntensityCentroidAngle(&imagePyramid[lvl].at<uchar>(myRound(kpt.pt.y), myRound(kpt.pt.x)),
-                                               imagePyramid[lvl].step1());
+            kpt.angle = IntensityCentroidAngle(&imagePyramid[lvl](myRound(kpt.pt.y), myRound(kpt.pt.x)),
+                                               imagePyramid[lvl].pitchBytes);
         }
     }
 }
 
 
-void ORBextractor::ComputeDescriptors(std::vector<std::vector<kvis::KeyPoint>> &allkpts, cv::Mat &descriptors)
+void ORBextractor::ComputeDescriptors(std::vector<std::vector<kvis::KeyPoint>> &allkpts, img_t &descriptors)
 {
     const auto degToRadFactor = (float)(CV_PI/180.f);
-    const cv::Point* p = &pattern[0];
+    const kvis::Point* p = &pattern[0];
 
     int current = 0;
 
@@ -272,17 +276,17 @@ void ORBextractor::ComputeDescriptors(std::vector<std::vector<kvis::KeyPoint>> &
     {
         img_t lvlClone;
         imagePyramid[lvl].copyTo(lvlClone);
-        cv::GaussianBlur(lvlClone, lvlClone, cv::Size(7, 7), 2, 2, cv::BORDER_REFLECT_101);
+        kvis::GaussianBlur<uchar>(lvlClone, lvlClone, 7, 7, 2, 2);
 
-        const int step = (int)lvlClone.step;
+        const int step = (int)lvlClone.pitchBytes;
 
 
         int i = 0, nkpts = allkpts[lvl].size();
         for (int k = 0; k < nkpts; ++k, ++current)
         {
             const kvis::KeyPoint &kpt = allkpts[lvl][k];
-            auto descPointer = descriptors.ptr<uchar>(current);        //ptr to beginning of current descriptor
-            const uchar* pixelPointer = &lvlClone.at<uchar>(myRound(kpt.pt.y), myRound(kpt.pt.x));  //ptr to kpt in img
+            auto descPointer = descriptors.rowPtr(current);        //ptr to beginning of current descriptor
+            const uchar* pixelPointer = &lvlClone(myRound(kpt.pt.y), myRound(kpt.pt.x));  //ptr to kpt in img
 
             float angleRad = kpt.angle * degToRadFactor;
             auto a = (float)cos(angleRad), b = (float)sin(angleRad);

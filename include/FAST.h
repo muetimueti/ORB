@@ -2,7 +2,6 @@
 #define ORBEXTRACTOR_FAST_H
 
 #include <opencv2/core/core.hpp>
-//#include <saiga/vision/Features.h>
 #include "include/Types.h"
 #define FASTWORKERS 0
 
