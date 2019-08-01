@@ -8,7 +8,7 @@
 #include <chrono>
 
 #include <saiga/core/util/Range.h>
-#include <include/2Dimgeffects.h>
+#include "include/2Dimgeffects.h"
 
 
 #ifndef NDEBUG
@@ -274,9 +274,11 @@ void ORBextractor::ComputeDescriptors(std::vector<std::vector<kvis::KeyPoint>> &
 
     for (int lvl = 0; lvl < nlevels; ++lvl)
     {
-        img_t lvlClone;
-        imagePyramid[lvl].copyTo(lvlClone);
+        img_t lvlClone(imagePyramid[lvl]);
+        //imagePyramid[lvl].copyTo(lvlClone);
         kvis::GaussianBlur<uchar>(lvlClone, lvlClone, 7, 7, 2, 2);
+
+        cv::Mat lvlCloneCV = Saiga::ImageViewToMat(lvlClone);
 
         const int step = (int)lvlClone.pitchBytes;
 
@@ -427,10 +429,15 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<kvis::KeyPoint>> &allkp
                 float endY = startY + patchHeight + 6;
 
                 if (startY >= maximumY-3)
+                {
                     continue;
+                }
 
                 if (endY > maximumY)
+                {
                     endY = maximumY;
+                }
+
 
                 for (int px = 0; px < npatchesInX; ++px)
                 {
@@ -438,10 +445,16 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<kvis::KeyPoint>> &allkp
                     float endX = startX + patchWidth + 6;
 
                     if (startX >= maximumX-6)
+                    {
                         continue;
+                    }
+
 
                     if (endX > maximumX)
+                    {
                         endX = maximumX;
+                    }
+
 
                     //std::chrono::high_resolution_clock::time_point FASTEntry =
                     //        std::chrono::high_resolution_clock::now();
@@ -454,7 +467,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<kvis::KeyPoint>> &allkp
 
 #else
                     std::vector<kvis::KeyPoint> patchKpts;
-                    img_t patch = imagePyramid[lvl].subImageView(startY, startX, patchHeight, patchWidth);
+                    img_t patch = imagePyramid[lvl].subImageView(startY, startX, endY-startY, endX-startX);
                     fast.FAST(patch, patchKpts, iniThFAST, lvl);
                     if (patchKpts.empty())
                     {
@@ -530,6 +543,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<kvis::KeyPoint>> &allkp
 
 void ORBextractor::ComputeScalePyramid(img_t& image)
 {
+#if 0
     imagePyramid[0] = image;
 
     for (int lvl = 1; lvl < nlevels; ++ lvl)
@@ -537,12 +551,54 @@ void ORBextractor::ComputeScalePyramid(img_t& image)
         int width = (int)myRound(image.cols * invScaleFactorVec[lvl]);
         int height = (int)myRound(image.rows * invScaleFactorVec[lvl]);
 
-        void* p = nullptr;
-        Saiga::ImageView<uchar> newLevel(height, width, p);
+        uchar* p;
+        Saiga::ImageView<uchar> newLevel(height, width, imagePyramid[lvl].data);
 
         image.copyScaleLinear(newLevel);
         imagePyramid[lvl] = newLevel;
     }
+#else
+    for (int lvl = 0; lvl < nlevels; ++ lvl)
+    {
+        int width = (int)myRound(image.cols * invScaleFactorVec[lvl]); // 1.f / getScale(lvl));
+        int height = (int)myRound(image.rows * invScaleFactorVec[lvl]); // 1.f / getScale(lvl));
+
+        int doubleEdge = EDGE_THRESHOLD * 2;
+        int borderedWidth = width + doubleEdge;
+        int borderedHeight = height + doubleEdge;
+
+        //Size sz(width, height);
+        //Size borderedSize(borderedWidth, borderedHeight);
+
+        cv::Mat temp = Saiga::ImageViewToMat(image);
+
+        cv::Mat borderedImg(borderedHeight, borderedWidth, temp.type());
+        cv::Range rowRange(EDGE_THRESHOLD, height + EDGE_THRESHOLD);
+        cv::Range colRange(EDGE_THRESHOLD, width + EDGE_THRESHOLD);
+
+        //imagePyramid[lvl] = borderedImg(cv::Rect(EDGE_THRESHOLD, EDGE_THRESHOLD, width, height));
+
+
+
+        if (lvl)
+        {
+            cv::Mat resized;
+            cv::resize(Saiga::ImageViewToMat(imagePyramid[lvl-1]),
+                    resized, cv::Size(width, height), 0, 0, CV_INTER_LINEAR);
+
+            cv::copyMakeBorder(resized, borderedImg, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
+                               EDGE_THRESHOLD, cv::BORDER_REFLECT_101+cv::BORDER_ISOLATED);
+        }
+        else
+        {
+            cv::copyMakeBorder(Saiga::ImageViewToMat(image), borderedImg, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
+                               cv::BORDER_REFLECT_101);
+        }
+        cv::Mat tempb = borderedImg(rowRange, colRange);
+        Saiga::ImageView<uchar> newLevel = Saiga::MatToImageView<uchar>(tempb);
+        imagePyramid[lvl] = newLevel;
+    }
+#endif
 }
 
 

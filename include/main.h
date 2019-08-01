@@ -6,6 +6,7 @@
 #include "include/ORBextractor.h"
 #include <unistd.h>
 
+
 #ifndef NDEBUG
 #  define D(x) x
 #else
@@ -57,6 +58,9 @@ void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &im
                                  int thickness, int radius, bool drawAngular, bool distributePerLevel);
 
 void AddRandomKeypoints(std::vector<kvis::KeyPoint> &keypoints);
+
+void FilterTest(std::string &imgPath, int nFeatures, float scaleFactor, int nLevels, int FASTThresholdInit,
+                int FASTThresholdMin, Dataset dataset);
 
 void LoadImagesTUM(const std::string &strFile, std::vector<std::string> &vstrImageFilenames,
                 std::vector<double> &vTimestamps);

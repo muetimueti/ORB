@@ -2,7 +2,8 @@
 #define ORBEXTRACTOR_TYPES_H
 
 #include <iostream>
-#include <saiga/extra/opencv/opencv.h>
+#include "saigacpy/opencv.h"
+#include "saigacpy/assert.h"
 
 
 #define message_assert(expr, msg) assert(( (void)(msg), (expr) ))

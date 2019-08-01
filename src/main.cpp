@@ -8,11 +8,13 @@
 #include "include/main.h"
 #include <pangolin/pangolin.h>
 
+
 #ifndef NDEBUG
 #  define D(x) x
 #  include <random>
 #  include <chrono>
 #include <opencv2/features2d.hpp>
+
 
 #else
 # define D(x)
@@ -67,19 +69,22 @@ int main(int argc, char **argv)
 
     if (mode == 0)
     {
-        SingleImageMode(imgPath, nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin,
-                        color, thickness, radius, drawAngular);
+        //SingleImageMode(imgPath, nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin,
+        //                color, thickness, radius, drawAngular);
     }
     else if (mode == 1)
     {
         SequenceMode(imgPath, nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin,
                      color, thickness, radius, drawAngular, dataset);
     }
-    else
+    else if (mode == 2)
     {
         PerformanceMode(imgPath, nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
     }
-
+    else if (mode == 3)
+    {
+        FilterTest(imgPath, nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin, dataset);
+    }
 
    std::chrono::high_resolution_clock::time_point program_end = std::chrono::high_resolution_clock::now();
    auto program_duration = std::chrono::duration_cast<std::chrono::microseconds>(program_end - program_start).count();
@@ -425,7 +430,19 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         }
 
         cv::Mat imgGray;
-        cv::cvtColor(img, imgGray, CV_BGR2GRAY);
+        cv::Mat imgGrayRight;
+        if (img.channels() > 1)
+        {
+            cv::cvtColor(img, imgGray, CV_BGR2GRAY);
+            if (stereo)
+                cv::cvtColor(imgRight, imgGrayRight, CV_BGR2GRAY);
+        }
+
+
+        img_t saigaImg = Saiga::MatToImageView<uchar>(imgGray);
+        img_t saigaImgRight;
+        if (stereo)
+            saigaImgRight = Saiga::MatToImageView<uchar>(imgRight);
 
         vector<kvis::KeyPoint> mykpts;
         img_t mydescriptors;
@@ -438,11 +455,11 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         chrono::high_resolution_clock::time_point t2 = chrono::high_resolution_clock::now();
 
 
-        myExtractor(img, mykpts, mydescriptors, distributePerLevel);
+        myExtractor(saigaImg, mykpts, mydescriptors, distributePerLevel);
         if (stereo)
-            myExtractorRight(imgRight, cv::Mat(), mykptsRight, mydescriptorsRight, distributePerLevel);
+            myExtractorRight(saigaImgRight, mykptsRight, mydescriptorsRight, distributePerLevel);
 
-        chrono::high_resolution_clock ::time_point t3 = chrono::high_resolution_clock::now();
+        chrono::high_resolution_clock::time_point t3 = chrono::high_resolution_clock::now();
 
         auto myduration = chrono::duration_cast<chrono::microseconds>(t3 - t2).count();
 
@@ -464,7 +481,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (cv::getTrackbarPos(imgTrackbar, string(imgPath)) != ni)
         {
             ni = cv::getTrackbarPos(imgTrackbar, string(imgPath));
-            myExtractor.GetFileInterface()->SetCurrentImage(ni);
+            //myExtractor.GetFileInterface()->SetCurrentImage(ni); TODO
         }
 
 
@@ -630,9 +647,9 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         if (menuPause)
         {
             --ni;
-            myExtractor.GetFileInterface()->SetCurrentImage(ni);
-            if (stereo)
-                myExtractorRight.GetFileInterface()->SetCurrentImage(ni);
+            //myExtractor.GetFileInterface()->SetCurrentImage(ni);
+            //if (stereo)
+            //    myExtractorRight.GetFileInterface()->SetCurrentImage(ni); TODO
         }
 
 
@@ -673,6 +690,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
                 myExtractorRight.SetScoreType(FASTdetector::SUM);
             menuScoreSum = false;
         }
+        /*
         if (menuSaveFeatures)
         {
 #if PRECOMPUTEDFEATURES
@@ -705,7 +723,9 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
                 myExtractorRight.GetFileInterface()->SaveInfo(info);
             }
 #endif
+
         }
+         */
 
 
 
@@ -803,11 +823,13 @@ void PerformanceMode(std::string &imgPath, int nFeatures, float scaleFactor, int
             cv::Mat imgGray;
             cv::cvtColor(img, imgGray, CV_BGR2GRAY);
 
+            img_t saigaImg = Saiga::MatToImageView<uchar>(imgGray);
+
             vector<kvis::KeyPoint> kpts;
-            cv::Mat descriptors;
+            img_t descriptors;
 
             clk::time_point t1 = clk::now();
-            extractor(imgGray, cv::Mat(), kpts, descriptors, true);
+            extractor(saigaImg, kpts, descriptors, true);
             clk::time_point t2 = clk::now();
             long d = std::chrono::duration_cast<std::chrono::microseconds>(t2-t1).count();
             totalDuration += d;
@@ -1009,6 +1031,7 @@ void MeasureExecutionTime(int numIterations, ORB_SLAM2::ORBextractor &extractor,
 
 }
 
+/*
 void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &imgColor, cv::Scalar &color,
         int thickness, int radius, bool drawAngular, bool distributePerLevel)
 {
@@ -1152,6 +1175,7 @@ void DistributionComparisonSuite(ORB_SLAM2::ORBextractor &extractor, cv::Mat &im
     DisplayKeypoints(imgSSC, kptsSSC, color, thickness, radius, drawAngular, "SSC");
     cv::waitKey(0);
 }
+ */
 
 void AddRandomKeypoints(std::vector<kvis::KeyPoint> &keypoints)
 {
@@ -1166,6 +1190,59 @@ void AddRandomKeypoints(std::vector<kvis::KeyPoint> &keypoints)
        keypoints.emplace_back(kvis::KeyPoint(x, y, 7.f, angle, 0));
    }
 }
+
+void FilterTest(std::string &imgPath, int nFeatures, float scaleFactor, int nLevels, int FASTThresholdInit,
+                int FASTThresholdMin, Dataset dataset)
+{
+    vector<string> vstrImageFilenamesLeft;
+    vector<double> vTimestamps;
+    vector<string> vstrImageFilenamesRight;
+
+    if (dataset == tum)
+    {
+        string strFile = string(imgPath)+"/rgb.txt";
+        LoadImagesTUM(strFile, vstrImageFilenamesLeft, vTimestamps);
+    }
+
+    else if (dataset == kitti)
+    {
+        LoadImagesKITTI(imgPath, vstrImageFilenamesLeft, vstrImageFilenamesRight, vTimestamps);
+    }
+
+    else if (dataset == euroc)
+    {
+        string pathLeft = imgPath, pathRight = imgPath, pathTimes = imgPath;
+        pathLeft += "cam0/data/";
+        pathRight += "cam1/data/";
+        pathTimes += "MH03.txt";
+        LoadImagesEUROC(pathLeft, pathRight, pathTimes,vstrImageFilenamesLeft, vstrImageFilenamesRight, vTimestamps);
+    }
+
+    int nImages = vstrImageFilenamesLeft.size();
+
+    vector<float> vTimesTrack;
+    vTimesTrack.resize(nImages);
+
+    cv::Mat img = cv::imread(vstrImageFilenamesLeft[0], CV_LOAD_IMAGE_UNCHANGED);
+
+    cv::Mat imgGray;
+    if (img.channels() > 1)
+    {
+        cv::cvtColor(img, imgGray, CV_BGR2GRAY);
+    }
+    cv::namedWindow("test", cv::WINDOW_AUTOSIZE);
+    cv::imshow("test", imgGray);
+    cv::waitKey(0);
+
+    img_t saigaImg = Saiga::MatToImageView<uchar>(imgGray);
+
+    //kvis::GaussianBlur<uchar>(saigaImg, saigaImg, 7, 7, 2, 2);
+
+    imgGray = Saiga::ImageViewToMat<uchar>(saigaImg);
+    cv::imshow("test", imgGray);
+    cv::waitKey(0);
+}
+
 
 void LoadImagesTUM(const string &strFile, vector<string> &vstrImageFilenames, vector<double> &vTimestamps)
 {
@@ -1257,3 +1334,4 @@ void LoadImagesEUROC(const string &strPathLeft, const string &strPathRight, cons
         }
     }
 }
+
