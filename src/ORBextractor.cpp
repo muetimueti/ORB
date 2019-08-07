@@ -9,6 +9,7 @@
 
 #include <saiga/core/util/Range.h>
 #include "include/2Dimgeffects.h"
+#include <saiga/core/image/templatedImage.h>
 
 
 
@@ -204,8 +205,9 @@ void ORBextractor::operator()(Saiga::ImageView<uchar> &image, std::vector<kvis::
     for (int lvl = 0; lvl < nlevels; ++lvl)
         nkpts += allkpts[lvl].size();
 
-    uchar* d;
-    img_t BRIEFdescriptors(nkpts, 32, d);
+    Saiga::ImageBase d(nkpts, 32, 32);
+    img_t data = Saiga::ImageView<uchar>(d);
+    img_t BRIEFdescriptors(nkpts, 32, &data);
 
     resultKeypoints.clear();
     resultKeypoints.reserve(nkpts);
@@ -395,7 +397,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<kvis::KeyPoint>> &allkp
             maxLvl = minLvl + 1;
         }
 
-#pragma omp parallel for
+//#pragma omp parallel for
         for (int lvl = minLvl; lvl < maxLvl; ++lvl)
         {
             std::vector<kvis::KeyPoint> levelKpts;

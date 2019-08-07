@@ -398,7 +398,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
     cv::displayStatusBar(string(imgPath), "Current Distribution: Bucketing");
 
     int count = 0;
-    bool distributePerLevel = false;
+    bool distributePerLevel = menuDistrPerLvl;
     int soloLvl = -1;
 
 #if PRECOMPUTEDFEATURES
@@ -1240,6 +1240,11 @@ void FilterTest(std::string &imgPath, int nFeatures, float scaleFactor, int nLev
     img_t saigaImg = Saiga::MatToImageView<uchar>(imgGray);
 
     extractor.FilterTest(saigaImg);
+
+    cv::Mat img2 = cv::imread(vstrImageFilenamesLeft[1], CV_LOAD_IMAGE_UNCHANGED);
+    cv::GaussianBlur(img2, img2, cv::Size(7, 7), 2, 2);
+    cv::imshow("test", img2);
+    cv::waitKey(0);
 }
 
 
