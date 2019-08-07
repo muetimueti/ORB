@@ -11,6 +11,8 @@
 #include "include/2Dimgeffects.h"
 
 
+
+
 #ifndef NDEBUG
 #   define D(x) x
 
@@ -659,5 +661,19 @@ void ORBextractor::SetScaleFactor(float s)
         levelSigma2Vec[i] = scaleFactorVec[i] * scaleFactorVec[i];
         invLevelSigma2Vec[i] = 1.f / levelSigma2Vec[i];
     }
+}
+
+void ORBextractor::FilterTest(img_t& img)
+{
+    cv::namedWindow("test", cv::WINDOW_AUTOSIZE);
+    cv::Mat cvImg = Saiga::ImageViewToMat<uchar>(img);
+    cv::imshow("test", cvImg);
+    cv::waitKey(0);
+
+    kvis::GaussianBlur<uchar>(img, img, 7, 7, 2, 2);
+
+    cvImg = Saiga::ImageViewToMat<uchar>(img);
+    cv::imshow("test", cvImg);
+    cv::waitKey(0);
 }
 }

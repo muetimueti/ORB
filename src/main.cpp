@@ -1198,6 +1198,8 @@ void FilterTest(std::string &imgPath, int nFeatures, float scaleFactor, int nLev
     vector<double> vTimestamps;
     vector<string> vstrImageFilenamesRight;
 
+    ORB_SLAM2::ORBextractor extractor(nFeatures, scaleFactor, nLevels, FASTThresholdInit, FASTThresholdMin);
+
     if (dataset == tum)
     {
         string strFile = string(imgPath)+"/rgb.txt";
@@ -1223,24 +1225,21 @@ void FilterTest(std::string &imgPath, int nFeatures, float scaleFactor, int nLev
     vector<float> vTimesTrack;
     vTimesTrack.resize(nImages);
 
-    cv::Mat img = cv::imread(vstrImageFilenamesLeft[0], CV_LOAD_IMAGE_UNCHANGED);
+    cv::Mat img = cv::imread(vstrImageFilenamesLeft[1], CV_LOAD_IMAGE_UNCHANGED);
 
     cv::Mat imgGray;
     if (img.channels() > 1)
     {
         cv::cvtColor(img, imgGray, CV_BGR2GRAY);
     }
-    cv::namedWindow("test", cv::WINDOW_AUTOSIZE);
-    cv::imshow("test", imgGray);
-    cv::waitKey(0);
+    else
+    {
+        imgGray = img;
+    }
 
     img_t saigaImg = Saiga::MatToImageView<uchar>(imgGray);
 
-    //kvis::GaussianBlur<uchar>(saigaImg, saigaImg, 7, 7, 2, 2);
-
-    imgGray = Saiga::ImageViewToMat<uchar>(saigaImg);
-    cv::imshow("test", imgGray);
-    cv::waitKey(0);
+    extractor.FilterTest(saigaImg);
 }
 
 

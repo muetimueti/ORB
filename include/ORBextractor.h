@@ -121,6 +121,8 @@ public:
 
     void SetSteps();
 
+    void FilterTest(img_t& img);
+
 protected:
 
     static float IntensityCentroidAngle(const uchar* pointer, int step);
