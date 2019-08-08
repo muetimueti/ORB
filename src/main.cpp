@@ -445,6 +445,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             saigaImgRight = Saiga::MatToImageView<uchar>(imgRight);
 
         vector<kvis::KeyPoint> mykpts;
+        std::cout << "address of mykpts before: " << &mykpts << "\n";
         img_t mydescriptors;
         cv::Mat cvDescriptors;
 
@@ -459,6 +460,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
         myExtractor(saigaImg, mykpts, mydescriptors, distributePerLevel);
         //myExtractor(imgGray, cv::Mat(), mykpts, cvDescriptors);
         std::cout << "kpts.sz in main: " << mykpts.size() << "\n";
+        std::cout << "address of mykpts in main: " << &mykpts << "\n\n\n";
 
         if (stereo)
             myExtractorRight(saigaImgRight, mykptsRight, mydescriptorsRight, distributePerLevel);

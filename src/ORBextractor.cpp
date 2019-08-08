@@ -12,8 +12,6 @@
 #include <saiga/core/image/templatedImage.h>
 
 
-
-
 #ifndef NDEBUG
 #   define D(x) x
 
@@ -161,8 +159,32 @@ void ORBextractor::operator()(img_t& image, std::vector<kvis::KeyPoint>& resultK
 
     std::vector<std::vector<kvis::KeyPoint>> allkpts;
 
+    //TODO: completely remove "allkpts", instead do everything in resultKeypoints
+
     //using namespace std::chrono;
     //high_resolution_clock::time_point t1 = high_resolution_clock::now();
+
+#if 1
+    allkpts.resize(nlevels);
+    for (int lvl = 0; lvl < nlevels; ++lvl)
+    {
+        allkpts[lvl].reserve(nfeaturesPerLevelVec[lvl]);
+    }
+    for (int i = 0; i < 10; ++i)
+    {
+        allkpts[0].emplace_back(kvis::KeyPoint(100+i, 100+i, 7, -1, 100, 0));
+    }
+    //PrintKeyPoints(allkpts[0]);
+
+    for (auto kpt : allkpts[0])
+    {
+        resultKeypoints.emplace_back(kpt);
+    }
+    std::cout << "address of allkpts[0][0]: " << &allkpts[0][0] << "\n";
+    std::cout << "address of reskpts[0]: " << &resultKeypoints[0] << "\n";
+    std::cout << "address of reskpts inside extractor: " << &resultKeypoints << "\n";
+    return;
+#endif
 
     DivideAndFAST(allkpts, kptDistribution, true, 30, distributePerLevel);
 
@@ -491,7 +513,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<kvis::KeyPoint>> &allkp
                     {
                         fast.FAST(patch, patchKpts, minThFAST, lvl);
                     }
-                    std::cout << "patchkpts.sz: " << patchKpts.size() << "\n";
+                    //std::cout << "patchkpts.sz: " << patchKpts.size() << "\n";
 #endif
 #elif TESTFAST
                     std::vector<kvis::KeyPoint> patchKpts;
