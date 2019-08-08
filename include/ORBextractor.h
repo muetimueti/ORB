@@ -123,6 +123,8 @@ public:
 
     void FilterTest(img_t& img);
 
+    void PrintKeyPoints(std::vector<kvis::KeyPoint>& kpts);
+
 protected:
 
     static float IntensityCentroidAngle(const uchar* pointer, int step);

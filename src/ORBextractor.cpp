@@ -118,7 +118,7 @@ void ORBextractor::SetFASTThresholds(int ini, int min)
 
 
 void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
-                              std::vector<kvis::KeyPoint> &resultKeypoints, cv::OutputArray outputDescriptors)
+                              std::vector<kvis::KeyPoint>& resultKeypoints, cv::OutputArray outputDescriptors)
 {
     //this->operator()(inputImage, mask, resultKeypoints, outputDescriptors, true);
 
@@ -140,9 +140,13 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
  * @param outputDescriptors matrix in which descriptors will be stored
  * @param distributePerLevel true->distribute kpts per octave, false->distribute kpts per image
  */
-void ORBextractor::operator()(Saiga::ImageView<uchar> &image, std::vector<kvis::KeyPoint> &resultKeypoints,
-        Saiga::ImageView<uchar> &outputDescriptors, bool distributePerLevel)
+void ORBextractor::operator()(img_t& image, std::vector<kvis::KeyPoint>& resultKeypoints,
+        img_t& outputDescriptors, bool distributePerLevel)
 {
+    /////////////
+    //resultKeypoints.emplace_back(kvis::KeyPoint(100, 100, 7, 10, 10, 0));
+    //return;
+    ////////////////
     std::chrono::high_resolution_clock::time_point funcEntry = std::chrono::high_resolution_clock::now();
 
     if (image.size() <= 0)
@@ -208,11 +212,12 @@ void ORBextractor::operator()(Saiga::ImageView<uchar> &image, std::vector<kvis::
     Saiga::ImageBase d(nkpts, 32, 32);
     img_t data = Saiga::ImageView<uchar>(d);
     img_t BRIEFdescriptors(nkpts, 32, &data);
+    //TODO: just make it a vector instead? Imageview easier to convert to mat tho
 
     resultKeypoints.clear();
     resultKeypoints.reserve(nkpts);
 
-    ComputeDescriptors(allkpts, BRIEFdescriptors);
+    //ComputeDescriptors(allkpts, BRIEFdescriptors);
 
     if (distributePerLevel)
     {
@@ -231,8 +236,15 @@ void ORBextractor::operator()(Saiga::ImageView<uchar> &image, std::vector<kvis::
 
     for (int lvl = 0; lvl < nlevels; ++lvl)
     {
-        resultKeypoints.insert(resultKeypoints.end(), allkpts[lvl].begin(), allkpts[lvl].end());
+        for (auto kpt : allkpts[lvl])
+        {
+            resultKeypoints.emplace_back(kpt);
+        }
+        //resultKeypoints.insert(resultKeypoints.end(), allkpts[lvl].begin(), allkpts[lvl].end());
     }
+    std::cout << "kpts.sz: " << resultKeypoints.size() << "\n";
+    //PrintKeyPoints(resultKeypoints);
+
     /*
     if (saveFeatures)
     {
@@ -243,15 +255,17 @@ void ORBextractor::operator()(Saiga::ImageView<uchar> &image, std::vector<kvis::
      */
 
     //ensure feature detection always takes 50ms
+    /*
     unsigned long maxDuration = 50000;
     std::chrono::high_resolution_clock::time_point funcExit = std::chrono::high_resolution_clock::now();
     auto funcDuration = std::chrono::duration_cast<std::chrono::microseconds>(funcExit-funcEntry).count();
-    //assert(funcDuration <= maxDuration);
-    //if (funcDuration < maxDuration)
-    //{
-    //    auto sleeptime = maxDuration - funcDuration;
-    //    usleep(sleeptime);
-    //}
+    assert(funcDuration <= maxDuration);
+    if (funcDuration < maxDuration)
+    {
+        auto sleeptime = maxDuration - funcDuration;
+        usleep(sleeptime);
+    }
+     */
 }
 
 
@@ -477,6 +491,7 @@ void ORBextractor::DivideAndFAST(std::vector<std::vector<kvis::KeyPoint>> &allkp
                     {
                         fast.FAST(patch, patchKpts, minThFAST, lvl);
                     }
+                    std::cout << "patchkpts.sz: " << patchKpts.size() << "\n";
 #endif
 #elif TESTFAST
                     std::vector<kvis::KeyPoint> patchKpts;
@@ -677,5 +692,15 @@ void ORBextractor::FilterTest(img_t& img)
     cvImg = Saiga::ImageViewToMat<uchar>(img);
     cv::imshow("test", cvImg);
     cv::waitKey(0);
+}
+
+void ORBextractor::PrintKeyPoints(std::vector<kvis::KeyPoint>& kpts)
+{
+    std::cout << "Printing keypoints:\n";
+    for (auto& kpt : kpts)
+    {
+        std::cout << kpt << "\n";
+    }
+    std::cout << "\n\n";
 }
 }

@@ -353,7 +353,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
     pangolin::CreatePanel("menu").SetBounds(0.0, 1.0, 0.0, pangolin::Attach::Pix(210));
 
-    pangolin::Var<bool> menuPause("menu. ~PAUSE~", false, true);
+    pangolin::Var<bool> menuPause("menu. ~PAUSE~", true, true);
     pangolin::Var<bool> menuAll("menu.All Keypoints",false,false);
     pangolin::Var<bool> menuTopN("menu.TopN",false,false);
     pangolin::Var<bool> menuBucketing("menu.Bucketing",true,false);
@@ -446,6 +446,7 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
         vector<kvis::KeyPoint> mykpts;
         img_t mydescriptors;
+        cv::Mat cvDescriptors;
 
         vector<kvis::KeyPoint> mykptsRight;
         img_t mydescriptorsRight;
@@ -456,6 +457,9 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
 
 
         myExtractor(saigaImg, mykpts, mydescriptors, distributePerLevel);
+        //myExtractor(imgGray, cv::Mat(), mykpts, cvDescriptors);
+        std::cout << "kpts.sz in main: " << mykpts.size() << "\n";
+
         if (stereo)
             myExtractorRight(saigaImgRight, mykptsRight, mydescriptorsRight, distributePerLevel);
 
@@ -474,6 +478,8 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             DrawCellGrid(img, 0, img.cols, 0, img.rows, BUCKETING_GRID_SIZE);
         }
         cv::cvtColor(img, img, cv::COLOR_GRAY2BGR);
+
+
         DisplayKeypoints(img, mykpts, color, thickness, radius, drawAngular, string(imgPath));
         cv::waitKey(1);
 
