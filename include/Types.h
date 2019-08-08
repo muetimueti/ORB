@@ -58,10 +58,10 @@ public:
 
     KeyPoint() : pt(), size(0), angle(-1), response(0), octave(0) {}
 
-    KeyPoint(Point _pt, float _size=0, float _angle=0, float _response=0, int _octave=0) :
+    explicit KeyPoint(Point _pt, float _size=0, float _angle=-1, float _response=0, int _octave=0) :
         pt(_pt), size(_size), angle(_angle), response(_response), octave(_octave) {}
 
-    KeyPoint(float _x, float _y, float _size=0, float _angle=-1, float _response=0, int _octave=0) :
+    KeyPoint(int _x, int _y, float _size=0, float _angle=-1, float _response=0, int _octave=0) :
             pt(_x, _y), size(_size), angle(_angle), response(_response), octave(_octave) {}
 
     bool operator==(const KeyPoint &other) const
