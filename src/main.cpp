@@ -437,6 +437,12 @@ void SequenceMode(string &imgPath, int nFeatures, float scaleFactor, int nLevels
             if (stereo)
                 cv::cvtColor(imgRight, imgGrayRight, CV_BGR2GRAY);
         }
+        else
+        {
+            imgGray = img;
+            if (stereo)
+                imgGrayRight = imgRight;
+        }
 
 
         img_t saigaImg = Saiga::MatToImageView<uchar>(imgGray);

@@ -125,17 +125,19 @@ public:
 
     void PrintKeyPoints(std::vector<kvis::KeyPoint>& kpts);
 
+    void ImageDisplay(img_t& img);
+
 protected:
 
     static float IntensityCentroidAngle(const uchar* pointer, int step);
 
 
-    void ComputeAngles(std::vector<std::vector<kvis::KeyPoint>> &allkpts);
+    void ComputeAngles(std::vector<kvis::KeyPoint> &allkpts);
 
-    void ComputeDescriptors(std::vector<std::vector<kvis::KeyPoint>> &allkpts, img_t &descriptors);
+    void ComputeDescriptors(std::vector<kvis::KeyPoint> &allkpts, img_t &descriptors);
 
 
-    void DivideAndFAST(std::vector<std::vector<kvis::KeyPoint> >& allKeypoints,
+    void DivideAndFAST(std::vector<kvis::KeyPoint>& resultkpts,
                        Distribution::DistributionMethod mode = Distribution::QUADTREE_ORBSLAMSTYLE,
                        bool divideImage = true, int cellSize = 30, bool distributePerLevel = true);
 
@@ -163,6 +165,7 @@ protected:
     std::vector<int> pixelOffset;
 
     std::vector<int> nfeaturesPerLevelVec;
+    std::vector<int> featuresPerLevelActual;
 
 
     std::vector<float> scaleFactorVec;
