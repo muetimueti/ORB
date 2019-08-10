@@ -9,7 +9,8 @@
 
 #include <saiga/core/util/Range.h>
 #include "include/2Dimgeffects.h"
-#include <saiga/core/image/templatedImage.h>
+//#include <saiga/core/image/templatedImage.h>
+#include "saigacpy/templatedImage.h"
 
 
 #ifndef NDEBUG
@@ -155,8 +156,6 @@ void ORBextractor::operator()(img_t& image, std::vector<kvis::KeyPoint>& resultK
     ComputeScalePyramid(image);
 
     SetSteps();
-
-    std::vector<std::vector<kvis::KeyPoint>> allkpts;
 
     //using namespace std::chrono;
     //high_resolution_clock::time_point t1 = high_resolution_clock::now();
@@ -418,12 +417,7 @@ void ORBextractor::DivideAndFAST(std::vector<kvis::KeyPoint>& resultkpts,
 #else
                     std::vector<kvis::KeyPoint> patchKpts;
                     img_t patch = imagePyramid[lvl].subImageView(startY, startX, endY-startY, endX-startX);
-                    /////////
-                    cv::Mat test = Saiga::ImageViewToMat<uchar>(patch);
-                    cv::namedWindow("test", CV_WINDOW_AUTOSIZE);
-                    cv::imshow("test", test);
-                    cv::waitKey(0);
-                    /////////
+
                     fast.FAST(patch, patchKpts, iniThFAST, lvl);
                     if (patchKpts.empty())
                     {
@@ -483,7 +477,6 @@ void ORBextractor::DivideAndFAST(std::vector<kvis::KeyPoint>& resultkpts,
 
 void ORBextractor::ComputeScalePyramid(img_t& image)
 {
-#if 0
     imagePyramid[0] = image;
 
     for (int lvl = 1; lvl < nlevels; ++ lvl)
@@ -491,54 +484,12 @@ void ORBextractor::ComputeScalePyramid(img_t& image)
         int width = (int)myRound(image.cols * invScaleFactorVec[lvl]);
         int height = (int)myRound(image.rows * invScaleFactorVec[lvl]);
 
-        uchar* p;
-        Saiga::ImageView<uchar> newLevel(height, width, imagePyramid[lvl].data);
+        Saiga::TemplatedImage<uchar> t(height, width);
+        image.copyScaleLinear(t.getImageView());
 
-        image.copyScaleLinear(newLevel);
-        imagePyramid[lvl] = newLevel;
+        imagePyramid[lvl] = t.getImageView();
+        //ImageDisplay(imagePyramid[lvl]);
     }
-#else
-    for (int lvl = 0; lvl < nlevels; ++ lvl)
-    {
-        int width = (int)myRound(image.cols * invScaleFactorVec[lvl]); // 1.f / getScale(lvl));
-        int height = (int)myRound(image.rows * invScaleFactorVec[lvl]); // 1.f / getScale(lvl));
-
-        int doubleEdge = EDGE_THRESHOLD * 2;
-        int borderedWidth = width + doubleEdge;
-        int borderedHeight = height + doubleEdge;
-
-        //Size sz(width, height);
-        //Size borderedSize(borderedWidth, borderedHeight);
-
-        cv::Mat temp = Saiga::ImageViewToMat(image);
-
-        cv::Mat borderedImg(borderedHeight, borderedWidth, temp.type());
-        cv::Range rowRange(EDGE_THRESHOLD, height + EDGE_THRESHOLD);
-        cv::Range colRange(EDGE_THRESHOLD, width + EDGE_THRESHOLD);
-
-        //imagePyramid[lvl] = borderedImg(cv::Rect(EDGE_THRESHOLD, EDGE_THRESHOLD, width, height));
-
-
-
-        if (lvl)
-        {
-            cv::Mat resized;
-            cv::resize(Saiga::ImageViewToMat(imagePyramid[lvl-1]),
-                    resized, cv::Size(width, height), 0, 0, CV_INTER_LINEAR);
-
-            cv::copyMakeBorder(resized, borderedImg, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
-                               EDGE_THRESHOLD, cv::BORDER_REFLECT_101+cv::BORDER_ISOLATED);
-        }
-        else
-        {
-            cv::copyMakeBorder(Saiga::ImageViewToMat(image), borderedImg, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
-                               cv::BORDER_REFLECT_101);
-        }
-        cv::Mat tempb = borderedImg(rowRange, colRange);
-        Saiga::ImageView<uchar> newLevel = Saiga::MatToImageView<uchar>(tempb);
-        imagePyramid[lvl] = newLevel;
-    }
-#endif
 }
 
 
