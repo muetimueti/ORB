@@ -140,10 +140,6 @@ void ORBextractor::operator()(cv::InputArray inputImage, cv::InputArray mask,
 void ORBextractor::operator()(img_t& image, std::vector<kvis::KeyPoint>& resultKeypoints,
         img_t& outputDescriptors, bool distributePerLevel)
 {
-    /////////////
-    //resultKeypoints.emplace_back(kvis::KeyPoint(100, 100, 7, 10, 10, 0));
-    //return;
-    ////////////////
     //std::chrono::high_resolution_clock::time_point funcEntry = std::chrono::high_resolution_clock::now();
 
 
@@ -154,25 +150,15 @@ void ORBextractor::operator()(img_t& image, std::vector<kvis::KeyPoint>& resultK
         stepsChanged = true;
 
     ComputeScalePyramid(image);
+    for (int lvl = 0; lvl < nlevels; ++lvl)
+    {
+        ImageDisplay(imagePyramid[lvl]);
+    }
 
     SetSteps();
 
     //using namespace std::chrono;
     //high_resolution_clock::time_point t1 = high_resolution_clock::now();
-
-#if 0
-    //resultKeypoints.reserve(100);
-
-
-    resultKeypoints.emplace_back(kvis::KeyPoint(100, 100, 7, -1, 100, 0));
-
-    //PrintKeyPoints(resultKeypoints);
-
-    std::cout << "sz of reskpts in extractor: " << resultKeypoints.size() << "\n";
-    std::cout << "address of reskpts[0]: " << &resultKeypoints[0] << "\n";
-    std::cout << "address of reskpts inside extractor: " << &resultKeypoints << "\n";
-    return;
-#endif
 
     DivideAndFAST(resultKeypoints, kptDistribution, true, 30, distributePerLevel);
 
@@ -330,6 +316,51 @@ void ORBextractor::ComputeDescriptors(std::vector<kvis::KeyPoint> &allkpts, img_
 void ORBextractor::DivideAndFAST(std::vector<kvis::KeyPoint>& resultkpts,
         Distribution::DistributionMethod mode, bool divideImage, int cellSize, bool distributePerLevel)
 {
+#if 0
+    const int minimumX = EDGE_THRESHOLD - 3, minimumY = minimumX;
+    for (int lvl = 0; lvl < nlevels; ++lvl)
+    {
+        std::vector<kvis::KeyPoint> levelkpts;
+        levelkpts.clear();
+        levelkpts.reserve(nfeatures*10);
+
+        const int maximumX = imagePyramid[lvl].cols - EDGE_THRESHOLD + 3;
+        const int maximumY = imagePyramid[lvl].rows - EDGE_THRESHOLD + 3;
+
+        const int h = maximumY - minimumY;
+        const int w = maximumX - minimumX;
+
+
+        fast.FAST(imagePyramid[lvl].subImageView(minimumY, minimumX, h, w),
+                  levelkpts, iniThFAST, lvl);
+
+        if (levelkpts.empty())
+        {
+            fast.FAST(imagePyramid[lvl].subImageView(minimumY, minimumX, h, w),
+                      levelkpts, minThFAST, lvl);
+        }
+
+
+
+        if(levelkpts.empty())
+            continue;
+
+        if (distributePerLevel)
+            Distribution::DistributeKeypoints(levelkpts, minimumX, maximumX, minimumY, maximumY,
+                                              nfeaturesPerLevelVec[lvl], mode, softSSCThreshold);
+
+        for (auto &kpt : levelkpts)
+        {
+            kpt.pt.y += minimumY;
+            kpt.pt.x += minimumX;
+            kpt.octave = lvl;
+        }
+
+        resultkpts.insert(resultkpts.end(), levelkpts.begin(), levelkpts.end());
+
+
+    }
+#else
     const int minimumX = EDGE_THRESHOLD - 3, minimumY = minimumX;
     {
         int c = std::min(imagePyramid[nlevels-1].rows, imagePyramid[nlevels-1].cols);
@@ -372,7 +403,7 @@ void ORBextractor::DivideAndFAST(std::vector<kvis::KeyPoint>& resultkpts,
             std::vector<std::vector<kvis::KeyPoint>> cellkptvecs;
 #endif
 
-            for (int py = 0; py < npatchesInY; ++py)
+            for (int py = 0; py < 1/*npatchesInY*/; ++py) //TODO: REVERT
             {
                 float startY = minimumY + py * patchHeight;
                 float endY = startY + patchHeight + 6;
@@ -388,7 +419,7 @@ void ORBextractor::DivideAndFAST(std::vector<kvis::KeyPoint>& resultkpts,
                 }
 
 
-                for (int px = 0; px < npatchesInX; ++px)
+                for (int px = 0; px < 1/*npatchesInX*/; ++px) //TODO: REVERT
                 {
                     float startX = minimumX + px * patchWidth;
                     float endX = startX + patchWidth + 6;
@@ -415,15 +446,41 @@ void ORBextractor::DivideAndFAST(std::vector<kvis::KeyPoint>& resultkpts,
                     ++curCell;
 
 #else
-                    std::vector<kvis::KeyPoint> patchKpts;
+                    //TODO: CLEAN THIS SECTION UP AFTER DEBUGGING
+                    std::vector<kvis::KeyPoint> patchkpts;
+                    std::vector<kvis::KeyPoint> patchkpts2;
                     img_t patch = imagePyramid[lvl].subImageView(startY, startX, endY-startY, endX-startX);
 
-                    fast.FAST(patch, patchKpts, iniThFAST, lvl);
-                    if (patchKpts.empty())
+                    cv::Mat cvPatch = Saiga::ImageViewToMat<uchar>(patch);
+                    ImageDisplay(patch);
+                    ///////////////////
+                    std::vector<cv::KeyPoint> cvkpts;
+                    cv::Mat cvlevel = Saiga::ImageViewToMat<uchar>(imagePyramid[lvl]);
+                    cv::namedWindow("patch cv", CV_WINDOW_AUTOSIZE);
+                    cv::imshow("patch cv", cvlevel);
+                    cv::waitKey(0);
+                    cv::FAST(cvPatch, cvkpts, iniThFAST, true, cv::FastFeatureDetector::TYPE_9_16);
+                    for (auto& kpt : cvkpts)
                     {
-                        fast.FAST(patch, patchKpts, minThFAST, lvl);
+                        patchkpts2.emplace_back(kvis::KeyPoint::cvToKvis(kpt));
                     }
-                    //std::cout << "patchkpts.sz: " << patchKpts.size() << "\n";
+                    ///////////////////
+                    fast.FAST(patch, patchkpts, iniThFAST, lvl);
+                    if (patchkpts.empty())
+                    {
+                        //////////////
+                        cv::FAST(cvPatch, cvkpts, iniThFAST, true, cv::FastFeatureDetector::TYPE_9_16);
+                        for (auto& kpt : cvkpts)
+                        {
+                            patchkpts2.emplace_back(kvis::KeyPoint::cvToKvis(kpt));
+                        }
+                        //////////////
+                        fast.FAST(patch, patchkpts, minThFAST, lvl);
+                    }
+                    std::cout << "patchkpts:" << "\n";
+                    PrintKeyPoints(patchkpts);
+                    std::cout << "patchkpts(cv):\n";
+                    PrintKeyPoints(patchkpts2);
 #endif
 #elif TESTFAST
                     std::vector<kvis::KeyPoint> patchKpts;
@@ -444,10 +501,10 @@ void ORBextractor::DivideAndFAST(std::vector<kvis::KeyPoint>& resultkpts,
                     }
 #endif
 #if !THREADEDPATCHES
-                    if(patchKpts.empty())
+                    if(patchkpts.empty())
                         continue;
 
-                    for (auto &kpt : patchKpts)
+                    for (auto &kpt : patchkpts)
                     {
                         kpt.pt.y += py * patchHeight;
                         kpt.pt.x += px * patchWidth;
@@ -473,16 +530,18 @@ void ORBextractor::DivideAndFAST(std::vector<kvis::KeyPoint>& resultkpts,
             resultkpts.insert(resultkpts.end(), levelkpts.begin(), levelkpts.end());
         }
     }
+#endif
 }
 
 void ORBextractor::ComputeScalePyramid(img_t& image)
 {
+#if 0
     imagePyramid[0] = image;
 
     for (int lvl = 1; lvl < nlevels; ++ lvl)
     {
-        int width = (int)myRound(image.cols * invScaleFactorVec[lvl]);
-        int height = (int)myRound(image.rows * invScaleFactorVec[lvl]);
+        int width = myRound(image.cols * invScaleFactorVec[lvl]);
+        int height = myRound(image.rows * invScaleFactorVec[lvl]);
 
         Saiga::TemplatedImage<uchar> t(height, width);
         image.copyScaleLinear(t.getImageView());
@@ -490,6 +549,37 @@ void ORBextractor::ComputeScalePyramid(img_t& image)
         imagePyramid[lvl] = t.getImageView();
         //ImageDisplay(imagePyramid[lvl]);
     }
+#else
+    for (int lvl = 0; lvl < nlevels; ++ lvl)
+    {
+        int width = (int)myRound(image.cols * invScaleFactorVec[lvl]); // 1.f / getScale(lvl));
+        int height = (int)myRound(image.rows * invScaleFactorVec[lvl]); // 1.f / getScale(lvl));
+        int doubleEdge = EDGE_THRESHOLD * 2;
+        int borderedWidth = width + doubleEdge;
+        int borderedHeight = height + doubleEdge;
+
+        cv::Mat borderedImg(borderedHeight, borderedWidth, image.type());
+        cv::Range rowRange(EDGE_THRESHOLD, height + EDGE_THRESHOLD);
+        cv::Range colRange(EDGE_THRESHOLD, width + EDGE_THRESHOLD);
+
+        imagePyramid[lvl] = borderedImg(rowRange, colRange);
+
+
+        if (lvl)
+        {
+            cv::resize(Saiga::ImageViewToMat<uchar>(imagePyramid[lvl-1]),
+                    Saiga::ImageViewToMat<uchar>(imagePyramid[lvl]), cv::Size(width, height), 0, 0, CV_INTER_LINEAR);
+
+            cv::copyMakeBorder(imagePyramid[lvl], borderedImg, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
+                               EDGE_THRESHOLD, cv::BORDER_REFLECT_101+cv::BORDER_ISOLATED);
+        }
+        else
+        {
+            cv::copyMakeBorder(image, borderedImg, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
+                               cv::BORDER_REFLECT_101);
+        }
+    }
+#endif
 }
 
 

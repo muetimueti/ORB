@@ -101,7 +101,7 @@ void FASTdetector::FAST_t(img_t &img, std::vector<kvis::KeyPoint> &keypoints, in
 {
     keypoints.clear();
 
-    assert(!steps.empty());
+    message_assert(!steps.empty(), "steps not initialized");
 
     int offset[CIRCLE_SIZE];
     for (int i = 0; i < CIRCLE_SIZE; ++i)
@@ -109,7 +109,7 @@ void FASTdetector::FAST_t(img_t &img, std::vector<kvis::KeyPoint> &keypoints, in
         offset[i] = pixelOffset[lvl*CIRCLE_SIZE + i];
     }
 
-    assert(threshold == minThreshold || threshold == iniThreshold); //only initial or min threshold should be passed
+    message_assert(threshold == minThreshold || threshold == iniThreshold, "wrong threshold passed");
 
     uchar *threshold_tab;
     if (threshold == iniThreshold)
