@@ -5,12 +5,24 @@
 #include "saigacpy/opencv.h"
 #include "saigacpy/assert.h"
 
+#include <opencv2/core/types.hpp>
+
 
 #define message_assert(expr, msg) assert(( (void)(msg), (expr) ))
 
 typedef unsigned char uchar;
 
 typedef Saiga::ImageView<uchar> img_t;
+
+inline  int myRound( float value )
+{
+#if defined HAVE_LRINT || defined CV_ICC || defined __GNUC__
+    return (int)lrint(value);
+#else
+    // not IEEE754-compliant rounding
+      return (int)(value + (value >= 0 ? 0.5f : -0.5f));
+#endif
+}
 
 namespace kvis
 {
@@ -64,10 +76,21 @@ public:
     KeyPoint(int _x, int _y, float _size=0, float _angle=-1, float _response=0, int _octave=0) :
             pt(_x, _y), size(_size), angle(_angle), response(_response), octave(_octave) {}
 
-    bool operator==(const KeyPoint &other) const
+    bool operator==(const KeyPoint& other) const
     {
         return pt == other.pt && size == other.size && angle == other.angle && response == other.response &&
            octave == other.octave;
+    }
+
+    cv::KeyPoint kvisToCv()
+    {
+        cv::KeyPoint p(this->pt.x, this->pt.y, this->size, this->angle, this->response, this->octave);
+        return p;
+    }
+
+    static kvis::KeyPoint cvToKvis(cv::KeyPoint &p)
+    {
+        kvis::KeyPoint k(myRound(p.pt.x), myRound(p.pt.y), p.size, p.angle, p.response, p.octave);
     }
 
     friend std::ostream& operator<<(std::ostream& os, const KeyPoint& kpt)
